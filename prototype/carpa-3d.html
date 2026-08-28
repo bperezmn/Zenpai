@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es" class="dark" data-light="on">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>zenpai · Carpa 3D (Spline)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Spline Viewer web component -->
+<script type="module" src="https://unpkg.com/@splinetool/viewer/build/spline-viewer.js"></script>
+<style>
+  :root{--text:#eaf5ee;--muted:#8ba597;--faint:#5d7568;--acc:#34d399;--acc2:#bef264;--warn:#fbbf24;--water:#5bd8ff;--glass-bd:rgba(180,255,210,.14);--hi:rgba(255,255,255,.14);--light:#ffe9a8}
+  *{-webkit-tap-highlight-color:transparent;box-sizing:border-box;margin:0}
+  body{font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden;background:#05080a;display:flex;flex-direction:column;align-items:center}
+  .display{font-family:'Space Grotesk','Inter',sans-serif;letter-spacing:-.02em}
+  .roombg{position:fixed;inset:0;z-index:-1;background:radial-gradient(70% 50% at 60% 20%,#1b2730,transparent 70%),linear-gradient(180deg,#0d141a,#05080b)}
+  .note{max-width:880px;width:100%;margin:12px auto 0;background:rgba(10,18,14,.6);backdrop-filter:blur(16px);border:1px solid var(--glass-bd);border-radius:16px;padding:12px 16px;color:#cfe3d7;font-size:.8rem;line-height:1.5}
+  .note code{background:rgba(190,242,100,.12);color:#bef264;padding:.05rem .35rem;border-radius:5px;font-size:.78rem}
+  .phone-wrap{margin:14px 0 60px;position:relative}
+  .phone{position:relative;width:404px;max-width:96vw;height:840px;max-height:84vh;border-radius:52px;background:#0a0e12;border:1px solid var(--glass-bd);box-shadow:0 0 0 11px #0b0f0d,0 0 0 12px #1d2622,0 24px 60px -20px rgba(0,0,0,.7),0 0 80px -20px var(--acc);overflow:hidden}
+  .phone::before{content:"";position:absolute;inset:0;border-radius:52px;pointer-events:none;z-index:50;box-shadow:inset 0 1px 0 var(--hi)}
+  .island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:96px;height:26px;background:#000;border-radius:16px;z-index:46}
+  /* the 3D scene */
+  .scene3d{position:absolute;inset:0;z-index:1}
+  spline-viewer{width:100%;height:100%;display:block}
+  .scene3d::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 80px 80px -40px rgba(5,8,11,.8),inset 0 -120px 90px -40px rgba(5,8,11,.9)}
+  html[data-light="off"] .scene3d{filter:brightness(.4) saturate(.8);transition:filter .6s}
+  .scene3d{transition:filter .6s}
+  .ph-fallback{position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:40px;color:var(--faint)}
+  /* overlays */
+  .statusbar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:14px 24px 4px;font-size:11px;font-weight:600;color:var(--muted);z-index:30}
+  .toggles{position:absolute;top:46px;left:0;right:0;z-index:25;display:flex;justify-content:space-around;padding:0 26px}
+  .tg{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;color:var(--faint);font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .tg svg{width:25px;height:25px} .tg.on{color:var(--acc)} .tg.spin.on svg{animation:spin 1.3s linear infinite}
+  .tg.sun.on{color:var(--light)} .tg.sun.on svg{filter:drop-shadow(0 0 8px var(--light))}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .hud{position:absolute;z-index:20;background:rgba(8,16,12,.6);backdrop-filter:blur(12px);border:1px solid var(--glass-bd);border-radius:12px;padding:.4rem .6rem;cursor:pointer}
+  .hud .n{font-family:'Space Grotesk';font-weight:700;font-size:.92rem;color:var(--text);line-height:1}
+  .hud .l{font-size:.52rem;font-weight:700;letter-spacing:.06em;color:var(--faint);text-transform:uppercase;margin-top:2px}
+  .statusline{position:absolute;bottom:96px;left:0;right:0;text-align:center;z-index:18;pointer-events:none;padding:0 26px}
+  .statusline .v{font-size:.92rem;font-weight:600;color:var(--text);text-shadow:0 2px 14px rgba(0,0,0,.9)}
+  .dock{position:absolute;bottom:16px;left:16px;right:16px;z-index:25;display:flex;gap:8px}
+  .vital{flex:1;background:rgba(8,16,12,.6);backdrop-filter:blur(14px);border:1px solid var(--glass-bd);border-radius:14px;padding:.55rem .4rem;text-align:center}
+  .vital .n{font-family:'Space Grotesk';font-weight:700;font-size:1rem;color:var(--text)} .vital .l{font-size:.52rem;font-weight:700;color:var(--faint);text-transform:uppercase}
+  .toast{position:absolute;left:50%;bottom:104px;transform:translateX(-50%) translateY(20px);z-index:35;background:rgba(8,16,12,.9);backdrop-filter:blur(12px);border:1px solid var(--glass-bd);padding:.55rem 1rem;border-radius:14px;font-size:.78rem;font-weight:600;color:var(--text);opacity:0;transition:.3s;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .tag{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(190,242,100,.14);color:#bef264;font-family:'Space Grotesk';font-weight:700;font-size:.6rem;letter-spacing:.1em;padding:.2rem .6rem;border-radius:999px}
+</style>
+</head>
+<body>
+<div class="roombg"></div>
+
+<div class="note">
+  <b style="color:#dff6e8">Scaffold de integración Spline ↔ zenpai.</b> El área 3D está en blanco hasta que pegues tu escena: construye la carpa en Spline, expórtala con <b>Export → Spline Viewer</b>, copia la URL <code>…/scene.splinecode</code> y pégala en <code>SCENE_URL</code> dentro de este archivo. Los overlays de zenpai (toggles, parámetros, estado) ya están encima y controlarán tu escena vía variables de Spline (<code>luz</code>, <code>ventilador</code>, <code>extractor</code>).
+</div>
+
+<div class="phone-wrap"><div class="phone" id="phone">
+  <div class="island"></div>
+  <div class="tag">VISTA 3D · SPLINE</div>
+
+  <!-- 3D SCENE (Spline) — se inyecta desde el script según SCENE_URL -->
+  <div class="scene3d" id="scene3d"></div>
+
+  <!-- ZENPAI OVERLAYS -->
+  <div class="statusbar"><span>9:41</span><span class="flex items-center gap-1.5" id="sync"><span style="width:7px;height:7px;border-radius:9px;background:var(--acc);box-shadow:0 0 8px var(--acc)"></span>Carpa A · en línea</span></div>
+
+  <div class="toggles">
+    <div class="tg spin on" id="tgEx" onclick="tog('ex')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c2 0 3 2.5 2.5 5C13.8 7 12.9 7 12 7c-1 0-2 2 0 5-3 0-5-1-5-4 0-2.5 3-5 5-5Z"/></svg>Extractor</div>
+    <div class="tg sun on" id="tgLi" onclick="tog('li')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>Luz</div>
+    <div class="tg spin on" id="tgFa" onclick="tog('fa')"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c0-4 1-8 4-8s4 6 0 8c4 0 8 1 8 4s-6 4-8 0c0 4-1 8-4 8s-4-6 0-8c-4 0-8-1-8-4s6-4 8 0Z"/></svg>Ventilador</div>
+  </div>
+
+  <div class="hud" id="hudCtrl" style="right:22px;top:120px" onclick="toast('Clima: 24° · 60% · VPD 1.0 · PPFD 620')"><div class="n">24°</div><div class="l">60% · VPD 1.0</div></div>
+  <div class="hud" id="hudPlant" style="left:24px;top:300px" onclick="toast('Gelato #3 · vegetativo · día 24')"><div class="n">92</div><div class="l">salud</div></div>
+
+  <p class="statusline"><span class="v" id="stV"><b>Próspera</b> · el ambiente está perfecto</span></p>
+
+  <div class="dock" id="dock"></div>
+  <div class="toast" id="toast"></div>
+</div></div>
+
+<script>
+const $=id=>document.getElementById(id),html=document.documentElement;
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  PEGA AQUÍ la URL de TU carpa exportada desde Spline           ║
+// ║  (Spline → Export → Spline Viewer → copiar URL .splinecode)    ║
+const SCENE_URL = '';   // ej: 'https://prod.spline.design/XXXX/scene.splinecode'
+// ╚══════════════════════════════════════════════════════════════╝
+const scene3d=$('scene3d');
+if(SCENE_URL){
+  scene3d.innerHTML=`<spline-viewer id="viewer" url="${SCENE_URL}"></spline-viewer>`;
+  $('viewer').addEventListener('error',showPlaceholder);
+}else{showPlaceholder();}
+function showPlaceholder(){scene3d.innerHTML=`<div class="ph-fallback"><div style="font-size:2.6rem;margin-bottom:12px">🏕️ 🪴</div><p style="color:#cfe3d7;font-size:.92rem;font-weight:600;max-width:250px">Aquí se renderiza tu carpa 3D</p><p style="color:#8ba597;font-size:.78rem;max-width:255px;margin-top:6px;line-height:1.5">Constrúyela en Spline, expórtala como <b style="color:#bef264">Spline Viewer</b> y pega la URL en <b style="color:#bef264">SCENE_URL</b> (arriba en este archivo).</p></div>`;}
+
+let S={light:true,ex:true,fa:true};
+// Spline control hook (works once you load YOUR scene with these variables/events)
+function spline(){return (window.__viewer&&window.__viewer._spline)|| null;}
+function setVar(name,val){try{const v=$('viewer');v&&v.setVariable&&v.setVariable(name,val);}catch(e){}}
+function emit(ev,obj){try{const v=$('viewer');v&&v.emitEvent&&v.emitEvent(ev,obj);}catch(e){}}
+
+function tog(k){
+  if(k==='li'){S.light=!S.light;$('tgLi').classList.toggle('on',S.light);html.setAttribute('data-light',S.light?'on':'off');setVar('luz',S.light);$('stV').innerHTML=S.light?'<b>Próspera</b> · el ambiente está perfecto':'Luz apagada · ciclo de descanso 🌙';toast(S.light?'Luz encendida · 18/6':'Luz apagada');}
+  if(k==='ex'){S.ex=!S.ex;$('tgEx').classList.toggle('on',S.ex);setVar('extractor',S.ex);toast(S.ex?'Extractor en marcha':'Extractor en pausa');}
+  if(k==='fa'){S.fa=!S.fa;$('tgFa').classList.toggle('on',S.fa);setVar('ventilador',S.fa);toast(S.fa?'Ventilador encendido':'Ventilador apagado');}
+  render();
+}
+function render(){$('dock').innerHTML=[['24°','TEMP'],['60%','HR'],['1.0','VPD'],[S.light?'ON':'OFF','LUZ'],[S.fa?'5':'0','VENT.']].map(v=>`<div class="vital"><div class="n">${v[0]}</div><div class="l">${v[1]}</div></div>`).join('');}
+let tT;function toast(m){const t=$('toast');t.innerHTML='🌿 '+m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2200);}
+render();
+</script>
+</body>
+</html>

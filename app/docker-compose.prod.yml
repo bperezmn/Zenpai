@@ -1,0 +1,13 @@
+# Build de producción (instalable + offline). Correr:
+#   docker compose -f docker-compose.prod.yml up --build
+# Abre http://localhost:8080
+name: zenpai-prod
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: zenpai-prod
+    ports:
+      - "8080:80"
+    restart: unless-stopped

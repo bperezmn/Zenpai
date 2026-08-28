@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es" class="dark" data-level="1" data-light="on">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>zenpai · Mi Carpa</title>
+<link rel="icon" type="image/svg+xml" href="icono-zenpai.svg"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{--text:#eef7f1;--muted:#a9c0b4;--faint:#7c9488;--acc:#34d399;--acc2:#bef264;--warn:#fbbf24;--water:#8ad2ff;--glass-bd:rgba(190,255,215,.16);--hi:rgba(255,255,255,.14);--light:#ffe7a0}
+  *{-webkit-tap-highlight-color:transparent;box-sizing:border-box;margin:0}
+  body{font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden;background:#05080a;display:flex;flex-direction:column;align-items:center}
+  .display{font-family:'Space Grotesk','Inter',sans-serif;letter-spacing:-.02em}
+  .harness{position:sticky;top:0;z-index:60;width:100%;display:flex;justify-content:center;padding:12px 12px 4px}
+  .hbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;background:rgba(10,18,14,.55);backdrop-filter:blur(20px);border:1px solid rgba(180,255,210,.12);border-radius:18px;padding:8px 13px;max-width:760px;width:100%}
+  .seg{display:inline-flex;background:rgba(255,255,255,.05);border-radius:11px;padding:3px;gap:2px;border:1px solid rgba(255,255,255,.06)}
+  .seg button{border:none;background:transparent;color:#9fb6a8;font-weight:600;font-size:.72rem;padding:.35rem .6rem;border-radius:8px;cursor:pointer;font-family:'Space Grotesk'}
+  .seg button.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c}
+  .hlbl{font-size:.62rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6f8a7c}
+  .phone-wrap{margin:4px 0 60px;position:relative}
+  .phone{position:relative;width:404px;max-width:96vw;height:844px;max-height:86vh;border-radius:52px;background:#04070a;border:1px solid var(--glass-bd);box-shadow:0 0 0 11px #0b0f0d,0 0 0 12px #1d2622,0 24px 60px -20px rgba(0,0,0,.7);overflow:hidden}
+  .phone::before{content:"";position:absolute;inset:0;border-radius:52px;pointer-events:none;z-index:50;box-shadow:inset 0 1px 0 var(--hi)}
+  .island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:96px;height:26px;background:#000;border-radius:16px;z-index:46}
+  .scene{position:absolute;inset:0;overflow:hidden;touch-action:none}
+  .bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;transition:opacity .6s ease}
+  #imgNight{opacity:0}
+  html[data-light="off"] #imgNight{opacity:1}
+  #intro{position:absolute;inset:0;z-index:45;cursor:pointer}
+  #intro img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;transition:opacity .85s ease}
+  #introHint{position:absolute;bottom:60px;left:0;right:0;text-align:center;color:#cfe3d7;font-size:.74rem;font-weight:600;text-shadow:0 2px 10px rgba(0,0,0,.9);animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+  #config{position:absolute;inset:0;z-index:48;background:radial-gradient(80% 45% at 50% 14%,rgba(52,211,153,.12),transparent 60%),linear-gradient(180deg,#0a1210,#05080b);display:flex;flex-direction:column;justify-content:center;padding:54px 26px 30px;overflow-y:auto;scrollbar-width:none}
+  #config::-webkit-scrollbar{display:none}
+  #config .em{width:50px;height:50px;margin:0 auto 12px;display:block}
+  .clbl{font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-family:'Space Grotesk'}
+  #config input{background:rgba(255,255,255,.05);border:1px solid var(--glass-bd);border-radius:12px;padding:.6rem .75rem;color:var(--text);width:100%;font-size:.9rem;font-family:inherit}
+  .cfg-size{display:flex;align-items:center;justify-content:space-between;width:100%;background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);border-radius:13px;padding:.7rem .9rem;cursor:pointer;color:var(--text);margin-bottom:7px;font-weight:600;font-size:.86rem;transition:.15s;font-family:'Space Grotesk'}
+  .cfg-size.on{background:linear-gradient(135deg,rgba(52,211,153,.22),rgba(190,242,100,.1));border-color:var(--acc)}
+  .cfg-size .cap{font-size:.68rem;color:var(--faint);font-weight:600}
+  .cfg-size.on .cap{color:var(--acc)}
+  .cbtn{width:100%;border:none;border-radius:15px;font-weight:700;padding:.85rem;font-family:'Space Grotesk';font-size:.92rem;cursor:pointer;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c;margin-top:16px}
+  .cfg-sub{flex:1;text-align:center;background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);border-radius:12px;padding:.6rem .3rem;cursor:pointer;color:var(--text);font-weight:600;font-size:.8rem;font-family:'Space Grotesk';transition:.15s}
+  .cfg-sub.on{background:linear-gradient(135deg,rgba(52,211,153,.22),rgba(190,242,100,.1));border-color:var(--acc);color:var(--acc)}
+  .scrim-t{position:absolute;top:0;left:0;right:0;height:160px;background:linear-gradient(180deg,rgba(4,7,10,.75),transparent);z-index:5;pointer-events:none}
+  .scrim-b{position:absolute;bottom:0;left:0;right:0;height:240px;background:linear-gradient(0deg,rgba(4,7,10,.85),transparent);z-index:5;pointer-events:none}
+  .statusbar{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:14px 24px 4px;font-size:11px;font-weight:600;color:#dcebe9;z-index:30;text-shadow:0 1px 5px rgba(0,0,0,.8);color:#cfe3d7}
+  .topicons{position:absolute;top:44px;left:0;right:0;z-index:25;display:flex;justify-content:space-around;padding:0 44px}
+  .ti{cursor:pointer;color:rgba(255,255,255,.62);width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(8,14,11,.4);backdrop-filter:blur(8px);border:1px solid var(--glass-bd)}
+  .ti svg{width:20px;height:20px}
+  .ti.spin.on svg{animation:spin 1.3s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+  .ti.sun.on{color:var(--light)} .ti.sun.on svg{filter:drop-shadow(0 0 7px var(--light))}
+  .ti.on{color:#8ad2ff}
+  .hud{position:absolute;z-index:22;background:rgba(8,14,11,.55);backdrop-filter:blur(12px);border:1px solid var(--glass-bd);border-radius:13px;padding:.4rem .6rem;cursor:pointer;box-shadow:0 6px 20px -8px rgba(0,0,0,.6)}
+  .hud .n{font-family:'Space Grotesk';font-weight:700;font-size:.92rem;color:var(--text);line-height:1}
+  .hud .l{font-size:.5rem;font-weight:700;letter-spacing:.05em;color:var(--faint);text-transform:uppercase;margin-top:2px}
+  .hot{position:absolute;z-index:18;cursor:pointer}
+  .statusline{position:absolute;bottom:172px;left:0;right:0;text-align:center;z-index:20;pointer-events:none;padding:0 30px}
+  .timeline{position:absolute;bottom:82px;left:16px;right:16px;z-index:24;background:rgba(8,14,11,.55);backdrop-filter:blur(14px);border:1px solid var(--glass-bd);border-radius:16px;padding:.5rem .75rem}
+  .tl-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem;gap:.5rem}
+  .tl-day{font-family:'Space Grotesk';font-weight:700;font-size:.82rem;color:var(--text)} .tl-day span{color:var(--faint);font-weight:600;font-size:.72rem}
+  .tl-stage{font-family:'Space Grotesk';font-weight:700;font-size:.7rem;color:#04150c;background:linear-gradient(135deg,var(--acc),var(--acc2));padding:.16rem .55rem;border-radius:999px;white-space:nowrap}
+  #tlSlider{width:100%;-webkit-appearance:none;appearance:none;height:5px;border-radius:9px;background:linear-gradient(90deg,var(--acc),var(--acc2));outline:none;cursor:pointer}
+  #tlSlider::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:#fff;border:3px solid var(--acc);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+  .tl-marks{display:flex;justify-content:space-between;font-size:.5rem;color:var(--faint);font-weight:700;margin-top:.3rem;text-transform:uppercase;letter-spacing:.02em}
+  .statusline .v{font-size:.92rem;font-weight:600;color:#eef7f1;text-shadow:0 2px 14px rgba(0,0,0,.95)}
+  .scenes{position:absolute;bottom:84px;left:0;right:0;z-index:24;display:flex;justify-content:center;gap:7px}
+  .spill{background:rgba(8,14,11,.5);backdrop-filter:blur(10px);border:1px solid var(--glass-bd);color:var(--muted);font-family:'Space Grotesk';font-weight:600;font-size:.68rem;padding:.3rem .65rem;border-radius:999px;cursor:pointer}
+  .spill.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c;border-color:transparent}
+  .cenname{position:absolute;left:50%;transform:translateX(-50%);background:rgba(8,14,11,.7);backdrop-filter:blur(8px);border:1px solid var(--glass-bd);color:var(--text);font-family:'Space Grotesk';font-weight:700;font-size:.74rem;padding:.28rem .7rem;border-radius:999px;white-space:nowrap;box-shadow:0 6px 18px -8px rgba(0,0,0,.7)}
+  .dock{position:absolute;bottom:18px;left:16px;right:16px;z-index:25;display:flex;gap:7px}
+  .vital{flex:1;background:rgba(8,14,11,.55);backdrop-filter:blur(14px);border:1px solid var(--glass-bd);border-radius:13px;padding:.5rem .35rem;text-align:center}
+  .vital .n{font-family:'Space Grotesk';font-weight:700;font-size:.95rem;color:var(--text)} .vital .l{font-size:.5rem;font-weight:700;color:var(--faint);text-transform:uppercase}
+  .toast{position:absolute;left:50%;bottom:142px;transform:translateX(-50%) translateY(16px);z-index:35;background:rgba(8,16,12,.92);backdrop-filter:blur(12px);border:1px solid var(--glass-bd);padding:.5rem .95rem;border-radius:13px;font-size:.78rem;font-weight:600;color:var(--text);opacity:0;transition:.3s;pointer-events:none;max-width:84%;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .ripple{position:absolute;z-index:19;border:2px solid var(--water);border-radius:50%;pointer-events:none;transform:translate(-50%,-50%);animation:rip .8s ease-out forwards}
+  @keyframes rip{from{width:8px;height:8px;opacity:.8}to{width:120px;height:120px;opacity:0}}
+  .tag{position:absolute;top:78px;left:50%;transform:translateX(-50%);z-index:30;background:rgba(190,242,100,.16);color:#bef264;font-family:'Space Grotesk';font-weight:700;font-size:.56rem;letter-spacing:.1em;padding:.18rem .55rem;border-radius:999px;backdrop-filter:blur(8px)}
+</style>
+</head>
+<body>
+<div class="harness"><div class="hbar">
+  <div class="flex items-center gap-2.5"><svg width="22" height="22" viewBox="0 0 48 48"><circle cx="24" cy="24" r="17.5" fill="none" stroke="url(#lg)" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="97 13" transform="rotate(128 24 24)"/><line x1="24" y1="33.5" x2="24" y2="23.2" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/><g transform="translate(22.8 25.6) rotate(-40)"><path d="M0 0 C 2.8 -2 2 -7.2 0 -9.2 C -2 -7.2 -2.8 -2 0 0 Z" fill="url(#lg)"/></g><g transform="translate(25.2 24) rotate(40)"><path d="M0 0 C 2.8 -2 2 -7.2 0 -9.2 C -2 -7.2 -2.8 -2 0 0 Z" fill="url(#lg)"/></g></svg><span class="display font-bold text-[16px]" style="color:#dff6e8">zenpai</span><span style="background:rgba(190,242,100,.14);color:#bef264;font-family:'Space Grotesk';font-weight:700;font-size:.6rem;padding:.2rem .55rem;border-radius:999px">MI CARPA · foto real</span></div>
+  <div class="flex items-center gap-2"><span class="hlbl">Guía</span><div class="seg" id="seg-level"><button data-lvl="0">Guiado</button><button data-lvl="1" class="on">Equilibrado</button><button data-lvl="2">Pro</button></div></div>
+  <button class="seg" style="padding:.4rem .7rem;color:#9fb6a8;font-size:.72rem;font-weight:600;font-family:'Space Grotesk';cursor:pointer" onclick="playIntro()">↻ Abrir carpa</button>
+</div></div>
+<svg width="0" height="0"><defs><linearGradient id="lg" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#34d399"/><stop offset="1" stop-color="#bef264"/></linearGradient></defs></svg>
+
+<div class="phone-wrap"><div class="phone" id="phone">
+  <div class="island"></div>
+  <div class="scene" id="scene">
+    <img id="imgBase" class="bg" src="assets/carpa-dia.jpg" alt=""/>
+    <img id="imgNight" class="bg" src="assets/carpa-apagada.jpg" alt=""/>
+    <div class="scrim-t"></div><div class="scrim-b"></div>
+
+    <!-- tap hotspots over the photo -->
+    <div class="hot" id="hotPlant" style="left:26%;top:64%;width:52%;height:30%" onclick="water(event)"></div>
+    <div class="hot" id="hotCtrl" style="left:52%;top:36%;width:30%;height:11%" onclick="climate()"></div>
+    <div class="hot" id="hotCam" style="left:70%;top:38%;width:16%;height:9%" onclick="cam()"></div>
+  </div>
+
+  <div class="statusbar"><span>9:41</span><span class="flex items-center gap-1.5" id="sync"><span style="width:7px;height:7px;border-radius:9px;background:var(--acc);box-shadow:0 0 8px var(--acc)"></span>Carpa A · en línea</span></div>
+  <div class="tag">FOTO REAL · GENERADA CON IA</div>
+  <div id="plantChip" style="position:absolute;left:14px;top:80px;z-index:24;display:none;align-items:center;gap:.3rem;background:rgba(8,14,11,.55);backdrop-filter:blur(10px);border:1px solid var(--glass-bd);border-radius:999px;padding:.25rem .62rem;font-family:'Space Grotesk';font-weight:700;font-size:.7rem;color:var(--text)"></div>
+  <div class="ti" id="cenBtn" onclick="toggleCenital()" title="Ver desde arriba" style="position:absolute;left:14px;top:44px;z-index:26"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="8" r="2"/><circle cx="12" cy="15" r="2"/></svg></div>
+
+  <div class="topicons">
+    <div class="ti spin on" id="tiEx" onclick="tog('ex')" title="Extractor"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c2 0 3.2 2.6 2.5 5C13.8 7 12.9 7 12 7c-1 0-2 2 0 5-3.2 0-5-1-5-4 0-2.6 3-5 5-5Z"/></svg></div>
+    <div class="ti sun on" id="tiLi" onclick="tog('li')" title="Luz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg></div>
+    <div class="ti spin on" id="tiFa" onclick="tog('fa')" title="Ventilador"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c0-4 1-8 4-8s4 6 0 8c4 0 8 1 8 4s-6 4-8 0c0 4-1 8-4 8s-4-6 0-8c-4 0-8-1-8-4s6-4 8 0Z"/></svg></div>
+  </div>
+
+  <div class="hud" id="hudPlant" style="right:18px;top:330px" onclick="toast('Gelato #3 · vegetativo · día 24 · salud 92')"><div class="n">92</div><div class="l">salud</div></div>
+
+  <p class="statusline"><span class="v" id="stV"></span></p>
+
+  <div class="timeline" id="timeline">
+    <div class="tl-head">
+      <span class="tl-day" id="tlDay">Día 0 <span id="tlDate"></span></span>
+      <span style="display:flex;align-items:center;gap:.5rem"><span class="tl-stage" id="tlStage">Germinación</span><span class="tl-wilt" id="wiltBtn" onclick="wilt()" title="simular sed" style="cursor:pointer;color:var(--faint);font-size:.8rem">🥀</span></span>
+    </div>
+    <input type="range" id="tlSlider" min="0" max="120" value="0" oninput="setDay(+this.value)"/>
+    <div class="tl-marks"><span>Germina</span><span>Plántula</span><span>Veg</span><span>Flor</span><span>Cosecha</span></div>
+  </div>
+  <!-- nombres de plantas en vista cenital -->
+  <div id="cenitalNames" style="display:none;position:absolute;inset:0;z-index:22;pointer-events:none"></div>
+  <!-- botón contextual: Cosechar / Nuevo cultivo -->
+  <button id="actBtn" style="display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:202px;z-index:27;border:none;border-radius:14px;font-family:'Space Grotesk';font-weight:700;font-size:.85rem;padding:.6rem 1.4rem;cursor:pointer;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c;box-shadow:0 10px 26px -8px var(--glow)"></button>
+
+  <div class="dock" id="dock"></div>
+  <div class="toast" id="toast"></div>
+
+  <!-- intro: opening-the-tent animation on login -->
+  <div id="intro" onclick="skipIntro()" style="display:none">
+    <img id="introEntre" src="assets/carpa-entreabierta.jpg" alt=""/>
+    <img id="introCerrada" src="assets/carpa-cerrada.jpg" alt=""/>
+    <div id="introHint">abriendo tu carpa…</div>
+  </div>
+
+  <!-- configuración del cultivo (primera pantalla) -->
+  <div id="config">
+    <svg class="em" viewBox="0 0 48 48"><circle cx="24" cy="24" r="17.5" fill="none" stroke="url(#lg)" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="97 13" transform="rotate(128 24 24)"/><line x1="24" y1="33.5" x2="24" y2="23.2" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/><g transform="translate(22.8 25.6) rotate(-40)"><path d="M0 0 C 2.8 -2 2 -7.2 0 -9.2 C -2 -7.2 -2.8 -2 0 0 Z" fill="url(#lg)"/></g><g transform="translate(25.2 24) rotate(40)"><path d="M0 0 C 2.8 -2 2 -7.2 0 -9.2 C -2 -7.2 -2.8 -2 0 0 Z" fill="url(#lg)"/></g></svg>
+    <h2 class="display" style="text-align:center;font-size:1.45rem;font-weight:700;color:var(--text)">Configura tu cultivo</h2>
+    <p style="text-align:center;font-size:.82rem;color:var(--muted);margin:6px 0 18px">En 10 segundos preparamos tu carpa 🌱</p>
+    <label class="clbl" style="display:block;margin-bottom:6px">Nombre del cultivo</label>
+    <input id="cfgName" value="Carpa A" style="margin-bottom:16px"/>
+    <label class="clbl" style="display:block;margin-bottom:8px">Tamaño de tu carpa <span style="color:var(--faint);font-weight:600;text-transform:none;letter-spacing:0">→ nº de plantas</span></label>
+    <div id="sizes">
+      <div class="cfg-size" data-plants="1" onclick="selSize(this)"><span>40 × 40 cm</span><span class="cap">1 planta</span></div>
+      <div class="cfg-size" data-plants="2" onclick="selSize(this)"><span>60 × 60 cm</span><span class="cap">2 plantas</span></div>
+      <div class="cfg-size on" data-plants="3" onclick="selSize(this)"><span>80 × 80 cm</span><span class="cap">3 plantas</span></div>
+      <div class="cfg-size" data-plants="4" onclick="selSize(this)"><span>100 × 100 cm</span><span class="cap">4 plantas · muestra 3</span></div>
+      <div class="cfg-size" data-plants="5" onclick="selSize(this)"><span>120 × 120 cm</span><span class="cap">5 plantas · muestra 3</span></div>
+    </div>
+    <label class="clbl" style="display:block;margin:14px 0 8px">Sustrato</label>
+    <div style="display:flex;gap:7px">
+      <div class="cfg-sub on" data-sub="tierra" onclick="selSub(this)">🟤 Tierra</div>
+      <div class="cfg-sub" data-sub="coco" onclick="selSub(this)">🥥 Coco</div>
+      <div class="cfg-sub" data-sub="hidro" onclick="selSub(this)">💧 Hidro</div>
+    </div>
+    <button class="cbtn" onclick="createGrow()">Crear mi cultivo →</button>
+  </div>
+</div></div>
+
+<script>
+const $=id=>document.getElementById(id),html=document.documentElement;
+let S={level:1,light:true,ex:true,fa:true,scene:'dia',thirst:.2,health:92,plants:3,pots:3,grow:'Carpa A',stage:'germinacion',view:'front',substrate:'tierra',day:0};
+let germDate=null;
+// duraciones promedio (fotoperiodo) desde germinación → etapa por día
+function stageForDay(d){if(d<4)return 'germinacion';if(d<18)return 'plantula';if(d<46)return 'veg';if(d<105)return 'flor';return 'cosecha';}
+function stageLabel(st){return {germinacion:'Germinación',plantula:'Plántula',veg:'Vegetativo',flor:'Floración',cosecha:'Cosecha'}[st]||st;}
+const MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function dateForDay(d){if(!germDate)return '';const x=new Date(germDate.getTime()+d*86400000);return '· '+x.getDate()+' '+MES[x.getMonth()];}
+function setDay(d){const st=stageForDay(d);const changed=(st!==S.stage);S.day=d;S.stage=st;if(st!=='veg')S.thirst=0.2;
+  $('tlDay').innerHTML='Día '+d+' <span id="tlDate">'+dateForDay(d)+'</span>';$('tlStage').textContent=stageLabel(st);
+  const sl=$('tlSlider');if(sl&&+sl.value!==d)sl.value=d;
+  $('wiltBtn').style.display=(st==='veg')?'inline':'none';
+  if(changed){S.view='front';if($('cenBtn'))$('cenBtn').classList.remove('on');$('cenitalNames').style.display='none';applyFront(true);}
+  render();}
+function wilt(){if(S.stage!=='veg')return;S.thirst=0.85;applyFront(true);toast('🥀 Tienen sed · toca las plantas para regar');render();}
+function harvest(){S.stage='secando';applyFront(true);$('tlStage').textContent='Cosechado';toast('🎉 ¡Cosechado! ~320 g · a secar y curar');render();}
+function newGrow(){germDate=null;$('plantChip').style.display='none';$('config').style.display='flex';}
+function selSub(el){document.querySelectorAll('.cfg-sub').forEach(x=>x.classList.remove('on'));el.classList.add('on');S.substrate=el.dataset.sub;}
+// imágenes que existen (se amplía cuando agregas coco/hidro/ajar-*)
+const HAVE=new Set(['carpa-vacia','carpa-plantula','carpa-dia','carpa-dia-1p','carpa-dia-2p','carpa-sedienta','floracion','carpa-cenital','carpa-cerrada','carpa-entreabierta',
+  'ajar-vacia','ajar-flor','coco-plantula','coco-veg','coco-sed','coco-flor','hidro-plantula','hidro-veg','hidro-sed','hidro-flor',
+  'germinacion','cosecha','secando']);
+function ajarFile(){if(S.stage==='flor'||S.stage==='cosecha')return HAVE.has('ajar-flor')?'ajar-flor':'carpa-entreabierta';if(S.stage==='veg')return 'carpa-entreabierta';return HAVE.has('ajar-vacia')?'ajar-vacia':'carpa-entreabierta';}
+function selSize(el){document.querySelectorAll('.cfg-size').forEach(x=>x.classList.remove('on'));el.classList.add('on');S.plants=+el.dataset.plants;}
+// elige la imagen frontal según etapa / sustrato / sed / nº de macetas (con respaldo a tierra)
+function frontImg(){
+  if(S.view==='cenital')return 'assets/carpa-cenital.jpg';
+  if(S.stage==='vacia')return 'assets/carpa-vacia.jpg';
+  if(S.stage==='secando')return 'assets/secando.jpg';
+  const sub=S.substrate||'tierra';let key,tierra;
+  if(S.stage==='germinacion'){key='germinacion';tierra='germinacion';}
+  else if(S.stage==='plantula'){key='plantula';tierra='carpa-plantula';}
+  else if(S.stage==='cosecha'){key='cosecha';tierra='cosecha';}
+  else if(S.stage==='flor'){key='flor';tierra='floracion';}
+  else if(S.thirst>0.55){key='sed';tierra='carpa-sedienta';}
+  else {key='veg';tierra='carpa-dia';}
+  let base=(sub!=='tierra'&&HAVE.has(sub+'-'+key))?sub+'-'+key:tierra;
+  const p=Math.min(S.pots,3);if(p<3&&HAVE.has(base+'-'+p+'p'))base=base+'-'+p+'p';
+  return 'assets/'+base+'.jpg';
+}
+function applyFront(fade){const b=$('imgBase');const src=frontImg();
+  if(fade){b.style.opacity=0;setTimeout(()=>{b.src=src;b.style.opacity=1;},180);}
+  else{b.src=src;b.style.opacity=1;}}
+function setStage(st){if(st==='sed'){S.stage='veg';S.thirst=0.8;}else{S.stage=st;S.thirst=0.2;}
+  S.view='front';S.light=true;$('tiLi').classList.add('on');hideCenital();applyFront(true);
+  document.querySelectorAll('.spill').forEach(p=>p.classList.toggle('on',p.dataset.st===st));
+  toast(st==='plantula'?'Etapa: plántula 🌱':st==='flor'?'Etapa: floración 🌸':st==='sed'?'Plantas con sed · toca para regar 💧':'Etapa: vegetativo 🌿');render();}
+function toggleCenital(){
+  if(S.view==='cenital'){S.view='front';$('cenBtn').classList.remove('on');$('cenitalNames').style.display='none';applyFront(true);}
+  else{S.view='cenital';$('cenBtn').classList.add('on');applyFront(true);
+    const n=Math.min(S.pots,3),tops=['21%','47%','73%'];let h='';
+    for(let i=0;i<n;i++){const t=(n===1)?'47%':(n===2)?(i?'66%':'30%'):tops[i];h+=`<div class="cenname" style="top:${t}">🌿 ${(S.grow||'Carpa')} · #${i+1}</div>`;}
+    $('cenitalNames').innerHTML=h;$('cenitalNames').style.display='block';}
+  render();}
+function hideCenital(){S.view='front';$('cenitalNames').style.display='none';if($('cenBtn'))$('cenBtn').classList.remove('on');}
+function createGrow(){S.pots=Math.min(S.plants,3);S.grow=($('cfgName').value||'Carpa A').trim();
+  $('config').style.display='none';
+  const pc=$('plantChip');pc.style.display='inline-flex';pc.textContent='🌱 '+S.plants+(S.plants>1?' plantas':' planta');
+  germDate=new Date();S.view='front';S.thirst=0.2;
+  setDay(0);          // arranca en germinación (día 0) y cuenta desde hoy
+  applyFront(false);  // imagen sin fundido (el intro la cubre)
+  render();playIntro();}
+const SRC={dia:'assets/carpa-dia.jpg',ventilador:'assets/ventilador.jpg',floracion:'assets/floracion.jpg',vacia:'assets/carpa-vacia.jpg'};
+function nightSrc(){return S.fa?'assets/carpa-noche-aire.jpg':'assets/carpa-apagada.jpg';}
+// preload todas
+[...Object.values(SRC),'assets/carpa-apagada.jpg','assets/carpa-noche-aire.jpg','assets/carpa-cerrada.jpg','assets/carpa-entreabierta.jpg','assets/carpa-plantula.jpg','assets/carpa-sedienta.jpg','assets/carpa-cenital.jpg','assets/carpa-dia-1p.jpg','assets/carpa-dia-2p.jpg','assets/ajar-vacia.jpg','assets/ajar-flor.jpg','assets/coco-veg.jpg','assets/coco-plantula.jpg','assets/coco-flor.jpg','assets/coco-sed.jpg','assets/hidro-veg.jpg','assets/hidro-plantula.jpg','assets/hidro-flor.jpg','assets/hidro-sed.jpg','assets/germinacion.jpg','assets/cosecha.jpg','assets/secando.jpg'].forEach(s=>{const i=new Image();i.src=s;});
+
+function statusV(){if(S.view==='cenital')return 'Vista desde arriba · '+(S.grow||'tu carpa');if(!S.light)return 'Luz apagada · ciclo de descanso 🌙';if(S.stage==='germinacion')return '<b>Germinación</b> · la semilla despierta 🌰';if(S.stage==='secando')return '<b>Secando</b> · a curar tus cogollos 🌬️';if(S.stage==='cosecha')return '<b>Lista para cosechar</b> · revisa los tricomas ✂️';if(S.thirst>0.55)return '<b>Tienen sed</b> · toca las plantas para regar 💧';if(S.stage==='plantula')return '<b>Plántulas</b> · creciendo despacio 🌱';if(S.stage==='flor')return '<b>En floración</b> · cogollos engordando 🌸';return '<b>Prósperas</b> · el ambiente está perfecto';}
+function render(){$('stV').innerHTML=statusV();html.setAttribute('data-light',S.light?'on':'off');$('hudPlant').style.display=(S.view==='cenital')?'none':'block';
+  const ab=$('actBtn');if(S.stage==='cosecha'){ab.style.display='block';ab.textContent='🌾 Cosechar';ab.onclick=harvest;}else if(S.stage==='secando'){ab.style.display='block';ab.textContent='🌱 Empezar nuevo cultivo';ab.onclick=newGrow;}else{ab.style.display='none';}
+  let d='';
+  if(S.level===0){d='';}
+  else if(S.level===1){d=`<div style="display:flex;gap:7px;width:100%">${vital('24°','TEMP')}${vital('55%','HR')}${vital('1.0','VPD')}${vital(S.light?'ON':'OFF','LUZ')}${vital(S.fa?'5':'0','VENT.')}</div>`;}
+  else{d=`<div style="display:flex;gap:7px;width:100%">${vital('1.0','VPD')}${vital(S.light?'620':'0','PPFD')}${vital('6.4','pH')}${vital('1.2','EC')}${vital('480','CO₂')}${vital('18/6','FOTO')}</div>`;}
+  $('dock').innerHTML=d;$('dock').style.display=S.level===0?'none':'flex';html.setAttribute('data-level',S.level);}
+function vital(n,l){return `<div class="vital"><div class="n">${n}</div><div class="l">${l}</div></div>`;}
+
+function setScene(sc){S.scene=sc;S.light=true;$('tiLi').classList.add('on');
+  const b=$('imgBase');b.style.opacity=0;setTimeout(()=>{const src=(sc==='dia')?dayImg():SRC[sc];b.onerror=()=>{b.onerror=null;b.src=SRC[sc]||SRC.dia;};b.src=src;b.onload=()=>b.style.opacity=1;b.style.opacity=1;},180);
+  document.querySelectorAll('.spill').forEach(p=>p.classList.toggle('on',p.dataset.sc===sc));
+  toast(sc==='floracion'?'Vista: floración 🌸':sc==='ventilador'?'Vista: flujo de aire 🪭':'Vista: día ☀️');render();}
+
+function tog(k){
+  if(k==='li'){S.light=!S.light;$('tiLi').classList.toggle('on',S.light);toast(S.light?'Luz encendida · 18/6':'Luz apagada · descanso 🌙');}
+  if(k==='ex'){S.ex=!S.ex;$('tiEx').classList.toggle('on',S.ex);$('tiEx').classList.toggle('spin',S.ex);toast(S.ex?'Extractor en marcha · renovando aire':'Extractor en pausa');}
+  if(k==='fa'){S.fa=!S.fa;$('tiFa').classList.toggle('on',S.fa);$('tiFa').classList.toggle('spin',S.fa);$('imgNight').src=nightSrc();toast(S.fa?'Ventilador encendido'+(S.light?'':' · de noche 🌙'):'Ventilador apagado');}
+  render();}
+
+function water(e){const r=$('scene').getBoundingClientRect();const rp=document.createElement('div');rp.className='ripple';rp.style.left=(e.clientX-r.left)+'px';rp.style.top=(e.clientY-r.top)+'px';$('scene').appendChild(rp);setTimeout(()=>rp.remove(),800);
+  const wasThirsty=S.thirst>0.55;S.thirst=0;S.health=Math.min(99,S.health+1);$('hudPlant').querySelector('.n').textContent=S.health;
+  if(wasThirsty){applyFront(true);document.querySelectorAll('.spill').forEach(p=>p.classList.toggle('on',p.dataset.st==='veg'));}
+  toast(wasThirsty?'💧 Regadas · ¡reviven! 🌿':'💧 Regadas · anotado en el diario');sync();render();}
+function climate(){toast('🎛️ Clima: 24°C · 55% HR · VPD 1.0 · PPFD 620 · CO₂ 480');}
+function cam(){toast('📷 Cámara en vivo · timelapse · detección de plagas IA');}
+
+let tT;function toast(m){const t=$('toast');t.innerHTML=m;t.classList.add('show');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('show'),2400);}
+function sync(){const s=$('sync');s.innerHTML='<span style="width:7px;height:7px;border-radius:9px;background:var(--warn);box-shadow:0 0 8px var(--warn)"></span>Guardando…';setTimeout(()=>s.innerHTML='<span style="width:7px;height:7px;border-radius:9px;background:var(--acc);box-shadow:0 0 8px var(--acc)"></span>Carpa A · en línea',1200);}
+
+$('seg-level').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.level=+b.dataset.lvl;$('seg-level').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));render();});
+
+// === intro: la carpa se abre al entrar (cerrada → entreabierta → día) ===
+function playIntro(){const intro=$('intro'),c=$('introCerrada'),e=$('introEntre'),h=$('introHint');
+  e.src='assets/'+ajarFile()+'.jpg';
+  intro.style.display='block';c.style.opacity=1;e.style.opacity=1;h.style.display='block';h.textContent='abriendo tu carpa…';
+  clearTimeout(window._a);clearTimeout(window._b);clearTimeout(window._c);
+  window._a=setTimeout(()=>{c.style.opacity=0;},850);
+  window._b=setTimeout(()=>{e.style.opacity=0;h.textContent='bienvenido a tu carpa 🌿';},1750);
+  window._c=setTimeout(()=>{intro.style.display='none';},2700);}
+function skipIntro(){clearTimeout(window._a);clearTimeout(window._b);clearTimeout(window._c);$('introCerrada').style.opacity=0;$('introEntre').style.opacity=0;setTimeout(()=>$('intro').style.display='none',300);}
+
+$('imgNight').src=nightSrc();
+render();
+// arranca en la pantalla de configuración; "Crear mi cultivo" dispara la animación de apertura
+</script>
+</body>
+</html>

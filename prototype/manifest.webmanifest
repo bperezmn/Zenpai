@@ -1,0 +1,17 @@
+{
+  "name": "zenpai · tu mentor de cultivo",
+  "short_name": "zenpai",
+  "description": "Cuida tu cultivo de la semilla a la cosecha, con foto-realismo y guía paso a paso.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#05080a",
+  "theme_color": "#0a1310",
+  "lang": "es",
+  "categories": ["lifestyle", "productivity"],
+  "icons": [
+    { "src": "icono-zenpai.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icono-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,14 @@
+# dependencias y builds
+node_modules/
+dist/
+
+# sistema
+.DS_Store
+
+# assets fuente pesados (no necesarios para correr la app):
+# los JPG originales de los que salieron las WebP optimizadas de app/public/assets
+app/_assets_jpg_original/
+# las imágenes del prototipo histórico (~440 MB; el prototipo quedó superado por app/)
+prototype/assets/
+prototype/*.jpg
+prototype/*.png

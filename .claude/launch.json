@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": [
+        "compose",
+        "-f",
+        "/Users/bperezm/Documents/Aplicaciones/zenpai/app/docker-compose.yml",
+        "--project-directory",
+        "/Users/bperezm/Documents/Aplicaciones/zenpai/app",
+        "up"
+      ],
+      "port": 5173
+    }
+  ]
+}
