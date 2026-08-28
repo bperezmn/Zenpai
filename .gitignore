@@ -2,6 +2,11 @@
 node_modules/
 dist/
 
+# llaves y configuración local (Supabase, etc.) — NUNCA al repo
+.env
+.env.*
+*.local
+
 # sistema
 .DS_Store
 
