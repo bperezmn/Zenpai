@@ -3,8 +3,9 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import {
   dexieStorage, addEvent, listEvents, deleteEvents, deleteEvent, pruneEvents,
   addPhoto as dbAddPhoto, deletePhoto, deletePhotos,
-  exportBlob, importAll, wipeDatabase, type PhotoBackup,
+  exportBlob, importAll, importAllRaw, wipeDatabase, type PhotoBackup,
 } from './db'
+import { cloudSignIn, cloudSignOut, cloudHasData, cloudPush, cloudPull } from './sync'
 import {
   emptyCultivo, deriveLive, realDay, CONSENT_VERSION,
   type Cultivo, type Substrate, type SeedType, type GrowEvent, type EventType, type MetricKey, type Training, type Guide,
@@ -15,6 +16,43 @@ type View = 'front' | 'cenital'
 
 function genId(): string {
   return 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+}
+
+// Saneo de cultivos venidos de FUERA (respaldo importado o copia de la nube):
+// números finitos o null/valores por defecto — nada de "Día NaN" persistido.
+function sanitizeGrows(raw: unknown[]): Cultivo[] {
+  const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  const grows: Cultivo[] = []
+  for (const g of raw) {
+    if (!g || typeof g !== 'object' || Array.isArray(g)) continue
+    const o = g as Record<string, unknown>
+    const c: Cultivo = {
+      ...emptyCultivo,
+      id: typeof o.id === 'string' && o.id ? o.id : genId(),
+      grow: typeof o.grow === 'string' && o.grow.trim() ? o.grow : emptyCultivo.grow,
+      plants: num(o.plants) ?? emptyCultivo.plants,
+      pots: num(o.pots) ?? emptyCultivo.pots,
+      potL: num(o.potL) ?? emptyCultivo.potL,
+      substrate: o.substrate === 'coco' || o.substrate === 'hidro' ? o.substrate : 'tierra',
+      seedType: o.seedType === 'auto' ? 'auto' : 'foto',
+      soakTs: num(o.soakTs),
+      germTs: num(o.germTs),
+      flowerTs: num(o.flowerTs),
+      harvestedTs: num(o.harvestedTs),
+      finishedTs: num(o.finishedTs),
+      dryWeight: num(o.dryWeight),
+      lastWaterTs: num(o.lastWaterTs),
+      training: o.training === 'lst' || o.training === 'lollipop' ? o.training : 'none',
+      readings: o.readings && typeof o.readings === 'object' && !Array.isArray(o.readings) ? (o.readings as Cultivo['readings']) : {},
+      readingDays: o.readingDays && typeof o.readingDays === 'object' && !Array.isArray(o.readingDays) ? (o.readingDays as Cultivo['readingDays']) : {},
+      day: 0, stage: 'remojo', thirst: 0.2,
+      health: num(o.health) ?? emptyCultivo.health,
+      light: true, fan: true, exhaust: true,
+    }
+    const live = deriveLive(c)
+    grows.push({ ...c, ...live })
+  }
+  return grows
 }
 
 interface AppState {
@@ -37,6 +75,12 @@ interface AppState {
   pendingUndo: (() => void) | null // deshacer de la última acción (mientras dura el toast)
   notifyEnabled: boolean      // recordatorios de riego (notificación local, opt-in en Ajustes)
   lastNotifiedDay: string | null // tope de 1 aviso/día
+
+  // respaldo en la nube (Supabase, cuenta anónima)
+  cloudOn: boolean            // sincronización activada (persistido)
+  cloudBusy: boolean
+  cloudError: string | null
+  lastCloudSyncTs: number | null
 
   // navegación
   startNew: () => void
@@ -82,6 +126,11 @@ interface AppState {
   exportBackup: () => Promise<Blob>
   importBackup: (data: unknown) => Promise<string | null> // null = ok; string = error legible
   wipeAll: () => Promise<void>
+
+  // nube
+  enableCloud: () => Promise<void>
+  disableCloud: () => void
+  syncCloudNow: (auto?: boolean) => Promise<void>
 }
 
 // selector: el cultivo activo (referencia estable; emptyCultivo como respaldo)
@@ -125,6 +174,10 @@ export const useStore = create<AppState>()(
         pendingUndo: null,
         notifyEnabled: false,
         lastNotifiedDay: null,
+        cloudOn: false,
+        cloudBusy: false,
+        cloudError: null,
+        lastCloudSyncTs: null,
 
         // ---- navegación ----
         // OJO: toast y pendingUndo se limpian SIEMPRE al navegar — un "Deshacer" armado
@@ -510,38 +563,8 @@ export const useStore = create<AppState>()(
             return 'No se pudo leer el respaldo. ¿El archivo está completo?'
           }
           try {
-            const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
             const raw = d.grows as unknown[]
-            const grows: Cultivo[] = []
-            for (const g of raw) {
-              if (!g || typeof g !== 'object' || Array.isArray(g)) continue
-              const o = g as Record<string, unknown>
-              const c: Cultivo = {
-                ...emptyCultivo,
-                id: typeof o.id === 'string' && o.id ? o.id : genId(),
-                grow: typeof o.grow === 'string' && o.grow.trim() ? o.grow : emptyCultivo.grow,
-                plants: num(o.plants) ?? emptyCultivo.plants,
-                pots: num(o.pots) ?? emptyCultivo.pots,
-                potL: num(o.potL) ?? emptyCultivo.potL,
-                substrate: o.substrate === 'coco' || o.substrate === 'hidro' ? o.substrate : 'tierra',
-                seedType: o.seedType === 'auto' ? 'auto' : 'foto',
-                soakTs: num(o.soakTs),
-                germTs: num(o.germTs),
-                flowerTs: num(o.flowerTs),
-                harvestedTs: num(o.harvestedTs),
-                finishedTs: num(o.finishedTs),
-                dryWeight: num(o.dryWeight),
-                lastWaterTs: num(o.lastWaterTs),
-                training: o.training === 'lst' || o.training === 'lollipop' ? o.training : 'none',
-                readings: o.readings && typeof o.readings === 'object' && !Array.isArray(o.readings) ? (o.readings as Cultivo['readings']) : {},
-                readingDays: o.readingDays && typeof o.readingDays === 'object' && !Array.isArray(o.readingDays) ? (o.readingDays as Cultivo['readingDays']) : {},
-                day: 0, stage: 'remojo', thirst: 0.2,
-                health: num(o.health) ?? emptyCultivo.health,
-                light: true, fan: true, exhaust: true,
-              }
-              const live = deriveLive(c)
-              grows.push({ ...c, ...live })
-            }
+            const grows = sanitizeGrows(raw)
             if (raw.length > 0 && grows.length === 0) return 'El respaldo no contiene cultivos legibles.'
             const events = ((d.events as unknown[]) ?? []).filter((e): e is GrowEvent => {
               const x = e as Record<string, unknown> | null
@@ -570,10 +593,66 @@ export const useStore = create<AppState>()(
           }
         },
 
-        // borrar TODO y volver al inicio (edad + onboarding otra vez)
+        // borrar TODO y volver al inicio (edad + onboarding otra vez).
+        // Cierra también la sesión de nube: la copia remota NO se toca (por si era
+        // el único respaldo), pero este dispositivo queda desvinculado.
         wipeAll: async () => {
+          await cloudSignOut()
           await wipeDatabase()
           location.reload()
+        },
+
+        // ---- respaldo en la nube ----
+        // Al activar: local CON datos → subir; local VACÍO y nube con copia → restaurar.
+        // (Con local vacío jamás se barre la nube: es el orden que no pierde nada.)
+        enableCloud: async () => {
+          if (get().cloudBusy) return
+          set({ cloudBusy: true, cloudError: null })
+          const authErr = await cloudSignIn()
+          if (authErr) { set({ cloudBusy: false, cloudError: authErr }); return }
+          const { grows } = get()
+          if (grows.length === 0 && (await cloudHasData())) {
+            const pulled = await cloudPull()
+            if (typeof pulled === 'string') { set({ cloudBusy: false, cloudError: pulled }); return }
+            const clean = sanitizeGrows(pulled.grows)
+            await importAllRaw(pulled.events, pulled.photos)
+            set({
+              grows: clean,
+              activeId: null,
+              events: [],
+              cloudOn: true,
+              cloudBusy: false,
+              lastCloudSyncTs: Date.now(),
+              toast: '☁️ Copia restaurada desde la nube',
+              pendingUndo: null,
+            })
+            get().recomputeTime()
+            return
+          }
+          const pushErr = await cloudPush(grows)
+          set({
+            cloudOn: pushErr === null,
+            cloudBusy: false,
+            cloudError: pushErr,
+            lastCloudSyncTs: pushErr === null ? Date.now() : get().lastCloudSyncTs,
+          })
+        },
+
+        // desactivar PAUSA la sincronización; la sesión anónima se conserva
+        // (cerrar sesión la perdería para siempre — es anónima) y la copia queda arriba
+        disableCloud: () => set({ cloudOn: false, cloudError: null }),
+
+        syncCloudNow: async (auto) => {
+          const { cloudOn, cloudBusy, grows } = get()
+          if (!cloudOn || cloudBusy) return
+          if (auto && typeof navigator !== 'undefined' && navigator.onLine === false) return
+          set({ cloudBusy: true, ...(auto ? {} : { cloudError: null }) })
+          const err = await cloudPush(grows)
+          set({
+            cloudBusy: false,
+            cloudError: err,
+            lastCloudSyncTs: err === null ? Date.now() : get().lastCloudSyncTs,
+          })
         },
 
         hydrate: () => {
@@ -590,7 +669,7 @@ export const useStore = create<AppState>()(
       name: 'zenpai-cultivo',
       storage: createJSONStorage(() => dexieStorage),
       // activeId NO se persiste: al recargar se aterriza en "Mis cultivos" (primero eliges)
-      partialize: (s) => ({ grows: s.grows, consentV: s.consentV, view: s.view, guide: s.guide, onboarded: s.onboarded, firstWaterTipDone: s.firstWaterTipDone, firstGermTipDone: s.firstGermTipDone, coachDone: s.coachDone, notifyEnabled: s.notifyEnabled, lastNotifiedDay: s.lastNotifiedDay }) as any,
+      partialize: (s) => ({ grows: s.grows, consentV: s.consentV, view: s.view, guide: s.guide, onboarded: s.onboarded, firstWaterTipDone: s.firstWaterTipDone, firstGermTipDone: s.firstGermTipDone, coachDone: s.coachDone, notifyEnabled: s.notifyEnabled, lastNotifiedDay: s.lastNotifiedDay, cloudOn: s.cloudOn, lastCloudSyncTs: s.lastCloudSyncTs }) as any,
       // rellena campos nuevos y migra del modelo de cultivo único → lista
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as any

@@ -27,8 +27,22 @@ export default function App() {
   // el mismo pulso revisa si toca un recordatorio de riego (solo con la app fuera de pantalla)
   useEffect(() => {
     recomputeTime()
-    const tick = () => { recomputeTime(); useStore.getState().checkWaterReminder() }
-    const onVis = () => { if (document.visibilityState === 'visible') recomputeTime(); else useStore.getState().checkWaterReminder() }
+    const tick = () => {
+      recomputeTime()
+      const s = useStore.getState()
+      s.checkWaterReminder()
+      // respaldo en la nube: empujón automático cada ~10 min (silencioso, solo online)
+      if (s.cloudOn && Date.now() - (s.lastCloudSyncTs ?? 0) > 10 * 60000) s.syncCloudNow(true)
+    }
+    const onVis = () => {
+      const s = useStore.getState()
+      if (document.visibilityState === 'visible') recomputeTime()
+      else {
+        s.checkWaterReminder()
+        // al irse a segundo plano, dejar la copia fresca (si pasó un rato desde la última)
+        if (s.cloudOn && Date.now() - (s.lastCloudSyncTs ?? 0) > 2 * 60000) s.syncCloudNow(true)
+      }
+    }
     document.addEventListener('visibilitychange', onVis)
     const id = window.setInterval(tick, 60000)
     return () => { document.removeEventListener('visibilitychange', onVis); window.clearInterval(id) }

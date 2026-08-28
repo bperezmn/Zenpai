@@ -116,15 +116,16 @@ export async function exportBlob(header: object): Promise<Blob> {
 
 // importar REEMPLAZA la bitácora completa (los ids originales se conservan para que
 // los eventos 'foto' sigan apuntando a su blob)
-export async function importAll(events: GrowEvent[], photos: PhotoBackup[]): Promise<void> {
+export async function importAllRaw(events: GrowEvent[], photos: GrowPhoto[]): Promise<void> {
   await db.transaction('rw', db.events, db.photos, async () => {
     await db.events.clear()
     await db.photos.clear()
     if (events.length) await db.events.bulkPut(events)
-    for (const p of photos) {
-      await db.photos.put({ id: p.id, growId: p.growId, ts: p.ts, blob: b64ToBlob(p.b64) })
-    }
+    if (photos.length) await db.photos.bulkPut(photos)
   })
+}
+export async function importAll(events: GrowEvent[], photos: PhotoBackup[]): Promise<void> {
+  await importAllRaw(events, photos.map((p) => ({ id: p.id, growId: p.growId, ts: p.ts, blob: b64ToBlob(p.b64) })))
 }
 
 // borrar TODO (datos y ajustes): cierra la conexión y elimina la base entera

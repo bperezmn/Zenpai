@@ -5,6 +5,7 @@ dist/
 # llaves y configuración local (Supabase, etc.) — NUNCA al repo
 .env
 .env.*
+!.env.example
 *.local
 
 # sistema

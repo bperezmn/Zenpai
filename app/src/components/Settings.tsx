@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { useStore } from '../store'
 import { CONSENT_VERSION } from '../lib'
+import { cloudAvailable } from '../sync'
 import { GUIDES } from './Onboarding'
 import { useBackClose } from '../useBackClose'
 
@@ -14,6 +15,13 @@ export default function Settings({ onClose }: { onClose: () => void }) {
   const importBackup = useStore((s) => s.importBackup)
   const wipeAll = useStore((s) => s.wipeAll)
   const growsCount = useStore((s) => s.grows.length)
+  const cloudOn = useStore((s) => s.cloudOn)
+  const cloudBusy = useStore((s) => s.cloudBusy)
+  const cloudError = useStore((s) => s.cloudError)
+  const lastCloudSyncTs = useStore((s) => s.lastCloudSyncTs)
+  const enableCloud = useStore((s) => s.enableCloud)
+  const disableCloud = useStore((s) => s.disableCloud)
+  const syncCloudNow = useStore((s) => s.syncCloudNow)
   const [denied, setDenied] = useState(false)
   const [busy, setBusy] = useState<'export' | 'import' | null>(null)
   const [dataMsg, setDataMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -143,6 +151,46 @@ export default function Settings({ onClose }: { onClose: () => void }) {
               El navegador bloqueó el permiso. Actívalo en los ajustes del sitio y vuelve a intentar.
             </p>
           )}
+        </>
+      )}
+
+      {cloudAvailable && (
+        <>
+          <label className="olbl mt-7 mb-2 block">Nube</label>
+          <div className={`olevel ${cloudOn ? 'on' : ''}`} style={{ cursor: 'default' }}>
+            <span className="oname flex items-center justify-between w-full">
+              ☁️ Respaldo en la nube
+              <span className="text-[.72rem] font-bold px-2 py-1 rounded-full"
+                style={cloudOn ? { background: 'linear-gradient(135deg,var(--acc),var(--acc2))', color: '#04150c' } : { background: 'rgba(255,255,255,.08)', color: 'var(--muted)' }}>
+                {cloudBusy ? 'Sincronizando…' : cloudOn ? 'Activado' : 'Desactivado'}
+              </span>
+            </span>
+            <span className="odesc">
+              Copia privada y anónima de tus cultivos, bitácoras y fotos — sin email ni nombre.
+              Mientras no vincules un correo (próximamente), la copia queda ligada a este
+              navegador: el respaldo por archivo sigue siendo tu red principal.
+              {cloudOn && lastCloudSyncTs && (
+                <> Última sincronización: {new Date(lastCloudSyncTs).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}.</>
+              )}
+            </span>
+            <div className="flex gap-2 mt-2.5">
+              {cloudOn ? (
+                <>
+                  <button onClick={() => syncCloudNow()} disabled={cloudBusy} className="dbtn flex-1" style={{ opacity: cloudBusy ? 0.6 : 1 }}>
+                    {cloudBusy ? '☁️ …' : '☁️ Sincronizar ahora'}
+                  </button>
+                  <button onClick={disableCloud} disabled={cloudBusy} className="dbtn-ghost flex-1">Pausar</button>
+                </>
+              ) : (
+                <button onClick={() => enableCloud()} disabled={cloudBusy} className="dbtn flex-1" style={{ opacity: cloudBusy ? 0.6 : 1 }}>
+                  {cloudBusy ? 'Conectando…' : '☁️ Activar respaldo'}
+                </button>
+              )}
+            </div>
+            {cloudError && (
+              <p className="text-[.7rem] mt-2" style={{ color: 'var(--warn)' }}>{cloudError}</p>
+            )}
+          </div>
         </>
       )}
 
