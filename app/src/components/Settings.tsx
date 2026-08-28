@@ -232,7 +232,10 @@ export default function Settings({ onClose }: { onClose: () => void }) {
         {confirmWipe ? (
           <>
             <span className="oname" style={{ color: '#f87171' }}>¿Borrar TODO?</span>
-            <span className="odesc">Cultivos, bitácoras, fotos y ajustes. No hay vuelta atrás (salvo un respaldo exportado).</span>
+            <span className="odesc">
+              Cultivos, bitácoras, fotos y ajustes. No hay vuelta atrás (salvo un respaldo exportado).
+              {cloudOn && <> Además, tu copia en la nube es anónima: al borrar este dispositivo quedará inaccesible para siempre.</>}
+            </span>
             <div className="flex gap-2 mt-2.5">
               <button onClick={() => setConfirmWipe(false)} className="dbtn flex-1">No, conservar</button>
               <button onClick={() => wipeAll()} className="dbtn-danger flex-1">Sí, borrar todo</button>
