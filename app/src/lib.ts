@@ -184,7 +184,9 @@ const HAVE = new Set([
   'agua-1', 'agua-2', 'agua-3', 'agua-1-brote', 'agua-2-brote', 'agua-3-brote',
   'veg-temprano', 'veg-lst', 'veg-lollipop',
 ])
-const A = (name: string) => `/assets/${name}.webp`
+// rutas relativas a la base del deploy (BASE_URL termina en '/'): así la app
+// funciona igual en raíz (localhost, Vercel) que bajo subcarpeta (GitHub Pages)
+const A = (name: string) => `${import.meta.env.BASE_URL}assets/${name}.webp`
 
 // imagen de las semillas en remojo (vaso de agua), según nº de semillas y si ya brotaron
 export function waterImg(seeds: number, brote: boolean): string {

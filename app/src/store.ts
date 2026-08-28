@@ -459,7 +459,7 @@ export const useStore = create<AppState>()(
           const body = `${g.grow}: toca regar hoy (día ${g.day} · revisa el peso de la maceta)`
           try {
             navigator.serviceWorker?.getRegistration()
-              .then((r) => { if (r) r.showNotification(title, { body, icon: '/pwa-192.png', badge: '/pwa-192.png' }); else new Notification(title, { body, icon: '/pwa-192.png' }) })
+              .then((r) => { const icon = import.meta.env.BASE_URL + 'pwa-192.png'; if (r) r.showNotification(title, { body, icon, badge: icon }); else new Notification(title, { body, icon }) })
               .catch(() => { try { new Notification(title, { body }) } catch { /* sin soporte */ } })
           } catch { /* sin soporte */ }
         },

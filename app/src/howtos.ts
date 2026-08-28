@@ -1,7 +1,7 @@
 // ===== "muéstrame cómo": secuencias de fotos paso a paso (reemplazan al video) =====
 // Cada how-to es 2–4 fotos fijas con un texto corto; el visor las pasa con fundido/zoom.
 // Por ahora reutilizan imágenes existentes como demo; se cambian por fotos dedicadas cuando se generen.
-const A = (n: string) => `/assets/${n}.webp`
+const A = (n: string) => `${import.meta.env.BASE_URL}assets/${n}.webp`
 
 export interface HowToStep { img: string; caption: string }
 export interface HowToDef { title: string; steps: HowToStep[] }

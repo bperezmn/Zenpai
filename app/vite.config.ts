@@ -2,7 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// BASE_PATH permite servir bajo subcarpeta (p.ej. GitHub Pages: BASE_PATH=/Zenpai/);
+// sin definirlo, raíz '/' como siempre (localhost, Vercel).
 export default defineConfig({
+  base: process.env.BASE_PATH || '/',
   plugins: [
     react(),
     VitePWA({
@@ -20,10 +23,10 @@ export default defineConfig({
         theme_color: '#0a1310',
         lang: 'es',
         icons: [
-          { src: '/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          { src: '/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-          { src: '/icono-zenpai.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icono-zenpai.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
       workbox: {
