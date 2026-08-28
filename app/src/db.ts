@@ -39,6 +39,9 @@ export async function deleteEvents(growId: string): Promise<void> {
 export async function deleteEvent(id: number): Promise<void> {
   await db.events.delete(id)
 }
+export async function addEventsBulk(evs: GrowEvent[]): Promise<void> {
+  if (evs.length) await db.events.bulkAdd(evs)
+}
 // barrido: elimina eventos/fotos cuyo cultivo ya no existe (basura tras borrados fallidos).
 // GUARDIA: si TODO quedaría huérfano de golpe, no es basura — es señal de un import
 // interrumpido a mitad (Dexie ya tiene la bitácora nueva pero los cultivos del kv aún son

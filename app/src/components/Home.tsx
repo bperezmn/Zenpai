@@ -12,6 +12,7 @@ export default function Home() {
   const openGrow = useStore((s) => s.openGrow)
   const startNew = useStore((s) => s.startNew)
   const deleteGrow = useStore((s) => s.deleteGrow)
+  const seedDemo = useStore((s) => s.seedDemo)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
 
@@ -56,6 +57,10 @@ export default function Home() {
             Crea tu carpa virtual y zenpai te guía de la germinación a la cosecha.
           </p>
           <button className="cbtn" onClick={startNew}>🌱 Crear mi primer cultivo</button>
+          <button onClick={seedDemo} className="mt-4 text-[.74rem] font-semibold underline underline-offset-4"
+            style={{ color: 'var(--faint)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            👀 O explora con cultivos de ejemplo
+          </button>
         </div>
       ) : (
         <div className="space-y-2.5 mt-5">

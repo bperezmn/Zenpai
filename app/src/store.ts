@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import {
-  dexieStorage, addEvent, listEvents, deleteEvents, deleteEvent, pruneEvents,
+  dexieStorage, addEvent, addEventsBulk, listEvents, deleteEvents, deleteEvent, pruneEvents,
   addPhoto as dbAddPhoto, deletePhoto, deletePhotos,
   exportBlob, importAll, importAllRaw, wipeDatabase, type PhotoBackup,
 } from './db'
@@ -131,6 +131,9 @@ interface AppState {
   enableCloud: () => Promise<void>
   disableCloud: () => void
   syncCloudNow: (auto?: boolean) => Promise<void>
+
+  // datos de ejemplo (demo para explorar la app sin esperar meses)
+  seedDemo: () => Promise<void>
 }
 
 // selector: el cultivo activo (referencia estable; emptyCultivo como respaldo)
@@ -536,6 +539,66 @@ export const useStore = create<AppState>()(
         },
 
         acceptConsent: () => set({ consentV: CONSENT_VERSION }),
+
+        // ---- datos de ejemplo: la app llena en un toque, para explorar (demo/socios) ----
+        // Cuatro cultivos en momentos distintos del ciclo, con bitácoras verosímiles
+        // retrodatadas. Son cultivos normales: se abren, se tocan y se eliminan igual.
+        seedDemo: async () => {
+          if (get().grows.some((g) => g.grow.startsWith('Demo · '))) {
+            set({ toast: '👀 Los datos de ejemplo ya están en tu lista', pendingUndo: null })
+            return
+          }
+          const now = Date.now()
+          const D = 86400000
+          const mk = (p: Partial<Cultivo>): Cultivo => {
+            const c = { ...emptyCultivo, id: genId(), ...p }
+            return { ...c, ...deriveLive(c) }
+          }
+          const g1 = mk({ grow: 'Demo · Plántula', plants: 2, pots: 2, potL: 7, substrate: 'tierra', seedType: 'foto', soakTs: now - 5 * D, germTs: now - 3 * D, lastWaterTs: now - 1 * D })
+          const g2 = mk({ grow: 'Demo · Vegetativo', plants: 3, pots: 3, potL: 11, substrate: 'tierra', seedType: 'foto', training: 'lst', soakTs: now - 30 * D, germTs: now - 28 * D, lastWaterTs: now - 2 * D, readings: { temp: 25, hr: 62, ph: 6.5 }, readingDays: { temp: 27, hr: 27, ph: 27 } })
+          const g3 = mk({ grow: 'Demo · Floración', plants: 3, pots: 3, potL: 19, substrate: 'coco', seedType: 'foto', soakTs: now - 63 * D, germTs: now - 61 * D, flowerTs: now - 21 * D, lastWaterTs: now - 1 * D, readings: { ph: 5.9, hr: 48 }, readingDays: { ph: 55, hr: 58 } })
+          const g4 = mk({ grow: 'Demo · Terminado', plants: 2, pots: 2, potL: 11, substrate: 'tierra', seedType: 'auto', soakTs: now - 100 * D, germTs: now - 98 * D, harvestedTs: now - 20 * D, finishedTs: now - 6 * D, dryWeight: 85 })
+          const evs: GrowEvent[] = []
+          const ev = (growId: string, daysAgo: number, day: number, type: EventType, note?: string) =>
+            evs.push({ growId, ts: now - daysAgo * D, day, type, note })
+          // plántula: recién arranca
+          ev(g1.id, 5, 0, 'sembrado', '2 semillas en remojo')
+          ev(g1.id, 3, 0, 'transplante', 'Transplantadas 2 plantas')
+          ev(g1.id, 1, 2, 'riego')
+          // veg: rutina + LST + mediciones
+          ev(g2.id, 30, 0, 'sembrado', '3 semillas en remojo')
+          ev(g2.id, 28, 0, 'transplante', 'Transplantadas 3 plantas')
+          ev(g2.id, 24, 4, 'riego')
+          ev(g2.id, 20, 8, 'riego')
+          ev(g2.id, 16, 12, 'medicion', 'pH 6.5 · en rango')
+          ev(g2.id, 13, 15, 'riego')
+          ev(g2.id, 10, 18, 'entrenamiento', 'Apliqué LST (low stress training)')
+          ev(g2.id, 8, 20, 'nota', 'Las cuatro ramas ya van en horizontal, la copa se abre bien')
+          ev(g2.id, 5, 23, 'riego')
+          ev(g2.id, 2, 26, 'riego')
+          ev(g2.id, 1, 27, 'medicion', 'Temp 25 °C · en rango')
+          // flor: cambio de luz + rutina
+          ev(g3.id, 63, 0, 'sembrado', '3 semillas en remojo')
+          ev(g3.id, 61, 0, 'transplante', 'Transplantadas 3 plantas')
+          ev(g3.id, 40, 21, 'nota', 'Huelen increíble al abrir la carpa')
+          ev(g3.id, 21, 40, 'floracion', 'Cambié la luz a 12/12')
+          ev(g3.id, 14, 47, 'riego')
+          ev(g3.id, 7, 54, 'medicion', 'pH 5.9 · en rango')
+          ev(g3.id, 3, 58, 'medicion', 'HR 48% · en rango')
+          ev(g3.id, 1, 60, 'riego')
+          // terminado: ciclo completo cerrado
+          ev(g4.id, 100, 0, 'sembrado', '2 semillas en remojo')
+          ev(g4.id, 98, 0, 'transplante', 'Transplantadas 2 plantas')
+          ev(g4.id, 66, 32, 'nota', 'Autofloreciente: arrancó la flor sola, puntual')
+          ev(g4.id, 20, 78, 'cosecha')
+          ev(g4.id, 6, 92, 'terminado', 'Peso seco: 85 g · Buen primer ciclo, el próximo con más ventilación')
+          await addEventsBulk(evs).catch(() => {})
+          set((st) => ({
+            grows: [...st.grows, g1, g2, g3, g4],
+            toast: '👀 Cuatro cultivos de ejemplo listos — ábrelos y tócalo todo',
+            pendingUndo: null,
+          }))
+        },
 
         // ---- datos y privacidad ----
         // El respaldo se arma como Blob incremental (ver db.exportBlob): con muchas fotos,
