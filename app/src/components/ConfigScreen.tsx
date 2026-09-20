@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { stageAt, stageLabel, type Substrate, type SeedType } from '../lib'
+import NutrientesPicker from './NutrientesPicker'
 
 const SIZES = [
   { cm: '40 × 40 cm', plants: 1, cap: '1 planta' },
@@ -40,6 +41,7 @@ export default function ConfigScreen() {
   const [sub, setSub] = useState<Substrate>('tierra')
   const [seedType, setSeedType] = useState<SeedType>('foto')
   const [potL, setPotL] = useState(11)
+  const [nut, setNut] = useState<string | null>(null)
   const [weeksAgo, setWeeksAgo] = useState(4)
   const [flowerWeeks, setFlowerWeeks] = useState<number | null>(null) // null = aún en veg
 
@@ -55,9 +57,9 @@ export default function ConfigScreen() {
   const flowerOptions = FLOWER_AGES.filter((f) => f.w < weeksAgo)
 
   function submit() {
-    if (!existing) { createGrow({ grow: name, plants, substrate: sub, potL, seedType }); return }
+    if (!existing) { createGrow({ grow: name, plants, substrate: sub, potL, seedType, nutrientesId: nut }); return }
     registerExisting({
-      grow: name, plants, substrate: sub, potL, seedType, weeksAgo,
+      grow: name, plants, substrate: sub, potL, seedType, weeksAgo, nutrientesId: nut,
       flowerWeeksAgo: seedType === 'foto' ? flowerWeeks : null,
     })
   }
@@ -108,6 +110,9 @@ export default function ConfigScreen() {
           <button key={s.id} onClick={() => setSub(s.id)} className={`sub ${sub === s.id ? 'on' : ''}`}>{s.label}</button>
         ))}
       </div>
+
+      <label className="lbl mt-4 mb-2 block">Nutrientes <span style={{ color: 'var(--faint)', textTransform: 'none', letterSpacing: 0 }}>→ tu plan de abono, dosis por riego</span></label>
+      <NutrientesPicker value={nut} onChange={setNut} substrate={sub} chipClass="sub" />
 
       <label className="lbl mt-4 mb-2 block">Tamaño de maceta <span style={{ color: 'var(--faint)', textTransform: 'none', letterSpacing: 0 }}>→ para calcular el riego</span></label>
       <div className="flex gap-[7px]">

@@ -37,6 +37,22 @@ export function wateringGuide(c: Cultivo): { amount: string; when: string } | nu
   return null
 }
 
+// litros de un riego (misma regla que wateringGuide, en número: base del cálculo de abono)
+export function litrosRiego(c: Cultivo): number {
+  const L = c.potL || 11
+  if (c.stage === 'plantula') return 0.2
+  if (c.stage === 'veg') return Math.round(L * 0.18 * 10) / 10
+  if (c.stage === 'flor') return Math.round(L * 0.22 * 10) / 10
+  return Math.round(L * 0.25 * 10) / 10
+}
+// semana de floración (1 = la del cambio a 12/12); null si no está en floración.
+// Autoflorecientes: la floración empieza en el día 32 (stageAt).
+export function semanaFlor(c: Cultivo): number | null {
+  if (c.stage !== 'flor') return null
+  const inicio = c.seedType === 'auto' ? 32 : c.flowerTs && c.germTs ? Math.max(0, Math.floor((c.flowerTs - c.germTs) / 86400000)) : 46
+  return Math.max(1, Math.floor((c.day - inicio) / 7) + 1)
+}
+
 // objetivos por etapa (temp/HR/VPD/PPFD/EC). pH va por sustrato (abajo).
 const STAGE: Record<string, Partial<Record<MetricKey, Range>>> = {
   germinacion: { temp: { lo: 22, hi: 26 }, hr: { lo: 70, hi: 85 }, vpd: { lo: 0.4, hi: 0.8 }, ppfd: { lo: 100, hi: 300 }, ec: { lo: 0.2, hi: 0.6 } },

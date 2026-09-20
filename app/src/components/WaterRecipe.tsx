@@ -1,6 +1,7 @@
 import { useStore, selectActive } from '../store'
 import { stageLabel } from '../lib'
-import { wateringGuide, targetFor, fmtRange, overwaterGuard } from '../mentor'
+import { wateringGuide, targetFor, fmtRange, overwaterGuard, litrosRiego, semanaFlor } from '../mentor'
+import { lineaPorId, faseActual, dosisRiego } from '../data/nutrientes'
 
 // Ficha de riego: la "receta" de la etapa actual — cuánta agua (según la maceta), pH y EC objetivo.
 // Se muestra al regar; cambia sola conforme el cultivo avanza de etapa.
@@ -13,6 +14,11 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
   const ph = targetFor('ph', c.stage, c.substrate)
   const ec = targetFor('ec', c.stage, c.substrate)
   const guard = overwaterGuard(c)
+  // plan de abono: la fase de la tabla del fabricante que toca hoy y los ml para este riego
+  const linea = lineaPorId(c.nutrientesId)
+  const fase = linea && (c.stage === 'plantula' || c.stage === 'veg' || c.stage === 'flor') ? faseActual(linea, c.stage, c.day, semanaFlor(c)) : null
+  const litros = litrosRiego(c)
+  const dosis = linea && fase ? dosisRiego(linea, fase, litros) : []
 
   return (
     <div className="absolute inset-0 z-50" onClick={onClose}>
@@ -30,6 +36,34 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
           <Row icon="" label="pH" value={fmtRange(ph, 1)} />
           <Row icon="" label="EC · fuerza del abono" value={ec ?`${fmtRange(ec, 1)} mS`: 'solo agua'} />
         </div>
+
+        {linea && fase && (
+          <div className="mt-3 rounded-2xl px-3.5 py-3" style={{ border: '1px solid rgba(255,255,255,.14)', background: 'var(--panel)' }}>
+            <div className="flex items-baseline justify-between mb-2">
+              <div className="label" style={{ color: '#fff' }}>{linea.marca} · {fase.nombre}</div>
+              <div className="label">{litros} L de agua</div>
+            </div>
+            {dosis.length === 0 ? (
+              <div className="text-[.78rem]" style={{ color: 'var(--muted)' }}>Esta semana: solo agua, sin abono.</div>
+            ) : (
+              <div className="space-y-1.5">
+                {dosis.map((d) => (
+                  <div key={d.producto.id} className="flex items-baseline justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[.82rem] font-medium truncate">{d.producto.nombre}</div>
+                      <div className="label truncate" style={{ fontSize: '.55rem' }}>{d.producto.rol}</div>
+                    </div>
+                    <div className="mono text-[1rem] font-medium flex-none">{d.ml} <span className="text-[.65rem]" style={{ color: 'var(--muted)' }}>ml</span></div>
+                  </div>
+                ))}
+                <div className="label pt-1" style={{ fontSize: '.55rem' }}>pH tras mezclar {linea.ph[0]}–{linea.ph[1]}{linea.aguaC ? ` · agua ${linea.aguaC[0]}–${linea.aguaC[1]} °C` : ''}</div>
+              </div>
+            )}
+            {!linea.verificado && (
+              <div className="text-[.62rem] mt-2" style={{ color: 'var(--warn)' }}>Dosis según la tabla pública del fabricante: compara con la versión vigente de tu botella.</div>
+            )}
+          </div>
+        )}
 
         <div className="mt-3 mb-4 space-y-1">
           <p className="text-[.72rem]" style={{ color: 'var(--muted)' }}>
@@ -63,8 +97,8 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
 
         <style>{`
           @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-          .rbtn{border:none;border-radius:15px;font-weight:700;padding:.85rem;font-family:'Space Grotesk';font-size:.92rem;cursor:pointer;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c}
-          .rbtn-ghost{border:1px solid var(--glass-bd);border-radius:15px;font-weight:600;padding:.85rem;font-family:'Space Grotesk';font-size:.86rem;cursor:pointer;background:rgba(255,255,255,.05);color:var(--text)}
+          .rbtn{border:none;border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}
+          .rbtn-ghost{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.88rem;cursor:pointer;background:transparent;color:var(--text)}
         `}</style>
       </div>
     </div>

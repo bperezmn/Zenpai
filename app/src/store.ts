@@ -44,6 +44,7 @@ function sanitizeGrows(raw: unknown[]): Cultivo[] {
       lastWaterTs: num(o.lastWaterTs),
       training: o.training === 'lst' || o.training === 'lollipop' || o.training === 'apical' ? o.training : 'none',
       defoliatedTs: num(o.defoliatedTs),
+      nutrientesId: typeof o.nutrientesId === 'string' ? o.nutrientesId : null,
       readings: o.readings && typeof o.readings === 'object' && !Array.isArray(o.readings) ? (o.readings as Cultivo['readings']) : {},
       readingDays: o.readingDays && typeof o.readingDays === 'object' && !Array.isArray(o.readingDays) ? (o.readingDays as Cultivo['readingDays']) : {},
       day: 0, stage: 'remojo', thirst: 0.2,
@@ -103,8 +104,9 @@ interface AppState {
   removeEvent: (id: number) => void
 
   // acciones del cultivo activo
-  createGrow: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; seedType: SeedType }) => void
-  registerExisting: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; seedType: SeedType; weeksAgo: number; flowerWeeksAgo: number | null }) => void
+  createGrow: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; seedType: SeedType; nutrientesId?: string | null }) => void
+  setNutrientes: (id: string | null) => void
+  registerExisting: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; seedType: SeedType; weeksAgo: number; flowerWeeksAgo: number | null; nutrientesId?: string | null }) => void
   transplant: (count: number) => void
   resoak: () => void
   updateGrow: (cfg: { grow: string; potL: number; substrate: Substrate; seedType: SeedType }) => void
@@ -211,7 +213,7 @@ export const useStore = create<AppState>()(
         },
 
         // ---- crear (arranca EN REMOJO: semillas en agua, germTs aún null) ----
-        createGrow: ({ grow, plants, substrate, potL, seedType }) => {
+        createGrow: ({ grow, plants, substrate, potL, seedType, nutrientesId = null }) => {
           const base: Cultivo = {
             ...emptyCultivo,
             id: genId(),
@@ -221,6 +223,7 @@ export const useStore = create<AppState>()(
             potL,
             substrate,
             seedType,
+            nutrientesId,
             soakTs: Date.now(),
             germTs: null,
           }
@@ -239,7 +242,7 @@ export const useStore = create<AppState>()(
         },
 
         // ---- registrar una planta que YA está creciendo (sin pasar por el remojo) ----
-        registerExisting: ({ grow, plants, substrate, potL, seedType, weeksAgo, flowerWeeksAgo }) => {
+        registerExisting: ({ grow, plants, substrate, potL, seedType, weeksAgo, flowerWeeksAgo, nutrientesId = null }) => {
           const now = Date.now()
           const germTs = now - weeksAgo * 7 * 86400000
           const base: Cultivo = {
@@ -251,6 +254,7 @@ export const useStore = create<AppState>()(
             potL,
             substrate,
             seedType,
+            nutrientesId,
             soakTs: germTs - 2 * 86400000,
             germTs,
             flowerTs: seedType === 'foto' && flowerWeeksAgo != null ? now - flowerWeeksAgo * 7 * 86400000 : null,
@@ -308,6 +312,14 @@ export const useStore = create<AppState>()(
             { toast: 'Cultivo actualizado', pendingUndo: null },
           )
           log('nota', 'Editado: ' + changes.join(' · '))
+        },
+
+        // ---- línea de nutrientes del cultivo (el plan de riego sale de su tabla) ----
+        setNutrientes: (id) => {
+          const c = selectActive(get())
+          if (!c.id || (c.nutrientesId ?? null) === id) return
+          patchActive((g) => ({ ...g, nutrientesId: id }), { toast: id ? 'Línea de nutrientes guardada' : 'Riego solo con agua', pendingUndo: null })
+          log('nota', id ? `Nutrientes: ${id}` : 'Sin línea de nutrientes')
         },
 
         // ---- luz de la carpa (visual: la escena 3D pasa a noche) ----

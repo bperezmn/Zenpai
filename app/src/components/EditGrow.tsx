@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore, selectActive } from '../store'
 import type { Substrate, SeedType } from '../lib'
+import NutrientesPicker from './NutrientesPicker'
 
 const SUBS: { id: Substrate; label: string }[] = [
   { id: 'tierra', label: 'Tierra'},
@@ -17,6 +18,8 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState(c.grow)
   const [potL, setPotL] = useState(c.potL)
   const [sub, setSub] = useState<Substrate>(c.substrate)
+  const [nut, setNut] = useState<string | null>(c.nutrientesId ?? null)
+  const setNutrientes = useStore((s) => s.setNutrientes)
   const [seedType, setSeedType] = useState<SeedType>(c.seedType)
   // con la floración en marcha (12/12 anotado o auto ya en flor) el tipo ya no se toca:
   // cambiarlo reescribiría la historia del cultivo
@@ -24,6 +27,7 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
 
   function save() {
     updateGrow({ grow: name, potL, substrate: sub, seedType })
+    setNutrientes(nut)
     onClose()
   }
 
@@ -44,6 +48,9 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
             <button key={L} onClick={() => setPotL(L)} className={`echip ${potL === L ? 'on' : ''}`}>{L} L</button>
           ))}
         </div>
+
+        <label className="elbl">Nutrientes <span className="esub">→ tu plan de abono</span></label>
+        <div className="mb-3"><NutrientesPicker value={nut} onChange={setNut} substrate={sub} chipClass="echip" /></div>
 
         <label className="elbl">Sustrato <span className="esub">→ ajusta pH y guardarraíl</span></label>
         <div className="flex gap-[7px] mb-3">

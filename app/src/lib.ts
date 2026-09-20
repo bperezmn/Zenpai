@@ -23,6 +23,7 @@ export interface Cultivo {
   lastWaterTs: number | null  // último riego real
   training: Training           // técnica de entrenamiento aplicada en vegetativo
   defoliatedTs: number | null  // última defoliación (la imagen la muestra unos días)
+  nutrientesId: string | null  // línea de nutrientes del catálogo (src/data/nutrientes.ts) o null = solo agua
   readings: Partial<Record<MetricKey, number>>     // últimas mediciones que registró el usuario
   readingDays: Partial<Record<MetricKey, number>>  // día del cultivo en que se tomó cada medición
   // day / stage / thirst son DERIVADOS (caché que el store mantiene sincronizada con el reloj real)
@@ -38,7 +39,7 @@ export interface Cultivo {
 export const emptyCultivo: Cultivo = {
   id: '', grow: 'Carpa A', plants: 3, pots: 3, potL: 11, substrate: 'tierra', seedType: 'foto',
   soakTs: null, germTs: null, flowerTs: null, harvestedTs: null, finishedTs: null, dryWeight: null,
-  lastWaterTs: null, training: 'none', defoliatedTs: null,
+  lastWaterTs: null, training: 'none', defoliatedTs: null, nutrientesId: null,
   readings: {}, readingDays: {},
   day: 0, stage: 'vacia', thirst: 0.2, health: 92,
   light: true, fan: true, exhaust: true,
