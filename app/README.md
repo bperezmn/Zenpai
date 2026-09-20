@@ -41,9 +41,28 @@ Vite + React 18 + TypeScript + Tailwind + vite-plugin-pwa · Zustand (persist) �
 
 ## Assets
 
-~50 imágenes WebP en `public/assets/` (generadas con IA, mismo encuadre; originales JPG en
-`_assets_jpg_original/`, fuera del build). Scripts: `scripts/optimize-images.mjs` (JPG→WebP),
-`scripts/gen-icons.mjs` (íconos PWA).
+La carpa es una **escena 3D** (ver `../blender/README.md`): `public/assets/v2/` tiene ~270 WebP
+renderizados en Blender (una sola escena, misma cámara) para cada combinación de etapa × sustrato
+× nº de macetas × estado de luz (día/noche/frío/calor) × vista (frente/cenital), más los 24
+fotogramas de la puerta abriéndose. `lib.ts` (`frontImg`, `v2Name`) arma el nombre del archivo a
+partir del cultivo; `mentor.ts` (`sceneState`) decide el estado según luz y temperatura.
+En `public/assets/` solo queda arte IA en uso: el vaso de remojo (`agua-*`) y los how-to
+(`howto-*`). El arte IA anterior de la carpa está en `_assets_ia_antiguas/` (fuera del build).
+Scripts: `scripts/optimize-images.mjs` (JPG→WebP), `scripts/gen-icons.mjs` (íconos PWA).
+
+## Despliegue (GitHub Pages)
+
+La app pública vive en https://bperezmn.github.io/Zenpai/ (la rama `gh-pages` es el contenido
+de `dist/`). Para publicar una versión nueva:
+
+```bash
+docker compose exec -T web sh -c "BASE_PATH=/Zenpai/ npm run build"
+cd dist && touch .nojekyll && git init -q && git add -A && git commit -qm deploy \
+  && git push -f git@github.com:bperezmn/Zenpai.git HEAD:gh-pages
+```
+
+La PWA cachea el shell, así que un visitante que ya la abrió ve la versión nueva en la
+segunda visita (o forzando la actualización del service worker).
 
 ## Principios
 

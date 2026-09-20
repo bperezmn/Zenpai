@@ -19,5 +19,9 @@ prototype/assets/
 prototype/*.jpg
 prototype/*.png
 
-# modelos 3D pesados generados (Tripo/Meshy): no se versionan
+# modelos 3D pesados generados (Tripo/Meshy) y respaldos automáticos de Blender: no se versionan
 blender/plantas/*.glb
+*.blend1
+# recortes de plantas: se versionan como WebP sin pérdida (blender/plantas/*_cutout.webp);
+# los PNG intermedios (descargas de Higgsfield) no
+blender/plantas/*.png

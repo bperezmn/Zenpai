@@ -16,5 +16,8 @@ germinación a la cosecha. Offline-first y privada por diseño.
   dirección: carpa foto-real, marca, UX). Sus imágenes (~440 MB) no viven en el repo;
   el prototipo quedó superado por `app/`.
 
-> Nota: `app/_assets_jpg_original/` (JPG fuente de las WebP optimizadas) tampoco se versiona
-> por peso. Las WebP que la app usa sí están en `app/public/assets/`.
+- **`blender/`** — la escena 3D de la carpa (`zenpai-carpa.blend`), los recortes de plantas
+  generados con Higgsfield y los scripts de render por lotes que producen `app/public/assets/v2/`.
+
+> Nota: `app/_assets_jpg_original/` (JPG fuente de las WebP antiguas) no se versiona por peso;
+> el arte IA anterior de la carpa quedó en `app/_assets_ia_antiguas/` (fuera del build).

@@ -1,0 +1,151 @@
+{
+ "veg_a": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1141,
+  "pot_w_px": 358
+ },
+ "veg_b": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1151,
+  "pot_w_px": 325
+ },
+ "plantula": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1183,
+  "pot_w_px": 697
+ },
+ "flor": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1044,
+  "pot_w_px": 263
+ },
+ "cosecha": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1080,
+  "pot_w_px": 277
+ },
+ "sed": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1183,
+  "pot_w_px": 580
+ },
+ "secando": {
+  "h": 1184,
+  "w": 864,
+  "top": 141,
+  "bottom": 779,
+  "pot_w_px": 0
+ },
+ "coco_cosecha": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1075,
+  "pot_w_px": 281
+ },
+ "coco_flor": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1043,
+  "pot_w_px": 269
+ },
+ "coco_plantula": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1183,
+  "pot_w_px": 704
+ },
+ "coco_sed": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1183,
+  "pot_w_px": 514
+ },
+ "coco_veg_a": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1135,
+  "pot_w_px": 359
+ },
+ "coco_veg_b": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1147,
+  "pot_w_px": 331
+ },
+ "hidro_cosecha": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1098,
+  "pot_w_px": 298
+ },
+ "hidro_flor": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1069,
+  "pot_w_px": 246
+ },
+ "hidro_plantula": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1135,
+  "pot_w_px": 396
+ },
+ "hidro_sed": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1183,
+  "pot_w_px": 437
+ },
+ "hidro_veg_a": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1139,
+  "pot_w_px": 297
+ },
+ "hidro_veg_b": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 1141,
+  "pot_w_px": 291
+ },
+ "maceta": {
+  "h": 1184,
+  "w": 864,
+  "bottom": 951,
+  "pot_w_px": 549
+ },
+ "top_cosecha": {
+  "h": 792,
+  "w": 784
+ },
+ "top_flor": {
+  "h": 733,
+  "w": 787
+ },
+ "top_maceta": {
+  "h": 479,
+  "w": 473
+ },
+ "top_plantula": {
+  "h": 584,
+  "w": 586
+ },
+ "top_sed": {
+  "h": 614,
+  "w": 627
+ },
+ "top_veg_a": {
+  "h": 725,
+  "w": 665
+ },
+ "top_veg_b": {
+  "h": 791,
+  "w": 839
+ }
+}

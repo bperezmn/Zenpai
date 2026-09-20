@@ -1,7 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useStore, selectActive } from '../store'
-import { frontImg, statusText, stageLabel, stageAt, previewStage, MAX_DAY, type Cultivo, type MetricKey, type SceneState } from '../lib'
+import { frontImg, cenitalTops, statusText, stageLabel, stageAt, previewStage, MAX_DAY, type Cultivo, type MetricKey, type SceneState } from '../lib'
+
+// La escena cambia de render (luz, tinte, vista, preview) con un fundido: la imagen anterior
+// queda debajo y la nueva aparece encima. Ambas viven dentro del mismo contenedor que
+// "respira" (zoom lentísimo), así el fundido no salta de escala.
+function SceneImg({ src }: { src: string }) {
+  const last = useRef(src)
+  const prev = useRef<string | null>(null)
+  if (src !== last.current) { prev.current = last.current; last.current = src }
+  return (
+    <>
+      {prev.current && <img src={prev.current} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+      <img key={src} src={src} alt="" className="absolute inset-0 w-full h-full object-cover aparece" />
+    </>
+  )
+}
 import { metricsFor, targetFor, evalMetric, fmtRange, STATUS_COLOR, needsAttention, overwaterGuard, wateringGuide, sceneState } from '../mentor'
 import { useBackClose } from '../useBackClose'
 import Intro from './Intro'
@@ -152,7 +167,7 @@ export default function TentView() {
   const isVeg = !preview && c.stage === 'veg'
   const plantable = !preview && !done && view === 'front' && effStage !== 'vacia'
   const names = Array.from({ length: Math.min(c.pots, 3) }, (_, i) => `${c.grow} · #${i + 1}`)
-  const tops = c.pots === 1 ? ['47%'] : c.pots === 2 ? ['30%', '66%'] : ['21%', '47%', '73%']
+  const tops = cenitalTops(dc)
   const pct = Math.min(100, (effDay / MAX_DAY) * 100)
 
   const tiles = metricsFor(guide)
@@ -163,7 +178,7 @@ export default function TentView() {
     <div className="absolute inset-0 select-none">
       {/* escena: la escena 3D reacciona a tus datos (luz, temperatura); en preview siempre "día" */}
       <div ref={sceneRef} className="absolute inset-0 overflow-hidden">
-        <img src={frontImg(dc, view, scene)} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 escena-viva"><SceneImg src={frontImg(dc, view, scene)} /></div>
         <div className="absolute top-0 left-0 right-0 h-28 pointer-events-none" style={{ background: 'linear-gradient(180deg,rgba(4,7,10,.7),transparent)' }} />
         <div className="absolute bottom-0 left-0 right-0 h-36 pointer-events-none" style={{ background: 'linear-gradient(0deg,rgba(4,7,10,.82),rgba(4,7,10,.28) 60%,transparent)' }} />
         {plantable && (
@@ -354,6 +369,11 @@ export default function TentView() {
       {intro && <Intro onDone={() => setIntro(false)} />}
 
       <style>{`
+        .escena-viva{animation:respira 16s ease-in-out infinite alternate;transform-origin:50% 62%;will-change:transform}
+        @keyframes respira{from{transform:scale(1)}to{transform:scale(1.035)}}
+        .aparece{animation:aparece .7s ease-out both}
+        @keyframes aparece{from{opacity:0}to{opacity:1}}
+        @media (prefers-reduced-motion:reduce){.escena-viva,.aparece{animation:none}}
         .cenname{position:absolute;left:50%;transform:translateX(-50%);background:rgba(8,14,11,.7);backdrop-filter:blur(8px);border:1px solid var(--glass-bd);color:var(--text);font-family:'Space Grotesk';font-weight:700;font-size:.74rem;padding:.28rem .7rem;border-radius:999px;white-space:nowrap}
         .tbtn{height:34px;padding:0 .8rem;border-radius:13px;background:rgba(8,14,11,.55);backdrop-filter:blur(14px);border:1px solid var(--glass-bd);color:rgba(255,255,255,.88);font-family:'Space Grotesk';font-weight:700;font-size:.72rem;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
         .tbtn:active{background:rgba(255,255,255,.14)}
