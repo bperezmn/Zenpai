@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useStore, selectActive } from '../store'
-import { frontImg, cenitalTops, statusText, stageLabel, stageAt, previewStage, MAX_DAY, type Cultivo, type MetricKey, type SceneState } from '../lib'
+import { frontImg, cenitalTops, statusText, stageLabel, stageAt, previewStage, MAX_DAY, TIMELAPSE_URL, TIMELAPSE_DAYS, HAS_TIMELAPSE, type Cultivo, type MetricKey, type SceneState } from '../lib'
 
 // La escena cambia de render (luz, tinte, vista, preview) con un fundido: la imagen anterior
 // queda debajo y la nueva aparece encima. Ambas viven dentro del mismo contenedor que
@@ -77,6 +77,13 @@ export default function TentView() {
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), pendingUndo ? 5200 : 2600); return () => clearTimeout(t) }, [toast, pendingUndo, setToast])
 
   const preview = previewDay !== null
+  const videoRef = useRef<HTMLVideoElement>(null)
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v || !preview) return
+    const d = Number.isFinite(v.duration) && v.duration > 0 ? v.duration : 10
+    v.currentTime = Math.min(1, Math.max(0, previewDay! / TIMELAPSE_DAYS)) * d
+  }, [preview, previewDay])
   const done = c.stage === 'secando'
   const overlayOpen = showJournal || showToday || wateringHow || showRecipe || showFinish || showEdit || measureKey !== null
 
@@ -180,6 +187,12 @@ export default function TentView() {
       <div ref={sceneRef} className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 escena-viva">
           <SceneImg src={frontImg(dc, view, scene)} />
+          {/* timelapse: mientras arrastras la línea de tiempo, el vídeo va al día que señalas */}
+          {HAS_TIMELAPSE && view === 'front' && (
+            <video ref={videoRef} src={TIMELAPSE_URL} muted playsInline preload="auto"
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+              style={{ opacity: preview ? 1 : 0, pointerEvents: 'none' }} />
+          )}
           {/* tinte por temperatura dentro de la abertura de la puerta (frío azul / calor rojo) */}
           <div className={`tinte ${scene === 'calor' ? 'tinte-calor' : 'tinte-frio'}`}
             style={{ opacity: view === 'front' && (scene === 'frio' || scene === 'calor') ? 1 : 0 }} />

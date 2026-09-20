@@ -241,6 +241,13 @@ export function ajarImg(c: Cultivo): string {
 
 export const closedImg = A('carpa-cerrada')
 
+// timelapse del ciclo (Seedance, 10 s): plántula → cosecha. La línea de tiempo lo arrastra:
+// el día d cae en el segundo d / TIMELAPSE_DAYS × duración. HAS_TIMELAPSE se apaga si el
+// archivo no está (assets/timelapse.mp4), y entonces solo se ven las fotos fijas.
+export const TIMELAPSE_URL = `${import.meta.env.BASE_URL}assets/timelapse.mp4`
+export const TIMELAPSE_DAYS = 105
+export const HAS_TIMELAPSE = true
+
 // etiquetas de la vista cenital: donde están las macetas en carpa-cenital
 export function cenitalTops(c: Cultivo): string[] {
   return c.pots === 1 ? ['47%'] : c.pots === 2 ? ['30%', '66%'] : ['21%', '47%', '73%']
