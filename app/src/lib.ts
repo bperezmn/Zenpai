@@ -175,8 +175,16 @@ export const EVENT_META: Record<EventType, { icon: string; label: string }> = {
 // ===== legal: control de edad + consentimiento (versionado para re-consentir si cambian términos) =====
 export const CONSENT_VERSION = 1
 
-// ===== arte IA que sigue en uso: el vaso de remojo (la carpa entera es escena 3D, ver abajo) =====
-const HAVE = new Set(['agua-1', 'agua-2', 'agua-3', 'agua-1-brote', 'agua-2-brote', 'agua-3-brote'])
+// ===== imágenes de la carpa: el arte IA original (la escena 3D de blender/ quedó apartada,
+// junto con su set en app/_assets_v2_3d/, por decisión de Bruno: se veía peor que las fotos) =====
+const HAVE = new Set([
+  'carpa-vacia', 'carpa-plantula', 'carpa-dia', 'carpa-dia-1p', 'carpa-dia-2p', 'carpa-sedienta',
+  'floracion', 'carpa-cenital', 'carpa-cerrada', 'carpa-entreabierta', 'ajar-vacia', 'ajar-flor',
+  'coco-plantula', 'coco-veg', 'coco-sed', 'coco-flor', 'hidro-plantula', 'hidro-veg', 'hidro-sed', 'hidro-flor',
+  'germinacion', 'cosecha', 'secando', 'carpa-apagada', 'carpa-noche-aire',
+  'agua-1', 'agua-2', 'agua-3', 'agua-1-brote', 'agua-2-brote', 'agua-3-brote',
+  'veg-temprano', 'veg-lst', 'veg-lollipop',
+])
 // rutas relativas a la base del deploy (BASE_URL termina en '/'): así la app
 // funciona igual en raíz (localhost, Vercel) que bajo subcarpeta (GitHub Pages)
 const A = (name: string) => `${import.meta.env.BASE_URL}assets/${name}.webp`
@@ -188,53 +196,54 @@ export function waterImg(seeds: number, brote: boolean): string {
   return A(HAVE.has(name) ? name : `agua-${n}`)
 }
 
-// ===== escena 3D v2 (renders de Blender: UNA escena, misma cámara, el interior reacciona) =====
 // Estado visual del interior: la luz (día/noche) y el tinte por temperatura (frío/calor).
+// Noche = las fotos de la carpa apagada; frío/calor = la misma foto de día con un tinte CSS
+// dentro de la abertura de la puerta (TentView), como el hero de AC Infinity.
 export type SceneState = 'dia' | 'noche' | 'frio' | 'calor'
-const V2 = (name: string) => `${import.meta.env.BASE_URL}assets/v2/${name}.webp`
-export const DOOR_FRAMES = 24
-// secuencia de apertura de la puerta (carpa vacía: vale para toda etapa y nº de macetas;
-// al final las plantas "aparecen" con el fundido a la imagen real)
-export const doorFrame = (i: number) => V2(`abrir-${String(Math.min(Math.max(i, 1), DOOR_FRAMES)).padStart(2, '0')}`)
 
-// etapa visual del cultivo dentro de la carpa (null = remojo, que vive en su propia pantalla)
-export type V2Stage = 'vacia' | 'germinacion' | 'plantula' | 'veg' | 'flor' | 'cosecha' | 'sed' | 'secando'
-export function v2Stage(c: Cultivo): V2Stage | null {
-  if (c.stage === 'remojo') return null
-  if (c.stage === 'veg') return c.thirst > 0.55 ? 'sed' : 'veg'
-  return c.stage
-}
-// nombre del render: {sustrato-}{etapa}-{estado}-{macetas}p · cenital: top-{etapa}-{estado}-{macetas}p.
-// Límites del set: la cenital no distingue sustrato (desde arriba la copa tapa la maceta);
-// 'sed' solo de día; 'secando' sin variantes de macetas (y desde arriba no se ven las ramas);
-// la carpa vacía frontal es el último fotograma de la apertura; germinación usa macetas de tierra
-function v2Name(stage: V2Stage, state: SceneState, pots: number, substrate: Substrate, view: 'front' | 'cenital'): string {
-  const p = Math.min(Math.max(pots, 1), 3)
-  if (view === 'cenital') return stage === 'vacia' || stage === 'secando' ? `top-vacia-${state}` : `top-${stage}-${state}-${p}p`
-  if (stage === 'vacia') return `abrir-${DOOR_FRAMES}`
-  if (stage === 'secando') return `secando-${state === 'noche' ? 'noche' : 'dia'}-3p`
-  const pre = substrate !== 'tierra' && stage !== 'germinacion' ? `${substrate}-` : ''
-  if (stage === 'sed') return `${pre}sed-dia-${p}p`
-  return `${pre}${stage}-${state}-${p}p`
-}
-
-// imagen de la carpa según etapa / sustrato / sed / nº de macetas / estado de luz y vista
+// imagen frontal según etapa / sustrato / sed / nº de macetas (respaldo a tierra)
 export function frontImg(c: Cultivo, view: 'front' | 'cenital', state: SceneState = 'dia'): string {
-  const v2 = v2Stage(c)
-  if (!v2) return waterImg(c.plants, hasSprouted(c))
-  return V2(v2Name(v2, state, c.pots, c.substrate, view))
+  if (view === 'cenital') return A('carpa-cenital')
+  if (c.stage === 'remojo') return waterImg(c.plants, hasSprouted(c))
+  if (state === 'noche') return nightImg(c)
+  if (c.stage === 'vacia') return A('carpa-vacia')
+  if (c.stage === 'secando') return A('secando')
+  // vegetativo: arte de entrenamiento / temprano SOLO existe en tierra; coco/hidro conservan su imagen
+  if (c.stage === 'veg' && c.thirst <= 0.55 && c.substrate === 'tierra') {
+    if (c.training === 'lst' && HAVE.has('veg-lst')) return A('veg-lst')
+    if (c.training === 'lollipop' && HAVE.has('veg-lollipop')) return A('veg-lollipop')
+    if (c.training === 'none' && c.day < 30 && HAVE.has('veg-temprano')) return A('veg-temprano')
+  }
+  let key: string, tierra: string
+  if (c.stage === 'germinacion') { key = 'germinacion'; tierra = 'germinacion' }
+  else if (c.stage === 'plantula') { key = 'plantula'; tierra = 'carpa-plantula' }
+  else if (c.stage === 'cosecha') { key = 'cosecha'; tierra = 'cosecha' }
+  else if (c.stage === 'flor') { key = 'flor'; tierra = 'floracion' }
+  else if (c.thirst > 0.55) { key = 'sed'; tierra = 'carpa-sedienta' }
+  else { key = 'veg'; tierra = 'carpa-dia' }
+  let base = c.substrate !== 'tierra' && HAVE.has(`${c.substrate}-${key}`) ? `${c.substrate}-${key}` : tierra
+  const p = Math.min(c.pots, 3)
+  if (p < 3 && HAVE.has(`${base}-${p}p`)) base = `${base}-${p}p`
+  return A(base)
 }
 
-// posición vertical (%) de cada planta en la vista cenital: cámara a 3.5 m mirando al piso con
-// 24 mm de sensor y 50 mm de lente (blender/render_v2.py, modo foto); cuanto más alta la copa,
-// más cerca de la cámara y más separadas se ven. Macetas en x = ±0.345 m (3) / ±0.24 m (2)
-// — dentro de la bandeja de la foto —; la #1 arriba.
+// imagen de noche (luz apagada), con/ sin ventilador
+export function nightImg(c: Cultivo): string {
+  return c.fan ? A('carpa-noche-aire') : A('carpa-apagada')
+}
+
+// cuadro "entreabierta" para la animación de apertura, según etapa
+export function ajarImg(c: Cultivo): string {
+  if (c.stage === 'flor' || c.stage === 'cosecha') return HAVE.has('ajar-flor') ? A('ajar-flor') : A('carpa-entreabierta')
+  if (c.stage === 'veg') return A('carpa-entreabierta')
+  return HAVE.has('ajar-vacia') ? A('ajar-vacia') : A('carpa-entreabierta')
+}
+
+export const closedImg = A('carpa-cerrada')
+
+// etiquetas de la vista cenital: donde están las macetas en carpa-cenital
 export function cenitalTops(c: Cultivo): string[] {
-  const s = v2Stage(c)
-  const z = s === 'plantula' || s === 'germinacion' ? 0.24 : s === 'flor' || s === 'cosecha' ? 0.62 : s === 'sed' ? 0.45 : 0.55
-  const pct = (x: number) => `${Math.round(50 + (x / (2 * (3.5 - z) * 0.24)) * 100)}%`
-  const p = Math.min(Math.max(c.pots, 1), 3)
-  return p === 1 ? [pct(0)] : p === 2 ? [pct(-0.24), pct(0.24)] : [pct(-0.345), pct(0), pct(0.345)]
+  return c.pots === 1 ? ['47%'] : c.pots === 2 ? ['30%', '66%'] : ['21%', '47%', '73%']
 }
 
 // caption de la carpa: estado honesto + la acción disponible (nada de datos inventados)
@@ -260,8 +269,8 @@ export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
   return 'En vegetativo · toca las plantas para regar 💧'
 }
 
-// preload selectivo: solo lo que se va a ver ahora (día, noche, el estado actual y la cenital)
+// preload selectivo: solo lo que se va a ver ahora (no las 31 imágenes)
 export function preloadFor(c: Cultivo, state: SceneState = 'dia') {
-  const urls = new Set<string>([frontImg(c, 'front', 'dia'), frontImg(c, 'front', 'noche'), frontImg(c, 'front', state), frontImg(c, 'cenital', state)])
+  const urls = new Set<string>([closedImg, ajarImg(c), frontImg(c, 'front', 'dia'), nightImg(c), frontImg(c, 'front', state), A('carpa-cenital')])
   urls.forEach((u) => { const i = new Image(); i.src = u })
 }

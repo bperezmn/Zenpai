@@ -178,7 +178,12 @@ export default function TentView() {
     <div className="absolute inset-0 select-none">
       {/* escena: la escena 3D reacciona a tus datos (luz, temperatura); en preview siempre "día" */}
       <div ref={sceneRef} className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 escena-viva"><SceneImg src={frontImg(dc, view, scene)} /></div>
+        <div className="absolute inset-0 escena-viva">
+          <SceneImg src={frontImg(dc, view, scene)} />
+          {/* tinte por temperatura dentro de la abertura de la puerta (frío azul / calor rojo) */}
+          <div className={`tinte ${scene === 'calor' ? 'tinte-calor' : 'tinte-frio'}`}
+            style={{ opacity: view === 'front' && (scene === 'frio' || scene === 'calor') ? 1 : 0 }} />
+        </div>
         <div className="absolute top-0 left-0 right-0 h-28 pointer-events-none" style={{ background: 'linear-gradient(180deg,rgba(4,7,10,.7),transparent)' }} />
         <div className="absolute bottom-0 left-0 right-0 h-36 pointer-events-none" style={{ background: 'linear-gradient(0deg,rgba(4,7,10,.82),rgba(4,7,10,.28) 60%,transparent)' }} />
         {plantable && (
@@ -370,6 +375,9 @@ export default function TentView() {
 
       <style>{`
         .escena-viva{animation:respira 16s ease-in-out infinite alternate;transform-origin:50% 62%;will-change:transform}
+        .tinte{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;transition:opacity .8s ease;clip-path:polygon(5% 5.5%,69% 5.5%,76% 7.5%,80.5% 12%,80.5% 93.5%,5% 93.5%)}
+        .tinte-frio{background:radial-gradient(ellipse at 50% 38%,rgba(150,195,255,.95),rgba(90,140,255,.85) 75%)}
+        .tinte-calor{background:radial-gradient(ellipse at 50% 38%,rgba(255,170,110,.95),rgba(255,110,60,.85) 75%)}
         @keyframes respira{from{transform:scale(1)}to{transform:scale(1.035)}}
         .aparece{animation:aparece .7s ease-out both}
         @keyframes aparece{from{opacity:0}to{opacity:1}}
