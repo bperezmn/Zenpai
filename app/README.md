@@ -41,11 +41,12 @@ Vite + React 18 + TypeScript + Tailwind + vite-plugin-pwa · Zustand (persist) �
 
 ## Assets
 
-La carpa es una **escena 3D** (ver `../blender/README.md`): `public/assets/v2/` tiene ~270 WebP
-renderizados en Blender (una sola escena, misma cámara) para cada combinación de etapa × sustrato
-× nº de macetas × estado de luz (día/noche/frío/calor) × vista (frente/cenital), más los 24
-fotogramas de la puerta abriéndose. `lib.ts` (`frontImg`, `v2Name`) arma el nombre del archivo a
-partir del cultivo; `mentor.ts` (`sceneState`) decide el estado según luz y temperatura.
+La carpa es **foto + plantas 3D** (ver `../blender/README.md`): la carpa es el arte IA original
+(vacía) y las plantas se renderizan en Blender sobre fondo transparente y se componen encima.
+`public/assets/v2/` tiene ~270 WebP para cada combinación de etapa × sustrato × nº de macetas ×
+estado de luz (día/noche/frío/calor) × vista (frente/cenital), más los 24 fotogramas de la
+puerta abriéndose. `lib.ts` (`frontImg`, `v2Name`) arma el nombre del archivo a partir del
+cultivo; `mentor.ts` (`sceneState`) decide el estado según luz y temperatura.
 En `public/assets/` solo queda arte IA en uso: el vaso de remojo (`agua-*`) y los how-to
 (`howto-*`). El arte IA anterior de la carpa está en `_assets_ia_antiguas/` (fuera del build).
 Scripts: `scripts/optimize-images.mjs` (JPG→WebP), `scripts/gen-icons.mjs` (íconos PWA).

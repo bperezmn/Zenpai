@@ -15,6 +15,8 @@ STAGES = ('plantula', 'veg', 'flor', 'cosecha')
 STATES4 = ('dia', 'noche', 'frio', 'calor')
 LOTES = {
     'test': [('veg', 3, 'dia', 'tierra', 'top')],
+    'tierra': [(s, p, st) for s in STAGES for st in STATES4 for p in (1, 2, 3)]
+              + [('sed', p, 'dia') for p in (1, 2, 3)] + [('secando', 3, st) for st in ('dia', 'noche')],
     'germinacion': [('germinacion', p, st) for st in STATES4 for p in (1, 2, 3)],
     'sustratos': [(s, p, st, sub) for sub in ('coco', 'hidro') for s in STAGES for st in STATES4 for p in (1, 2, 3)]
                  + [('sed', p, 'dia', sub) for sub in ('coco', 'hidro') for p in (1, 2, 3)],
@@ -22,7 +24,7 @@ LOTES = {
                + [('vacia', 0, st, 'tierra', 'top') for st in STATES4],
     'cenital_flor': [(s, p, st, 'tierra', 'top') for s in ('flor', 'cosecha') for st in STATES4 for p in (1, 2, 3)],
 }
-LOTES['todo'] = LOTES['germinacion'] + LOTES['sustratos'] + LOTES['cenital']
+LOTES['todo'] = LOTES['tierra'] + LOTES['germinacion'] + LOTES['sustratos'] + LOTES['cenital']
 
 setup_render()
 t0 = time.time()

@@ -225,15 +225,16 @@ export function frontImg(c: Cultivo, view: 'front' | 'cenital', state: SceneStat
   return V2(v2Name(v2, state, c.pots, c.substrate, view))
 }
 
-// posición vertical (%) de cada planta en la vista cenital: cámara a 2.4 m mirando al piso con
-// 24 mm de sensor y 50 mm de lente; cuanto más alta la copa, más cerca de la cámara y más
-// separadas se ven. Macetas en x = ±0.245 m (3) / ±0.17 m (2); la #1 arriba.
+// posición vertical (%) de cada planta en la vista cenital: cámara a 3.5 m mirando al piso con
+// 24 mm de sensor y 50 mm de lente (blender/render_v2.py, modo foto); cuanto más alta la copa,
+// más cerca de la cámara y más separadas se ven. Macetas en x = ±0.345 m (3) / ±0.24 m (2)
+// — dentro de la bandeja de la foto —; la #1 arriba.
 export function cenitalTops(c: Cultivo): string[] {
   const s = v2Stage(c)
   const z = s === 'plantula' || s === 'germinacion' ? 0.24 : s === 'flor' || s === 'cosecha' ? 0.62 : s === 'sed' ? 0.45 : 0.55
-  const pct = (x: number) => `${Math.round(50 + (x / (2 * (2.4 - z) * 0.24)) * 100)}%`
+  const pct = (x: number) => `${Math.round(50 + (x / (2 * (3.5 - z) * 0.24)) * 100)}%`
   const p = Math.min(Math.max(c.pots, 1), 3)
-  return p === 1 ? [pct(0)] : p === 2 ? [pct(-0.17), pct(0.17)] : [pct(-0.245), pct(0), pct(0.245)]
+  return p === 1 ? [pct(0)] : p === 2 ? [pct(-0.24), pct(0.24)] : [pct(-0.345), pct(0), pct(0.345)]
 }
 
 // caption de la carpa: estado honesto + la acción disponible (nada de datos inventados)
