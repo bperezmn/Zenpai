@@ -11,9 +11,9 @@ const SIZES = [
   { cm: '120 × 120 cm', plants: 5, cap: '5 plantas · muestra 3' },
 ]
 const SUBS: { id: Substrate; label: string }[] = [
-  { id: 'tierra', label: '🟤 Tierra' },
-  { id: 'coco', label: '🥥 Coco' },
-  { id: 'hidro', label: '💧 Hidro' },
+  { id: 'tierra', label: 'Tierra'},
+  { id: 'coco', label: 'Coco'},
+  { id: 'hidro', label: 'Hidro'},
 ]
 const POTS = [4, 7, 11, 19, 25] // litros por maceta
 
@@ -75,8 +75,8 @@ export default function ConfigScreen() {
 
       {/* ¿de cero o ya en marcha? */}
       <div className="flex gap-[7px] mt-3 mb-4">
-        <button onClick={() => setMode('semilla')} className={`sub ${!existing ? 'on' : ''}`}>🫘 Desde semilla</button>
-        <button onClick={() => setMode('planta')} className={`sub ${existing ? 'on' : ''}`}>🌱 Ya tengo una planta</button>
+        <button onClick={() =>setMode( 'semilla')} className={`sub ${!existing ? 'on': ''}`}>Desde semilla</button>
+        <button onClick={() =>setMode( 'planta')} className={`sub ${existing ? 'on': ''}`}>Ya tengo una planta</button>
       </div>
 
       <label className="lbl">Nombre del cultivo</label>
@@ -94,8 +94,8 @@ export default function ConfigScreen() {
 
       <label className="lbl mt-4 mb-2 block">Tipo de semilla <span style={{ color: 'var(--faint)', textTransform: 'none', letterSpacing: 0 }}>→ define cuándo florece</span></label>
       <div className="flex gap-[7px]">
-        <button onClick={() => setSeedType('foto')} className={`sub ${seedType === 'foto' ? 'on' : ''}`}>🌞 Fotoperiódica</button>
-        <button onClick={() => { setSeedType('auto'); setFlowerWeeks(null) }} className={`sub ${seedType === 'auto' ? 'on' : ''}`}>⚡ Autofloreciente</button>
+        <button onClick={() =>setSeedType( 'foto')} className={`sub ${seedType === 'foto'? 'on': ''}`}>Fotoperiódica</button>
+        <button onClick={() =>{ setSeedType( 'auto'); setFlowerWeeks(null) }} className={`sub ${seedType === 'auto'? 'on': ''}`}>Autofloreciente</button>
       </div>
       <p className="text-[.64rem] mt-1.5" style={{ color: 'var(--faint)' }}>
         {seedType === 'foto'
@@ -141,7 +141,7 @@ export default function ConfigScreen() {
         </>
       )}
 
-      <button className="cbtn mt-5" onClick={submit}>{existing ? '🌱 Registrar mi planta' : '🌱 Germinar'}</button>
+      <button className="cbtn mt-5" onClick={submit}>{existing ? 'Registrar mi planta': 'Germinar'}</button>
       <p className="text-center text-[.66rem] mt-2.5" style={{ color: 'var(--faint)' }}>
         {existing
           ? `Tu carpa abrirá en el día ~${prevDay} · ${stageLabel[prevStage]}.`

@@ -74,7 +74,7 @@ export default function Journal({ onClose }: { onClose: () => void }) {
           <div className="flex items-center gap-2 min-w-0">
             <span className="text-[.7rem] mr-0.5 min-w-0 truncate" style={{ color: 'var(--faint)' }}>{grow} · {events.length} {events.length === 1 ? 'evento' : 'eventos'}</span>
             <button onClick={() => fileRef.current?.click()} className="jbtn-note" disabled={busyPhoto} style={{ opacity: busyPhoto ? 0.5 : 1 }}>
-              {busyPhoto ? '📷 …' : '+ Foto'}
+              {busyPhoto ? '…': '+ Foto'}
             </button>
             {!writing && <button onClick={() => setWriting(true)} className="jbtn-note">+ Nota</button>}
           </div>
@@ -83,7 +83,7 @@ export default function Journal({ onClose }: { onClose: () => void }) {
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickPhoto} />
         {photoError && (
           <p className="text-[.7rem] mb-2" style={{ color: 'var(--warn)' }}>
-            📷 No pudimos leer esa imagen. Prueba con otra foto.
+            No pudimos leer esa imagen. Prueba con otra foto.
           </p>
         )}
 
@@ -95,14 +95,14 @@ export default function Journal({ onClose }: { onClose: () => void }) {
               style={{ color: 'var(--text)' }} />
             <div className="flex gap-2 justify-end mt-1.5">
               <button onClick={() => { setWriting(false); setText('') }} className="jbtn-ghost">Cancelar</button>
-              <button onClick={saveNote} disabled={!text.trim()} className="jbtn-save" style={{ opacity: text.trim() ? 1 : 0.45 }}>📝 Guardar nota</button>
+              <button onClick={saveNote} disabled={!text.trim()} className="jbtn-save" style={{ opacity: text.trim() ? 1 : 0.45 }}>Guardar nota</button>
             </div>
           </div>
         )}
 
         {rows.length === 0 ? (
           <p className="text-[.82rem] py-8 text-center" style={{ color: 'var(--muted)' }}>
-            Aún no hay registros. Riega o cuida tu cultivo y aparecerán aquí 🌿
+            Aún no hay registros. Riega o cuida tu cultivo y aparecerán aquí 
           </p>
         ) : (
           <div className="overflow-y-auto min-h-0 -mx-1 px-1 space-y-1.5">
@@ -133,7 +133,7 @@ export default function Journal({ onClose }: { onClose: () => void }) {
                     </div>
                   ) : DELETABLE.has(ev.type) ? (
                     <button onClick={() => setDelId(ev.id ?? null)} title="Borrar registro" aria-label="Borrar registro"
-                      className="flex-none w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white/60" style={{ fontSize: '.85rem' }}>✕</button>
+                      className="flex-none w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white/60" style={{ fontSize: '.85rem'}}></button>
                   ) : null}
                 </div>
               )

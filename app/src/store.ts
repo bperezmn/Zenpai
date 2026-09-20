@@ -280,7 +280,7 @@ export const useStore = create<AppState>()(
               const live = deriveLive(next)
               return { ...next, ...live }
             },
-            { justCreated: true, previewDay: null, toast: `🪴 Transplante · ${n} ${n === 1 ? 'planta' : 'plantas'}`, pendingUndo: null },
+            { justCreated: true, previewDay: null, toast:`Transplante · ${n} ${n === 1 ? 'planta': 'plantas'}`, pendingUndo: null },
           )
           log('transplante', `Transplantadas ${n} ${n === 1 ? 'planta' : 'plantas'}`)
         },
@@ -303,7 +303,7 @@ export const useStore = create<AppState>()(
               const live = deriveLive(next) // cambiar el tipo puede recalcular la etapa
               return { ...next, ...live }
             },
-            { toast: '✏️ Cultivo actualizado', pendingUndo: null },
+            { toast: 'Cultivo actualizado', pendingUndo: null },
           )
           log('nota', 'Editado: ' + changes.join(' · '))
         },
@@ -312,21 +312,21 @@ export const useStore = create<AppState>()(
         toggleLight: () => {
           const c = selectActive(get())
           patchActive((g) => ({ ...g, light: !g.light }), {
-            toast: c.light ? '🌙 Luz apagada · la carpa descansa' : '💡 Luz encendida',
+            toast: c.light ? 'Luz apagada · la carpa descansa': ' Luz encendida',
             pendingUndo: null,
           })
         },
 
         // ---- ninguna germinó: reiniciar el remojo con semillas nuevas ----
         resoak: () => {
-          patchActive((g) => ({ ...g, soakTs: Date.now() }), { toast: '🫘 Remojo reiniciado con semillas nuevas', pendingUndo: null })
+          patchActive((g) =>({ ...g, soakTs: Date.now() }), { toast: 'Remojo reiniciado con semillas nuevas', pendingUndo: null })
           log('sembrado', 'Reinicio del remojo con semillas nuevas')
         },
 
         // ---- entrenamiento (LST / lollipop) en vegetativo ----
         applyTraining: (t) => {
           patchActive((g) => ({ ...g, training: t }), {
-            toast: t === 'none' ? '✂️ Entrenamiento quitado' : t === 'lst' ? '✂️ LST aplicado' : '✂️ Lollipop aplicado',
+            toast: t === 'none'? ' Entrenamiento quitado': t === 'lst'? ' LST aplicado': ' Lollipop aplicado',
             pendingUndo: null,
           })
           if (t !== 'none') log('entrenamiento', t === 'lst' ? 'Apliqué LST (low stress training)' : 'Apliqué lollipopping')
@@ -342,7 +342,7 @@ export const useStore = create<AppState>()(
               const live = deriveLive(next)
               return { ...next, ...live }
             },
-            { toast: '🌸 A floración · luz 12/12 anotada', pendingUndo: null },
+            { toast: 'A floración · luz 12/12 anotada', pendingUndo: null },
           )
           log('floracion', 'Cambié la luz a 12/12')
         },
@@ -357,7 +357,7 @@ export const useStore = create<AppState>()(
           const guard = force ? null : overwaterGuard(c)
           if (guard) { set({ toast: guard, pendingUndo: null }); return }
           const id = c.id
-          const myToast = toastOverride ?? '💧 Riego anotado en la bitácora'
+          const myToast = toastOverride ?? 'Riego anotado en la bitácora'
           const prev = { thirst: c.thirst, lastWaterTs: c.lastWaterTs, health: c.health }
           patchActive(
             (g) => ({ ...g, thirst: 0, lastWaterTs: Date.now(), health: Math.min(99, g.health + 1) }),
@@ -391,14 +391,14 @@ export const useStore = create<AppState>()(
               const live = deriveLive(next)
               return { ...next, ...live }
             },
-            { toast: '🥀 Tienen sed · toca las plantas para regar', pendingUndo: null },
+            { toast: 'Tienen sed · toca las plantas para regar', pendingUndo: null },
           )
           log('sed')
         },
 
         harvest: () => {
           const id = selectActive(get()).id
-          const myToast = '🎉 ¡Cosechado! A secar 7–14 días y luego curar 🫙'
+          const myToast = '¡Cosechado! A secar 7–14 días y luego curar'
           patchActive(
             (g) => ({ ...g, harvestedTs: Date.now(), stage: 'secando' }),
             { previewDay: null, toast: myToast, pendingUndo: null },
@@ -428,7 +428,7 @@ export const useStore = create<AppState>()(
           if (c.stage !== 'secando' || c.finishedTs) return
           patchActive(
             (g) => ({ ...g, finishedTs: Date.now(), dryWeight: dryWeight ?? null }),
-            { toast: '🫙 Cultivo terminado · su bitácora queda guardada', pendingUndo: null },
+            { toast: 'Cultivo terminado · su bitácora queda guardada', pendingUndo: null },
           )
           const parts = [dryWeight ? `Peso seco: ${dryWeight} g` : null, note?.trim() || null].filter(Boolean)
           log('terminado', parts.length ? parts.join(' · ') : undefined)
@@ -443,7 +443,7 @@ export const useStore = create<AppState>()(
           const shown = def.dec ? value.toFixed(def.dec) : Math.round(value).toString()
           patchActive(
             (g) => ({ ...g, readings: { ...g.readings, [key]: value }, readingDays: { ...g.readingDays, [key]: g.day } }),
-            { toast: `📊 ${def.label} anotado en la bitácora`, pendingUndo: null },
+            { toast:`${def.label} anotado en la bitácora`, pendingUndo: null },
           )
           log('medicion', `${def.label} ${shown}${u} · ${word}`)
         },
@@ -468,7 +468,7 @@ export const useStore = create<AppState>()(
           const g = grows.find((x) => needsAttention(x))
           if (!g) return
           set({ lastNotifiedDay: today })
-          const title = 'zenpai 💧'
+          const title = 'zenpai'
           const body = `${g.grow}: toca regar hoy (día ${g.day} · revisa el peso de la maceta)`
           try {
             navigator.serviceWorker?.getRegistration()
@@ -479,7 +479,7 @@ export const useStore = create<AppState>()(
 
         runUndo: () => {
           const u = get().pendingUndo
-          set({ pendingUndo: null, toast: u ? '↩️ Deshecho' : null })
+          set({ pendingUndo: null, toast: u ? 'Deshecho': null })
           if (u) u()
         },
 
@@ -501,7 +501,7 @@ export const useStore = create<AppState>()(
               const ev = await log('foto', undefined, pid).catch(() => null)
               if (!ev) deletePhoto(pid).catch(() => {})
             })
-            .catch(() => set({ toast: '📷 No se pudo guardar la foto', pendingUndo: null }))
+            .catch(() =>set({ toast: 'No se pudo guardar la foto', pendingUndo: null }))
         },
 
         removeEvent: (evId) => {
@@ -555,7 +555,7 @@ export const useStore = create<AppState>()(
         // retrodatadas. Son cultivos normales: se abren, se tocan y se eliminan igual.
         seedDemo: async () => {
           if (get().grows.some((g) => g.grow.startsWith('Demo · '))) {
-            set({ toast: '👀 Los datos de ejemplo ya están en tu lista', pendingUndo: null })
+            set({ toast: 'Los datos de ejemplo ya están en tu lista', pendingUndo: null })
             return
           }
           const now = Date.now()
@@ -605,7 +605,7 @@ export const useStore = create<AppState>()(
           await addEventsBulk(evs).catch(() => {})
           set((st) => ({
             grows: [...st.grows, g1, g2, g3, g4],
-            toast: '👀 Cuatro cultivos de ejemplo listos — ábrelos y tócalo todo',
+            toast: 'Cuatro cultivos de ejemplo listos — ábrelos y tócalo todo',
             pendingUndo: null,
           }))
         },
@@ -656,7 +656,7 @@ export const useStore = create<AppState>()(
               creating: false,
               events: [],
               previewDay: null,
-              toast: '📥 Respaldo importado',
+              toast: 'Respaldo importado',
               pendingUndo: null,
             })
             get().recomputeTime()
@@ -696,7 +696,7 @@ export const useStore = create<AppState>()(
               cloudOn: true,
               cloudBusy: false,
               lastCloudSyncTs: Date.now(),
-              toast: '☁️ Copia restaurada desde la nube',
+              toast: 'Copia restaurada desde la nube',
               pendingUndo: null,
             })
             get().recomputeTime()

@@ -36,7 +36,7 @@ export default function Today({ onClose }: { onClose: () => void }) {
           {advice.map((a, i) => (
             <div key={i} className="flex items-start gap-3 rounded-2xl px-3.5 py-3"
               style={{ background: 'rgba(255,255,255,.04)', border: `1px solid ${a.tone && a.tone !== 'ok' ? STATUS_COLOR[a.tone] : 'var(--glass-bd)'}` }}>
-              <span className="text-[1.15rem] leading-none mt-[1px]">{a.icon}</span>
+              <span className="w-1.5 h-1.5 rounded-full mt-[7px] flex-none" style={{ background: a.tone && a.tone !== 'ok' ? STATUS_COLOR[a.tone] : 'var(--blue)' }} />
               <div className="min-w-0">
                 <div className="text-[.86rem] font-bold leading-tight mb-0.5">{a.title}</div>
                 <div className="text-[.8rem] leading-snug" style={{ color: 'var(--muted)' }}>{a.body}</div>
@@ -58,14 +58,14 @@ export default function Today({ onClose }: { onClose: () => void }) {
                       style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--glass-bd)', color: 'var(--text)' }}>Aún no</button>
                     <button onClick={() => { setConfirmFlower(false); startFlowering(); onClose() }}
                       className="flex-[2] rounded-2xl py-2.5 text-[.78rem] font-bold"
-                      style={{ background: 'linear-gradient(135deg,var(--acc),var(--acc2))', color: '#04150c', border: 'none' }}>Sí, ya está en 12/12 🌸</button>
+                      style={{ background: 'linear-gradient(135deg,var(--acc),var(--acc2))', color: '#04150c', border: 'none'}}>Sí, ya está en 12/12</button>
                   </div>
                 </div>
               ) : (
                 <button onClick={() => setConfirmFlower(true)}
                   className="w-full rounded-2xl py-3 text-[.82rem] font-bold"
-                  style={{ background: 'linear-gradient(135deg,rgba(52,211,153,.22),rgba(190,242,100,.1))', border: '1px solid var(--acc)', color: 'var(--acc)' }}>
-                  🌸 Pasar a floración (12/12)
+                  style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.4)', color: '#fff' }}>
+                  Pasar a floración (12/12)
                 </button>
               )}
             </div>
@@ -74,7 +74,7 @@ export default function Today({ onClose }: { onClose: () => void }) {
           {/* entrenamiento (solo veg y nivel medio/avanzado): cambia la imagen + bitácora */}
           {showTraining && (
             <div className="pt-1">
-              <div className="text-[.58rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--faint)' }}>✂️ Aplicar entrenamiento</div>
+              <div className="text-[.58rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--faint)'}}>Aplicar entrenamiento</div>
               <div className="flex gap-[7px]">
                 {TECHNIQUES.map((t) => (
                   <button key={t.id} onClick={() => applyTraining(t.id)}

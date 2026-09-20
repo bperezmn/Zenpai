@@ -51,9 +51,9 @@ export default function Germination() {
   // mensaje de la tarjeta: los escalones por DÍAS mandan sobre el reloj del brote —
   // la app no puede saber si de verdad brotaron, y a partir del día 4 urge actuar
   const soakMsg = sd >= 4
-    ? '⚠️ Trasplanta HOY las que tengan raíz — con más días en agua se ahogan. Si ninguna la sacó, pásalas a servilleta húmeda o reintenta.'
+    ? 'Trasplanta HOY las que tengan raíz — con más días en agua se ahogan. Si ninguna la sacó, pásalas a servilleta húmeda o reintenta.'
     : brote
-      ? 'Ya deberían asomar las raíces 🌱 Cuando midan ~1–2 cm, pásalas a las macetas.'
+      ? 'Ya deberían asomar las raíces Cuando midan ~1–2 cm, pásalas a las macetas.'
       : 'En remojo… en 1–3 días saldrá la raíz blanca (taproot).'
   const soakMsgColor = sd >= 4 ? 'var(--warn)' : 'var(--muted)'
 
@@ -78,7 +78,7 @@ export default function Germination() {
 
       {/* chip etapa */}
       <div className="absolute right-3.5 top-11 z-20 glass rounded-full px-2.5 h-9 flex items-center gap-1.5">
-        <span className="text-[.8rem] leading-none">🫘</span>
+        <span className="text-[.8rem] leading-none"></span>
         <span className="display font-bold text-[.6rem] px-2 py-1 rounded-full leading-none" style={{ background: 'linear-gradient(135deg,var(--acc),var(--acc2))', color: '#04150c' }}>Germinando</span>
       </div>
 
@@ -86,7 +86,7 @@ export default function Germination() {
       <div className="absolute left-4 right-4 bottom-6 z-20">
         {failed ? (
           <div className="glass rounded-3xl p-5 text-center">
-            <h2 className="display text-[1.05rem] font-bold">No germinaron 😞</h2>
+            <h2 className="display text-[1.05rem] font-bold">No germinaron</h2>
             <p className="text-[.78rem] mt-1.5 mb-4" style={{ color: 'var(--muted)' }}>
               Pasa hasta en las mejores manos: semillas viejas, agua muy fría o demasiados días en remojo.
               Reintenta con semillas nuevas (la bitácora sigue) — o cierra el cultivo, que lo borra con su bitácora.
@@ -99,7 +99,7 @@ export default function Germination() {
             ) : (
               <div className="flex gap-2">
                 <button onClick={() => setConfirmClose(true)} className="gbtn-ghost flex-1 whitespace-nowrap">Cerrar cultivo</button>
-                <button onClick={() => { setFailed(false); setPicking(false); resoak() }} className="gbtn flex-[2] whitespace-nowrap">🫘 Reintentar remojo</button>
+                <button onClick={() =>{ setFailed(false); setPicking(false); resoak() }} className="gbtn flex-[2] whitespace-nowrap">Reintentar remojo</button>
               </div>
             )}
           </div>
@@ -123,12 +123,12 @@ export default function Germination() {
               {sd === 0 ? 'Recién puestas en agua · revísalas mañana' : `Llevan ${sd} ${sd === 1 ? 'día' : 'días'} en agua`}
             </p>
             {/* hasSprouted se recalcula EN el tap: entre ticks del minutero el render puede estar viejo */}
-            <button onClick={() => (hasSprouted(c) ? setShowHow(true) : setConfirmEarly(true))} className="gbtn">🪴 Transplantar</button>
+            <button onClick={() =>(hasSprouted(c) ? setShowHow(true) : setConfirmEarly(true))} className="gbtn">Transplantar</button>
             <div className="flex items-center justify-center gap-3 mt-2">
-              <button onClick={() => setShowGermHow(true)} className="text-[.62rem] font-semibold" style={{ color: 'var(--faint)' }}>Ver cómo germinar 👀</button>
-              <button onClick={() => setShowEdit(true)} className="text-[.62rem] font-semibold" style={{ color: 'var(--faint)' }}>Editar cultivo ✏️</button>
+              <button onClick={() =>setShowGermHow(true)} className="text-[.62rem] font-semibold" style={{ color: 'var(--faint)'}}>Ver cómo germinar</button>
+              <button onClick={() =>setShowEdit(true)} className="text-[.62rem] font-semibold" style={{ color: 'var(--faint)'}}>Editar cultivo</button>
               {sd >= 7 && (
-                <button onClick={() => setFailed(true)} className="text-[.62rem] font-semibold" style={{ color: 'var(--warn)' }}>No germinaron 😞</button>
+                <button onClick={() =>setFailed(true)} className="text-[.62rem] font-semibold" style={{ color: 'var(--warn)'}}>No germinaron</button>
               )}
             </div>
           </div>
@@ -145,7 +145,7 @@ export default function Germination() {
             <div className="flex gap-2">
               <button onClick={() => setPicking(false)} className="gbtn-ghost flex-1">Atrás</button>
               {count === 0 ? (
-                <button onClick={() => setFailed(true)} className="gbtn flex-[2] whitespace-nowrap" style={{ background: 'var(--warn)' }}>No brotó ninguna 😞</button>
+                <button onClick={() =>setFailed(true)} className="gbtn flex-[2] whitespace-nowrap" style={{ background: 'var(--warn)'}}>No brotó ninguna</button>
               ) : (
                 <button onClick={() => transplant(count)} className="gbtn flex-[2]">Transplantar {count} →</button>
               )}
@@ -156,7 +156,7 @@ export default function Germination() {
 
       {/* how-to de germinar en agua: automático la primera vez (salvo avanzado) + bajo demanda */}
       {showGermHow && (
-        <HowTo def={HOWTOS.germinacion} actionLabel="Ya están en el agua ✓"
+        <HowTo def={HOWTOS.germinacion} actionLabel="Ya están en el agua"
           onAction={closeGermHow}
           onClose={closeGermHow} />
       )}

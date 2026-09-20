@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useStore, selectActive } from '../store'
 
 // Cierre del ciclo tras el secado: peso seco opcional + nota final → el cultivo pasa
-// al archivo con su bitácora en solo-lectura. El momento de celebrar 🫙
+// al archivo con su bitácora en solo-lectura. El momento de celebrar 
 export default function FinishGrow({ onClose }: { onClose: () => void }) {
   const c = useStore(selectActive)
   const finishGrow = useStore((s) => s.finishGrow)
@@ -25,10 +25,10 @@ export default function FinishGrow({ onClose }: { onClose: () => void }) {
           <span className="text-[.7rem]" style={{ color: 'var(--faint)' }}>{c.grow} · día {c.day}</span>
         </div>
         <p className="text-[.74rem] mb-4" style={{ color: 'var(--muted)' }}>
-          Ya secos y a los frascos 🫙 Guarda el cierre: su bitácora queda como historial de este ciclo.
+          Ya secos y a los frascos Guarda el cierre: su bitácora queda como historial de este ciclo.
         </p>
 
-        <div className="text-[.58rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--faint)' }}>⚖️ Peso seco (opcional)</div>
+        <div className="text-[.58rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--faint)'}}>Peso seco (opcional)</div>
         <div className="flex items-center justify-center gap-6 mb-1">
           <button className="fstep" onClick={() => setWeight((v) => Math.max(0, v - 5))}>–</button>
           <div className="display font-bold text-[2rem] leading-none text-center" style={{ color: weight > 0 ? 'var(--acc)' : 'var(--faint)', minWidth: 110 }}>
@@ -38,7 +38,7 @@ export default function FinishGrow({ onClose }: { onClose: () => void }) {
         </div>
         <p className="text-center text-[.6rem] mb-4" style={{ color: 'var(--faint)' }}>pasos de 5 g · un primer cultivo suele dar ~30–80 g secos por planta</p>
 
-        <div className="text-[.58rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--faint)' }}>📝 Nota final (opcional)</div>
+        <div className="text-[.58rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--faint)'}}>Nota final (opcional)</div>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
           placeholder="¿Qué aprendiste? ¿Qué harías distinto la próxima vez?"
           className="w-full rounded-2xl p-3 mb-4 bg-transparent resize-none outline-none text-[.85rem]"
@@ -46,7 +46,7 @@ export default function FinishGrow({ onClose }: { onClose: () => void }) {
 
         <div className="flex gap-2">
           <button onClick={onClose} className="fbtn-ghost flex-1">Todavía no</button>
-          <button onClick={submit} className="fbtn flex-[2]">🫙 Terminar</button>
+          <button onClick={submit} className="fbtn flex-[2]">Terminar</button>
         </div>
 
         <style>{`

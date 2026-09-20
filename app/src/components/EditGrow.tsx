@@ -3,9 +3,9 @@ import { useStore, selectActive } from '../store'
 import type { Substrate, SeedType } from '../lib'
 
 const SUBS: { id: Substrate; label: string }[] = [
-  { id: 'tierra', label: '🟤 Tierra' },
-  { id: 'coco', label: '🥥 Coco' },
-  { id: 'hidro', label: '💧 Hidro' },
+  { id: 'tierra', label: 'Tierra'},
+  { id: 'coco', label: 'Coco'},
+  { id: 'hidro', label: 'Hidro'},
 ]
 const POTS = [4, 7, 11, 19, 25]
 
@@ -55,9 +55,9 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
         <label className="elbl">Tipo de semilla {!seedEditable && <span className="esub">· fijado (floración en marcha)</span>}</label>
         <div className="flex gap-[7px] mb-1">
           <button disabled={!seedEditable} onClick={() => setSeedType('foto')}
-            className={`echip ${seedType === 'foto' ? 'on' : ''}`} style={{ opacity: seedEditable ? 1 : 0.45 }}>🌞 Fotoperiódica</button>
+            className={`echip ${seedType === 'foto'? 'on': ''}`} style={{ opacity: seedEditable ? 1 : 0.45 }}>Fotoperiódica</button>
           <button disabled={!seedEditable} onClick={() => setSeedType('auto')}
-            className={`echip ${seedType === 'auto' ? 'on' : ''}`} style={{ opacity: seedEditable ? 1 : 0.45 }}>⚡ Autofloreciente</button>
+            className={`echip ${seedType === 'auto'? 'on': ''}`} style={{ opacity: seedEditable ? 1 : 0.45 }}>Autofloreciente</button>
         </div>
         {seedEditable && seedType !== c.seedType && (
           <p className="text-[.66rem] mb-1" style={{ color: 'var(--warn)' }}>
@@ -67,7 +67,7 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
 
         <div className="flex gap-2 mt-4">
           <button onClick={onClose} className="ebtn-ghost flex-1">Cancelar</button>
-          <button onClick={save} className="ebtn flex-[2]">✏️ Guardar cambios</button>
+          <button onClick={save} className="ebtn flex-[2]">Guardar cambios</button>
         </div>
 
         <style>{`

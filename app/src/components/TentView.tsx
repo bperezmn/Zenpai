@@ -144,7 +144,7 @@ export default function TentView() {
     const w = wateringGuide(c)
     const ph = targetFor('ph', c.stage, c.substrate)
     const ec = targetFor('ec', c.stage, c.substrate)
-    return ['💧 ' + (w ? w.amount : 'a fondo'), 'pH ' + fmtRange(ph, 1), ec ? 'EC ' + fmtRange(ec, 1) : null].filter(Boolean).join(' · ')
+    return [ ''+ (w ? w.amount : ' a fondo'), 'pH'+ fmtRange(ph, 1), ec ? 'EC'+ fmtRange(ec, 1) : null].filter(Boolean).join( '·')
   }
   function onWater(e?: React.PointerEvent) {
     // encontró el hotspot por su cuenta: el coach ya no tiene nada que enseñarle ahí
@@ -193,27 +193,25 @@ export default function TentView() {
             style={{ left: '12%', top: '42%', width: '64%', height: '46%' }} />
         )}
         {view === 'cenital' && names.map((n, i) => (
-          <div key={i} className="cenname" style={{ top: tops[i] }}>🌿 {n}</div>
+          <div key={i} className="cenname" style={{ top: tops[i] }}>{n}</div>
         ))}
       </div>
 
-      {/* arriba-izquierda: volver + chip día/etapa (ámbar al previsualizar, toca para volver a hoy) */}
+      {/* arriba-izquierda: volver + día/etapa (ámbar al previsualizar, toca para volver a hoy) */}
       <div className="absolute left-3.5 top-4 z-30 flex items-center gap-2">
-        <button onClick={goHome} title="Mis cultivos" className="tbtn">Volver</button>
-        <button onClick={() => preview && setPreview(null)}
-          className="glass rounded-full pl-3 pr-1 h-9 flex items-center gap-2"
-          style={preview ? { borderColor: 'var(--warn)' } : undefined}>
-          {preview && <span className="text-[.7rem] leading-none" style={{ color: 'var(--warn)' }}>👁</span>}
-          <span className="display font-bold text-[.74rem] leading-none">Día {effDay}</span>
-          <span className="display font-bold text-[.58rem] px-2 py-1 rounded-full leading-none"
-            style={{ background: preview ? 'var(--warn)' : 'linear-gradient(135deg,var(--acc),var(--acc2))', color: '#04150c' }}>{stageLabel[effStage]}</span>
+        <button onClick={goHome} title="Mis cultivos" aria-label="Volver a mis cultivos" className="tbtn tbtn-ico">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
+        <button onClick={() => preview && setPreview(null)} className="tbtn"
+          style={preview ? { borderColor: 'var(--warn)', color: 'var(--warn)' } : undefined}>
+          Día {effDay} · {stageLabel[effStage]}
         </button>
       </div>
 
       {/* arriba-derecha: Consejos del mentor (según etapa y nivel) */}
       <button onClick={() => setShowToday(true)} disabled={preview} className="tbtn absolute right-3.5 top-4 z-30 flex items-center gap-1.5">
-        Consejos
-        {attention && <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--warn)' }} />}
+        Hoy
+        {attention && <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--blue)' }} />}
       </button>
 
       {/* borde derecho (vertical): vista superior + bitácora + (sed en veg) — solo texto */}
@@ -242,9 +240,10 @@ export default function TentView() {
             onPointerUp={() => { dragging.current = false; setLastTouch(Date.now()) }}
             onPointerCancel={() => { dragging.current = false; setLastTouch(Date.now()) }}
             onLostPointerCapture={() => { dragging.current = false; setLastTouch(Date.now()) }}>
-            <div className="absolute left-0 right-0" style={{ height: '6px', borderRadius: '9px', background: 'rgba(255,255,255,.16)', border: '1px solid rgba(255,255,255,.14)', boxShadow: '0 1px 6px rgba(0,0,0,.35)' }} />
-            <div className="absolute left-0" style={{ width: `${pct}%`, height: '6px', borderRadius: '9px', background: preview ? 'var(--warn)' : 'linear-gradient(90deg,var(--acc),var(--acc2))', boxShadow: '0 0 10px var(--glow)' }} />
-            <div className="absolute" style={{ left: `calc(${pct}% - 9px)`, width: '18px', height: '18px', borderRadius: '50%', background: '#fff', border: `3px solid ${preview ? 'var(--warn)' : 'var(--acc)'}`, boxShadow: '0 2px 10px rgba(0,0,0,.6)' }} />
+            <div className="absolute left-0 right-0" style={{ top: 11, height: 1, background: 'rgba(255,255,255,.3)' }} />
+            <div className="absolute left-0 right-0" style={{ top: 8, height: 7, background: 'repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 1px, transparent 1px 8.333%)' }} />
+            <div className="absolute left-0" style={{ top: 11, width: `${pct}%`, height: 1, background: preview ? 'var(--warn)' : '#fff' }} />
+            <div className="absolute" style={{ left: `calc(${pct}% - 1px)`, top: 3, width: 2, height: 17, background: preview ? 'var(--warn)' : '#fff' }} />
           </div>
         </div>
       )}
@@ -254,8 +253,8 @@ export default function TentView() {
         <button onClick={() => setPreview(null)}
           className="absolute left-1/2 -translate-x-1/2 top-[88px] z-30 glass rounded-full h-9 px-4 flex items-center gap-2 whitespace-nowrap"
           style={{ borderColor: 'var(--warn)' }}>
-          <span className="text-[.72rem] leading-none" style={{ color: 'var(--warn)' }}>👁 Día {effDay}</span>
-          <span className="display font-bold text-[.72rem] leading-none" style={{ color: 'var(--warn)' }}>· Volver a hoy ✕</span>
+          <span className="text-[.72rem] leading-none" style={{ color: 'var(--warn)'}}>Día {effDay}</span>
+          <span className="display font-bold text-[.72rem] leading-none" style={{ color: 'var(--warn)'}}>· Volver a hoy</span>
         </button>
       )}
 
@@ -281,30 +280,31 @@ export default function TentView() {
               <div className="flex gap-2 justify-center">
                 <button onClick={() => setConfirmHarvest(false)} className="tbtn">Todavía no</button>
                 <button onClick={() => { setConfirmHarvest(false); harvest() }}
-                  className="btn-glow rounded-2xl px-5 display font-bold text-[.78rem]" style={{ height: 34 }}>🌾 Sí, cosechar</button>
+                  className="btn-glow rounded-2xl px-5 display font-bold text-[.78rem]" style={{ height: 34 }}>Sí, cosechar</button>
               </div>
             </div>
           ) : done && !c.finishedTs ? (
             // secando: el ciclo aún no cierra — Terminar es la acción principal
             <div className="flex gap-2 self-center pointer-events-auto">
-              <button onClick={startNew} className="tbtn">🌱 Nuevo cultivo</button>
+              <button onClick={startNew} className="tbtn">Nuevo cultivo</button>
               <button onClick={() => setShowFinish(true)}
-                className="btn-glow rounded-2xl px-5 py-2.5 display font-bold text-[.85rem]">🫙 Terminar cultivo</button>
+                className="btn-glow rounded-2xl px-5 py-2.5 display font-bold text-[.85rem]">Terminar cultivo</button>
             </div>
           ) : done ? (
             <button onClick={startNew}
-              className="btn-glow self-center rounded-2xl px-6 py-2.5 display font-bold text-[.85rem] pointer-events-auto">🌱 Nuevo cultivo</button>
+              className="btn-glow self-center rounded-2xl px-6 py-2.5 display font-bold text-[.85rem] pointer-events-auto">Nuevo cultivo</button>
           ) : (
             <button onClick={() => setConfirmHarvest(true)}
-              className="btn-glow self-center rounded-2xl px-6 py-2.5 display font-bold text-[.85rem] pointer-events-auto">🌾 Cosechar</button>
+              className="btn-glow self-center rounded-2xl px-6 py-2.5 display font-bold text-[.85rem] pointer-events-auto">Cosechar</button>
           )
         )}
 
         {/* caption de estado: qué pasa y qué se puede tocar (el texto vive en statusText) */}
         {!preview && (
-          <div className="text-center text-[.7rem] font-medium pointer-events-none"
-            style={{ color: 'rgba(255,255,255,.78)', textShadow: '0 1px 8px rgba(0,0,0,.85)' }}>
-            {statusText(c, view)}
+          <div className="flex items-center justify-center gap-2 text-[.8rem] font-medium pointer-events-none"
+            style={{ color: '#fff', textShadow: '0 1px 8px rgba(0,0,0,.85)' }}>
+            <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: 'var(--blue)' }} />
+            <span>{statusText(c, view)}</span>
           </div>
         )}
 
@@ -320,18 +320,20 @@ export default function TentView() {
               const showReading = !preview && fresh && !noTarget
               const ev = showReading ? evalMetric(m.key, reading!, effStage, c.substrate) : null
               const color = ev ? STATUS_COLOR[ev.status] : 'var(--text)'
-              return (
+                const markerPct = showReading && range ? Math.min(98, Math.max(2, 28 + (44 * (reading! - range.lo)) / (range.hi - range.lo || 1))) : 50
+                return (
                 <button key={m.key} disabled={preview || noTarget} onClick={() => setMeasureKey(m.key)}
-                  className="glass rounded-2xl py-1.5 text-center relative flex-1 min-w-[30%]"
+                  className="tile relative flex-1 min-w-[30%] text-left"
                   style={{ opacity: preview ? 0.45 : noTarget ? 0.5 : 1 }}>
-                  {ev && <span className="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />}
-                  <div className="text-[.46rem] font-bold uppercase tracking-wider" style={{ color: showReading ? color : 'var(--faint)' }}>
-                    {noTarget ? '—' : showReading ? 'tu lectura' : 'objetivo'}
+                  <div className="label">{m.label}</div>
+                  <div className="mono text-[1.2rem] font-medium leading-none mt-1.5" style={{ color: showReading ? color : 'var(--text)' }}>
+                    {noTarget ? '—' : showReading ? fmtVal(reading!, m.dec) : fmtRange(range, m.dec)}
                   </div>
-                  <div className="display font-bold text-[.9rem] leading-none mt-0.5" style={{ color: showReading ? color : 'var(--text)' }}>
-                    {showReading ? fmtVal(reading!, m.dec) : fmtRange(range, m.dec)}
+                  <div className="relative mt-2" style={{ height: 2, background: 'rgba(255,255,255,.14)' }}>
+                    {!noTarget && <div className="absolute" style={{ left: '28%', width: '44%', height: 2, background: 'rgba(255,255,255,.35)' }} />}
+                    {showReading && <div className="absolute" style={{ left: `calc(${markerPct}% - 2px)`, top: -2, width: 4, height: 6, background: color }} />}
                   </div>
-                  <div className="text-[.5rem] font-bold uppercase mt-0.5" style={{ color: 'var(--faint)' }}>{m.label}</div>
+                  <div className="label mt-1.5" style={{ fontSize: '.56rem' }}>{noTarget ? 'sin objetivo' : showReading ? `meta ${fmtRange(range, m.dec)}` : 'objetivo de la etapa'}</div>
                 </button>
               )
             })}
@@ -346,7 +348,7 @@ export default function TentView() {
             <span className="coach-ring" />
           </div>
           <div className="absolute left-8 right-8 text-center pointer-events-none" style={{ top: '38%' }}>
-            <div className="coach-tip">💧 <b>Toca las plantas</b> para regar</div>
+            <div className="coach-tip"><b>Toca las plantas</b>para regar</div>
           </div>
           <div className="absolute left-6 right-6 text-center pointer-events-none" style={{ bottom: '112px' }}>
             <div className="coach-tip">Abajo, los <b>objetivos de la etapa</b> · toca una métrica para anotar tu lectura</div>
@@ -382,8 +384,10 @@ export default function TentView() {
         .aparece{animation:aparece .7s ease-out both}
         @keyframes aparece{from{opacity:0}to{opacity:1}}
         @media (prefers-reduced-motion:reduce){.escena-viva,.aparece{animation:none}}
-        .cenname{position:absolute;left:50%;transform:translateX(-50%);background:rgba(8,14,11,.7);backdrop-filter:blur(8px);border:1px solid var(--glass-bd);color:var(--text);font-family:'Space Grotesk';font-weight:700;font-size:.74rem;padding:.28rem .7rem;border-radius:999px;white-space:nowrap}
-        .tbtn{height:34px;padding:0 .8rem;border-radius:13px;background:rgba(8,14,11,.55);backdrop-filter:blur(14px);border:1px solid var(--glass-bd);color:rgba(255,255,255,.88);font-family:'Space Grotesk';font-weight:700;font-size:.72rem;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+        .cenname{position:absolute;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;padding:.3rem .7rem;border-radius:5px;white-space:nowrap}
+        .tbtn{height:36px;padding:0 .75rem;border-radius:5px;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+        .tbtn-ico{width:36px;padding:0}
+        .tile{background:rgba(0,0,0,.6);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.14);border-radius:5px;padding:10px 12px}
         .tbtn:active{background:rgba(255,255,255,.14)}
         .tbtn:disabled{opacity:.45}
         .dock-row{scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x proximity}

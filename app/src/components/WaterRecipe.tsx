@@ -26,9 +26,9 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
         </div>
 
         <div className="space-y-2">
-          <Row icon="💧" label="Agua" value={w ? w.amount : 'a fondo'} />
-          <Row icon="🧪" label="pH" value={fmtRange(ph, 1)} />
-          <Row icon="⚗️" label="EC · fuerza del abono" value={ec ? `${fmtRange(ec, 1)} mS` : 'solo agua'} />
+          <Row icon="" label="Agua" value={w ? w.amount : 'a fondo'} />
+          <Row icon="" label="pH" value={fmtRange(ph, 1)} />
+          <Row icon="" label="EC · fuerza del abono" value={ec ?`${fmtRange(ec, 1)} mS`: 'solo agua'} />
         </div>
 
         <div className="mt-3 mb-4 space-y-1">
@@ -51,13 +51,13 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
 
         {guard ? (
           <div className="flex gap-2">
-            <button onClick={() => onConfirm(true)} className="rbtn-ghost flex-1 whitespace-nowrap">Regar igualmente 💧</button>
-            <button onClick={onClose} className="rbtn flex-[2] whitespace-nowrap">Esperar ✋</button>
+            <button onClick={() =>onConfirm(true)} className="rbtn-ghost flex-1 whitespace-nowrap">Regar igualmente</button>
+            <button onClick={onClose} className="rbtn flex-[2] whitespace-nowrap">Esperar</button>
           </div>
         ) : (
           <div className="flex gap-2">
-            <button onClick={onHow} className="rbtn-ghost flex-1">Ver cómo 👀</button>
-            <button onClick={() => onConfirm()} className="rbtn flex-[2]">Regar 💧</button>
+            <button onClick={onHow} className="rbtn-ghost flex-1">Ver cómo</button>
+            <button onClick={() =>onConfirm()} className="rbtn flex-[2]">Regar</button>
           </div>
         )}
 

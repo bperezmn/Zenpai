@@ -57,7 +57,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
       if (navigator.canShare?.({ files: [file] }) && navigator.share) {
         try {
           await navigator.share({ files: [file], title: 'Respaldo de zenpai' })
-          setDataMsg({ ok: true, text: 'Respaldo compartido ✓ Guárdalo donde no se pierda.' })
+          setDataMsg({ ok: true, text: 'Respaldo compartido Guárdalo donde no se pierda.'})
           setBusy(null)
           return
         } catch (err) {
@@ -109,7 +109,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
     const err = await importBackup(confirmImport.data)
     setBusy(null)
     setConfirmImport(null)
-    setDataMsg(err ? { ok: false, text: err } : { ok: true, text: 'Respaldo importado ✓ Tus cultivos ya están aquí.' })
+    setDataMsg(err ? { ok: false, text: err } : { ok: true, text: 'Respaldo importado Tus cultivos ya están aquí.'})
   }
 
   return (
@@ -135,7 +135,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
           <label className="olbl mt-7 mb-2 block">Recordatorios</label>
           <button onClick={toggleNotify} className={`olevel ${notifyEnabled ? 'on' : ''}`}>
             <span className="oname flex items-center justify-between w-full">
-              💧 Aviso de riego
+              Aviso de riego
               <span className="text-[.72rem] font-bold px-2 py-1 rounded-full"
                 style={notifyEnabled ? { background: 'linear-gradient(135deg,var(--acc),var(--acc2))', color: '#04150c' } : { background: 'rgba(255,255,255,.08)', color: 'var(--muted)' }}>
                 {notifyEnabled ? 'Activado' : 'Desactivado'}
@@ -159,7 +159,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
           <label className="olbl mt-7 mb-2 block">Nube</label>
           <div className={`olevel ${cloudOn ? 'on' : ''}`} style={{ cursor: 'default' }}>
             <span className="oname flex items-center justify-between w-full">
-              ☁️ Respaldo en la nube
+              Respaldo en la nube
               <span className="text-[.72rem] font-bold px-2 py-1 rounded-full"
                 style={cloudOn ? { background: 'linear-gradient(135deg,var(--acc),var(--acc2))', color: '#04150c' } : { background: 'rgba(255,255,255,.08)', color: 'var(--muted)' }}>
                 {cloudBusy ? 'Sincronizando…' : cloudOn ? 'Activado' : 'Desactivado'}
@@ -177,13 +177,13 @@ export default function Settings({ onClose }: { onClose: () => void }) {
               {cloudOn ? (
                 <>
                   <button onClick={() => syncCloudNow()} disabled={cloudBusy} className="dbtn flex-1" style={{ opacity: cloudBusy ? 0.6 : 1 }}>
-                    {cloudBusy ? '☁️ …' : '☁️ Sincronizar ahora'}
+                    {cloudBusy ? '…': ' Sincronizar ahora'}
                   </button>
                   <button onClick={disableCloud} disabled={cloudBusy} className="dbtn-ghost flex-1">Pausar</button>
                 </>
               ) : (
                 <button onClick={() => enableCloud()} disabled={cloudBusy} className="dbtn flex-1" style={{ opacity: cloudBusy ? 0.6 : 1 }}>
-                  {cloudBusy ? 'Conectando…' : '☁️ Activar respaldo'}
+                  {cloudBusy ? 'Conectando…': ' Activar respaldo'}
                 </button>
               )}
             </div>
@@ -196,7 +196,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
 
       <label className="olbl mt-7 mb-2 block">Datos y privacidad</label>
       <div className="olevel" style={{ cursor: 'default' }}>
-        <span className="oname">📦 Tus datos viven aquí</span>
+        <span className="oname">Tus datos viven aquí</span>
         <span className="odesc">
           Todo se guarda SOLO en este dispositivo: sin cuentas, sin nube, sin rastreo. Las fotos
           se limpian de metadatos (GPS incluido) antes de guardarse. Por eso mismo, si pierdes el
@@ -204,9 +204,9 @@ export default function Settings({ onClose }: { onClose: () => void }) {
         </span>
         <div className="flex gap-2 mt-2.5">
           <button onClick={doExport} disabled={busy !== null} className="dbtn flex-1" style={{ opacity: busy === 'export' ? 0.6 : 1 }}>
-            {busy === 'export' ? '⬇️ Generando…' : '⬇️ Exportar respaldo'}
+            {busy === 'export'? ' Generando…': ' Exportar respaldo'}
           </button>
-          <button onClick={() => fileRef.current?.click()} disabled={busy !== null} className="dbtn-ghost flex-1">⬆️ Importar</button>
+          <button onClick={() =>fileRef.current?.click()} disabled={busy !== null} className="dbtn-ghost flex-1">Importar</button>
         </div>
         <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={onPickBackup} />
         {dataMsg && (
@@ -243,7 +243,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
           </>
         ) : (
           <button onClick={() => setConfirmWipe(true)} className="text-left w-full" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-            <span className="oname" style={{ color: '#f87171' }}>🗑 Borrar todos mis datos</span>
+            <span className="oname" style={{ color: '#f87171'}}>Borrar todos mis datos</span>
             <span className="odesc block mt-1">Elimina cultivos, bitácoras, fotos y ajustes de este dispositivo.</span>
           </button>
         )}
@@ -252,7 +252,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
       <label className="olbl mt-7 mb-2 block">Aviso legal</label>
       <div className="olevel" style={{ cursor: 'default' }}>
         <button onClick={() => setShowLegal((v) => !v)} className="text-left w-full" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-          <span className="oname flex items-center justify-between w-full">⚖️ Lo que aceptaste al entrar
+          <span className="oname flex items-center justify-between w-full">Lo que aceptaste al entrar
             <span style={{ color: 'var(--faint)', fontSize: '.8rem' }}>{showLegal ? '▾' : '▸'}</span>
           </span>
         </button>

@@ -158,18 +158,18 @@ export interface GrowEvent {
   photoId?: number    // eventos 'foto': id del blob en la tabla photos
 }
 export const EVENT_META: Record<EventType, { icon: string; label: string }> = {
-  creado: { icon: '🌱', label: 'Cultivo creado' },
-  sembrado: { icon: '🫘', label: 'Semillas en remojo' },
-  transplante: { icon: '🪴', label: 'Transplante' },
-  riego: { icon: '💧', label: 'Riego' },
-  sed: { icon: '🥀', label: 'Sed detectada' },
-  entrenamiento: { icon: '✂️', label: 'Entrenamiento' },
-  floracion: { icon: '🌸', label: 'A floración (12/12)' },
-  cosecha: { icon: '🌾', label: 'Cosecha' },
-  terminado: { icon: '🫙', label: 'Cultivo terminado' },
-  nota: { icon: '📝', label: 'Nota' },
-  medicion: { icon: '📊', label: 'Medición' },
-  foto: { icon: '📷', label: 'Foto' },
+  creado: { icon: '', label: ' Cultivo creado'},
+  sembrado: { icon: '', label: ' Semillas en remojo'},
+  transplante: { icon: '', label: 'Transplante'},
+  riego: { icon: '', label: 'Riego'},
+  sed: { icon: '', label: ' Sed detectada'},
+  entrenamiento: { icon: '', label: 'Entrenamiento'},
+  floracion: { icon: '', label: ' A floración (12/12)'},
+  cosecha: { icon: '', label: 'Cosecha'},
+  terminado: { icon: '', label: ' Cultivo terminado'},
+  nota: { icon: '', label: 'Nota'},
+  medicion: { icon: '', label: ' Medición'},
+  foto: { icon: '', label: 'Foto'},
 }
 
 // ===== legal: control de edad + consentimiento (versionado para re-consentir si cambian términos) =====
@@ -249,24 +249,24 @@ export function cenitalTops(c: Cultivo): string[] {
 // caption de la carpa: estado honesto + la acción disponible (nada de datos inventados)
 export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
   if (view === 'cenital') return 'Vista desde arriba · ' + (c.grow || 'tu carpa')
-  if (c.finishedTs) return 'Terminado 🫙 · su bitácora queda guardada'
-  if (c.stage === 'secando') return 'Secando · cuelga 7–14 días y luego a curar 🫙'
-  if (c.stage === 'cosecha') return 'Lista para cosechar · revisa los tricomas ✂️'
-  if (c.thirst > 0.55) return 'Tienen sed · toca las plantas para regar 💧'
+  if (c.finishedTs) return 'Terminado · su bitácora queda guardada'
+  if (c.stage === 'secando') return ' Secando · cuelga 7–14 días y luego a curar'
+  if (c.stage === 'cosecha') return ' Lista para cosechar · revisa los tricomas'
+  if (c.thirst >0.55) return 'Tienen sed · toca las plantas para regar'
   // mismos umbrales que el guardarraíl y los avisos (GUARD_HOURS / WATER_ALERT_DAYS):
   // la caption nunca debe contradecir a la ficha de riego ni al chip de Home
   const H = GUARD_HOURS[c.substrate]
   const hrs = c.lastWaterTs ? (Date.now() - c.lastWaterTs) / 3600000 : null
-  if (H !== null && hrs !== null && hrs < H) return 'Regadas hace poco · deja que el sustrato seque 🌿'
+  if (H !== null && hrs !== null && hrs < H) return 'Regadas hace poco · deja que el sustrato seque'
   const ref = c.lastWaterTs ?? c.germTs
   const days = ref ? Math.floor((Date.now() - ref) / 86400000) : null
   const alertAt = WATER_ALERT_DAYS[c.stage]
   if (days !== null && alertAt !== undefined && days >= alertAt) {
-    return `Hace ${days} días sin riego · si la maceta pesa poco, toca las plantas 💧`
+    return`Hace ${days} días sin riego · si la maceta pesa poco, toca las plantas`
   }
-  if (c.stage === 'plantula') return 'Plántulas · riegos pequeños · toca las plantas para regar 💧'
-  if (c.stage === 'flor') return 'Cogollos engordando · toca las plantas para regar 💧'
-  return 'En vegetativo · toca las plantas para regar 💧'
+  if (c.stage === 'plantula') return ' Plántulas · riegos pequeños · toca las plantas para regar'
+  if (c.stage === 'flor') return ' Cogollos engordando · toca las plantas para regar'
+  return 'En vegetativo · toca las plantas para regar'
 }
 
 // preload selectivo: solo lo que se va a ver ahora (no las 31 imágenes)
