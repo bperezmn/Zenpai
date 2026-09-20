@@ -107,6 +107,7 @@ interface AppState {
   transplant: (count: number) => void
   resoak: () => void
   updateGrow: (cfg: { grow: string; potL: number; substrate: Substrate; seedType: SeedType }) => void
+  toggleLight: () => void
   applyTraining: (t: Training) => void
   startFlowering: () => void
   setPreview: (d: number | null) => void
@@ -305,6 +306,15 @@ export const useStore = create<AppState>()(
             { toast: '✏️ Cultivo actualizado', pendingUndo: null },
           )
           log('nota', 'Editado: ' + changes.join(' · '))
+        },
+
+        // ---- luz de la carpa (visual: la escena 3D pasa a noche) ----
+        toggleLight: () => {
+          const c = selectActive(get())
+          patchActive((g) => ({ ...g, light: !g.light }), {
+            toast: c.light ? '🌙 Luz apagada · la carpa descansa' : '💡 Luz encendida',
+            pendingUndo: null,
+          })
         },
 
         // ---- ninguna germinó: reiniciar el remojo con semillas nuevas ----

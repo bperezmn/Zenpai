@@ -1,6 +1,6 @@
 // ===== motor del mentor: rangos agronómicos + guía contextual =====
 // Rangos de referencia general (sin CO₂), verificados en investigación. NO son consejo absoluto.
-import { GUARD_HOURS, WATER_ALERT_DAYS, type Stage, type Substrate, type MetricKey, type Cultivo, type Guide } from './lib'
+import { GUARD_HOURS, WATER_ALERT_DAYS, stageAt, type Stage, type Substrate, type MetricKey, type Cultivo, type Guide, type SceneState } from './lib'
 
 // nivel de experiencia (creciente): novato → medio → avanzado
 export const LEVELS: Guide[] = ['novato', 'medio', 'avanzado']
@@ -160,6 +160,22 @@ export function mentorAdvice(c: Cultivo, guide: Guide): Advice[] {
     if (a.levels.includes(guide)) out.push({ icon: a.icon, title: a.title, body: a.body, tone: a.tone })
   }
   return out
+}
+
+// ===== estado visual de la carpa 3D: el interior reacciona a TUS datos =====
+// luz apagada → noche; temperatura registrada (fresca) fuera de rango → frío/calor.
+export function sceneState(c: Cultivo): SceneState {
+  if (!c.light) return 'noche'
+  const t = c.readings.temp
+  const d = c.readingDays.temp
+  if (t != null && d != null && stageAt(c, d) === c.stage) {
+    const r = targetFor('temp', c.stage, c.substrate)
+    if (r) {
+      if (t < r.lo - 1) return 'frio'
+      if (t > r.hi + 1) return 'calor'
+    }
+  }
+  return 'dia'
 }
 
 // ¿hay algo que requiera atención? (para el puntito del botón Consejos)

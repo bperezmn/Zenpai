@@ -18,3 +18,6 @@ app/_assets_jpg_original/
 prototype/assets/
 prototype/*.jpg
 prototype/*.png
+
+# modelos 3D pesados generados (Tripo/Meshy): no se versionan
+blender/plantas/*.glb

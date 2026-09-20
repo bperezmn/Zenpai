@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { useStore, selectActive } from '../store'
-import { frontImg, nightImg, statusText, stageLabel, stageAt, previewStage, MAX_DAY, type Cultivo, type MetricKey } from '../lib'
-import { metricsFor, targetFor, evalMetric, fmtRange, STATUS_COLOR, needsAttention, overwaterGuard, wateringGuide } from '../mentor'
+import { frontImg, statusText, stageLabel, stageAt, previewStage, MAX_DAY, type Cultivo, type MetricKey, type SceneState } from '../lib'
+import { metricsFor, targetFor, evalMetric, fmtRange, STATUS_COLOR, needsAttention, overwaterGuard, wateringGuide, sceneState } from '../mentor'
 import { useBackClose } from '../useBackClose'
 import Intro from './Intro'
 import Journal from './Journal'
@@ -22,7 +22,7 @@ export default function TentView() {
   const coachDone = useStore((s) => s.coachDone)
   const markCoachDone = useStore((s) => s.markCoachDone)
   const pendingUndo = useStore((s) => s.pendingUndo)
-  const { view, toast, setToast, setPreview, previewDay, water, wilt, harvest, runUndo, setView, goHome, startNew } = useStore(
+  const { view, toast, setToast, setPreview, previewDay, water, wilt, harvest, runUndo, setView, goHome, startNew, toggleLight } = useStore(
     useShallow((s) => ({
       view: s.view,
       toast: s.toast,
@@ -36,6 +36,7 @@ export default function TentView() {
       setView: s.setView,
       goHome: s.goHome,
       startNew: s.startNew,
+      toggleLight: s.toggleLight,
     })),
   )
   const [intro, setIntro] = useState(() => useStore.getState().justCreated)
@@ -109,6 +110,7 @@ export default function TentView() {
   const dc: Cultivo = preview
     ? { ...c, day: effDay, stage: effStage, thirst: effStage === 'veg' ? 0.2 : 0 }
     : c
+  const scene: SceneState = preview ? 'dia' : sceneState(c)
 
   function doWater(e?: React.PointerEvent, toastOverride?: string, force?: boolean) {
     if (e && sceneRef.current) {
@@ -159,10 +161,9 @@ export default function TentView() {
 
   return (
     <div className="absolute inset-0 select-none">
-      {/* escena */}
+      {/* escena: la escena 3D reacciona a tus datos (luz, temperatura); en preview siempre "día" */}
       <div ref={sceneRef} className="absolute inset-0 overflow-hidden">
-        <img src={frontImg(dc, view)} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        <img src={nightImg(dc)} alt="" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" style={{ opacity: c.light ? 0 : 1 }} />
+        <img src={frontImg(dc, view, scene)} alt="" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute top-0 left-0 right-0 h-28 pointer-events-none" style={{ background: 'linear-gradient(180deg,rgba(4,7,10,.7),transparent)' }} />
         <div className="absolute bottom-0 left-0 right-0 h-36 pointer-events-none" style={{ background: 'linear-gradient(0deg,rgba(4,7,10,.82),rgba(4,7,10,.28) 60%,transparent)' }} />
         {plantable && (
@@ -203,6 +204,11 @@ export default function TentView() {
         </button>
         <button onClick={() => setShowJournal(true)} className="tbtn">Bitácora</button>
         {!done && <button onClick={() => setShowEdit(true)} className="tbtn">Editar</button>}
+        {!done && !preview && (
+          <button onClick={toggleLight} className="tbtn" style={!c.light ? { color: '#8ad2ff', borderColor: '#8ad2ff' } : undefined}>
+            {c.light ? 'Luz' : 'Noche'}
+          </button>
+        )}
         {/* demo de sed: solo en desarrollo — en producción la sed llega sola con el tiempo */}
         {import.meta.env.DEV && isVeg && <button onClick={wilt} className="tbtn">Sed</button>}
       </div>

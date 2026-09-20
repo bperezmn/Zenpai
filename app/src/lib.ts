@@ -195,10 +195,38 @@ export function waterImg(seeds: number, brote: boolean): string {
   return A(HAVE.has(name) ? name : `agua-${n}`)
 }
 
+// ===== escena 3D v2 (renders de Blender: UNA escena, misma cámara, el interior reacciona) =====
+// Estado visual del interior: la luz (día/noche) y el tinte por temperatura (frío/calor).
+export type SceneState = 'dia' | 'noche' | 'frio' | 'calor'
+const V2 = (name: string) => `${import.meta.env.BASE_URL}assets/v2/${name}.webp`
+export const DOOR_FRAMES = 24
+// secuencia de apertura de la puerta (carpa vacía: vale para toda etapa y nº de macetas;
+// al final las plantas "aparecen" con el fundido a la imagen real)
+export const doorFrame = (i: number) => V2(`abrir-${String(Math.min(Math.max(i, 1), DOOR_FRAMES)).padStart(2, '0')}`)
+
+// etapa visual v2 del cultivo (null = sin render v2 aún → arte anterior)
+export function v2Stage(c: Cultivo): 'plantula' | 'veg' | 'flor' | 'cosecha' | 'sed' | 'secando' | null {
+  if (c.stage === 'plantula' || c.stage === 'flor' || c.stage === 'cosecha' || c.stage === 'secando') return c.stage
+  if (c.stage === 'veg') return c.thirst > 0.55 ? 'sed' : 'veg'
+  return null
+}
+// combinaciones renderizadas: tintes solo con 3 macetas (pendiente 1p/2p); 'sed' solo de día;
+// 'secando' sin variantes de macetas
+function v2Name(stage: string, state: SceneState, pots: number): string {
+  const p = Math.min(Math.max(pots, 1), 3)
+  if (stage === 'secando') return `secando-${state === 'noche' ? 'noche' : 'dia'}-3p`
+  if (stage === 'sed') return `sed-dia-${p}p`
+  if ((state === 'frio' || state === 'calor') && p !== 3) return `${stage}-dia-${p}p`
+  return `${stage}-${state}-${p}p`
+}
+const V2_SECANDO_READY = true // renders de secado: ramas colgando bajo la LED (secando-dia/noche-3p)
+
 // imagen frontal según etapa / sustrato / sed / nº de macetas (respaldo a tierra)
-export function frontImg(c: Cultivo, view: 'front' | 'cenital'): string {
+export function frontImg(c: Cultivo, view: 'front' | 'cenital', state: SceneState = 'dia'): string {
   if (view === 'cenital') return A('carpa-cenital')
   if (c.stage === 'remojo') return waterImg(c.plants, hasSprouted(c))
+  const v2 = v2Stage(c)
+  if (v2 && (v2 !== 'secando' || V2_SECANDO_READY)) return V2(v2Name(v2, state, c.pots))
   if (c.stage === 'vacia') return A('carpa-vacia')
   if (c.stage === 'secando') return A('secando')
   // vegetativo: arte de entrenamiento / temprano SOLO existe en tierra; coco/hidro conservan su imagen
@@ -258,7 +286,8 @@ export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
 }
 
 // preload selectivo: solo lo que se va a ver ahora (no las 31 imágenes)
-export function preloadFor(c: Cultivo) {
-  const urls = new Set<string>([closedImg, ajarImg(c), frontImg(c, 'front'), nightImg(c)])
+export function preloadFor(c: Cultivo, state: SceneState = 'dia') {
+  const urls = new Set<string>([frontImg(c, 'front', 'dia'), frontImg(c, 'front', 'noche'), frontImg(c, 'front', state)])
+  if (!v2Stage(c)) { urls.add(closedImg); urls.add(ajarImg(c)); urls.add(nightImg(c)) }
   urls.forEach((u) => { const i = new Image(); i.src = u })
 }
