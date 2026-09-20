@@ -36,4 +36,20 @@ export const HOWTOS: Record<string, HowToDef> = {
       { img: A('howto-regar-2'), caption: 'Sigue hasta que drene un 10–20% por abajo (limpia sales). Tira ese drenaje. ¡Listo!' },
     ],
   },
+  apical: {
+    title: 'Poda apical (topping)',
+    steps: [
+      { img: A('howto-apical-1'), caption: 'Solo en vegetativo, con al menos 4–5 pares de hojas. Localiza la punta principal y el nudo justo debajo.' },
+      { img: A('howto-apical-2'), caption: 'Con tijeras limpias corta la punta por encima de ese nudo. Un corte limpio, sin rasgar el tallo.' },
+      { img: A('howto-apical-3'), caption: 'En una semana salen dos puntas donde había una: la planta crece más ancha y pareja. No la riegues de más esos días.' },
+    ],
+  },
+  defoliacion: {
+    title: 'Defoliación ligera',
+    steps: [
+      { img: A('howto-defol-1'), caption: 'Abre la copa y mira dentro: busca las hojas grandes que tapan las ramas bajas o se tocan entre sí.' },
+      { img: A('howto-defol-2'), caption: 'Corta esas hojas por el pecíolo, pegado a la rama. Máximo un 20–30 % del follaje, nunca las hojas de las puntas.' },
+      { img: A('howto-defol-3'), caption: 'Deja que la planta se recupere 10–14 días antes de repetir. Aire y luz llegan ahora a toda la planta.' },
+    ],
+  },
 }

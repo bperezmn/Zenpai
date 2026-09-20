@@ -4,9 +4,9 @@ import { Logo } from '../App'
 import type { Guide } from '../lib'
 
 export const GUIDES: { id: Guide; label: string; desc: string }[] = [
-  { id: 'novato', label: 'Novato', desc: ' Te llevo de la mano: cuánto y cómo regar, qué es el pH/EC, paso a paso. Sin podas ni técnicas.'},
-  { id: 'medio', label: 'Medio', desc: ' Ya conoces lo básico: añado técnicas (LST) y más métricas (VPD, EC).'},
-  { id: 'avanzado', label: 'Avanzado', desc: ' Todo: todas las métricas y técnicas, consejos concisos y al grano.'},
+  { id: 'novato', label: 'Novato', desc: 'Te llevo de la mano: cuánto y cómo regar, qué es el pH/EC, paso a paso. Sin podas ni técnicas.'},
+  { id: 'medio', label: 'Medio', desc: 'Ya conoces lo básico: añado técnicas (LST) y más métricas (VPD, EC).'},
+  { id: 'avanzado', label: 'Avanzado', desc: 'Todo: todas las métricas y técnicas, consejos concisos y al grano.'},
 ]
 
 // Se muestra una sola vez (tras aceptar términos): define el nivel de guía del usuario.

@@ -177,13 +177,13 @@ export default function Settings({ onClose }: { onClose: () => void }) {
               {cloudOn ? (
                 <>
                   <button onClick={() => syncCloudNow()} disabled={cloudBusy} className="dbtn flex-1" style={{ opacity: cloudBusy ? 0.6 : 1 }}>
-                    {cloudBusy ? '…': ' Sincronizar ahora'}
+                    {cloudBusy ? '…': 'Sincronizar ahora'}
                   </button>
                   <button onClick={disableCloud} disabled={cloudBusy} className="dbtn-ghost flex-1">Pausar</button>
                 </>
               ) : (
                 <button onClick={() => enableCloud()} disabled={cloudBusy} className="dbtn flex-1" style={{ opacity: cloudBusy ? 0.6 : 1 }}>
-                  {cloudBusy ? 'Conectando…': ' Activar respaldo'}
+                  {cloudBusy ? 'Conectando…': 'Activar respaldo'}
                 </button>
               )}
             </div>
@@ -204,7 +204,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
         </span>
         <div className="flex gap-2 mt-2.5">
           <button onClick={doExport} disabled={busy !== null} className="dbtn flex-1" style={{ opacity: busy === 'export' ? 0.6 : 1 }}>
-            {busy === 'export'? ' Generando…': ' Exportar respaldo'}
+            {busy === 'export'? 'Generando…': 'Exportar respaldo'}
           </button>
           <button onClick={() =>fileRef.current?.click()} disabled={busy !== null} className="dbtn-ghost flex-1">Importar</button>
         </div>

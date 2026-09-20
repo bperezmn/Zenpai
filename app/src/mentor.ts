@@ -78,7 +78,7 @@ export function fmtRange(r: Range | null, dec: number): string {
 // consejo del mentor para una medición fuera de rango (incluye guardarraíl de pH)
 export function metricTip(key: MetricKey, value: number, status: Status, stage: Stage, sub: Substrate): string {
   const r = targetFor(key, stage, sub)
-  if (!r || status === 'ok') return ' En rango. Vas bien.'
+  if (!r || status === 'ok') return 'En rango. Vas bien.'
   const high = value > r.hi
   if (key === 'ph') {
     const banda = sub === 'tierra' ? '6.2–7.0' : '5.5–6.2'
@@ -100,32 +100,32 @@ interface AdviceDef extends Advice { levels: Guide[] }
 
 const ADVICE: Partial<Record<Stage, AdviceDef[]>> = {
   plantula: [
-    { levels: [ 'novato'], icon: '', title: ' Cuidado: bebe poquísimo', body: ' La plántula casi no toma agua. Regar de más ahoga las raíces (el error nº 1). Si dudas, espera un día más.'},
-    { levels: [ 'novato'], icon: '', title: ' Qué es el pH y cómo medirlo', body: ' El pH dice si el agua está ácida o alcalina. Las raíces solo absorben bien entre 6.2–7.0 en tierra (5.5–6.2 en coco/hidro). Mídelo con tiras o un medidor en el agua de riego y ajústalo ANTES de regar.'},
+    { levels: [ 'novato'], icon: '', title: 'Cuidado: bebe poquísimo', body: 'La plántula casi no toma agua. Regar de más ahoga las raíces (el error nº 1). Si dudas, espera un día más.'},
+    { levels: [ 'novato'], icon: '', title: 'Qué es el pH y cómo medirlo', body: 'El pH dice si el agua está ácida o alcalina. Las raíces solo absorben bien entre 6.2–7.0 en tierra (5.5–6.2 en coco/hidro). Mídelo con tiras o un medidor en el agua de riego y ajústalo ANTES de regar.'},
     { levels: [ 'novato', 'medio'], icon: '', title: 'Ambiente', body: '22–26° y humedad alta (65–80%). Luz suave y no muy cerca, para no quemarlas.'},
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Nutrientes', body: ' Si abonas, empieza a 1/4 de dosis para no quemar las raíces. La EC mide cuánto alimento lleva el agua (en plántula ~0.4–0.8); si no tienes medidor, quédate con el 1/4 de dosis.'},
-    { levels: [ 'novato'], icon: '', title: ' Sin podas todavía', body: ' Son muy pequeñas: nada de podar ni entrenar aún, solo déjalas crecer sanas.'},
+    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Nutrientes', body: 'Si abonas, empieza a 1/4 de dosis para no quemar las raíces. La EC mide cuánto alimento lleva el agua (en plántula ~0.4–0.8); si no tienes medidor, quédate con el 1/4 de dosis.'},
+    { levels: [ 'novato'], icon: '', title: 'Sin podas todavía', body: 'Son muy pequeñas: nada de podar ni entrenar aún, solo déjalas crecer sanas.'},
   ],
   veg: [
-    { levels: [ 'novato'], icon: '', title: ' Qué es la EC', body: ' La EC mide cuánto alimento (sales) hay disuelto en el agua. Más EC = más comida, pero de más quema. En veg apunta ~1.0–1.6 y sube de a poco.'},
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: ' Empújalas', body: ' Crecen rápido: más luz y nitrógeno gradual. Mantén el aire moviéndose para tallos fuertes.'},
-    { levels: [ 'medio', 'avanzado'], icon: '', title: ' LST: abre la copa', body: ' Low Stress Training: dobla con cuidado las ramas hacia afuera y átalas para que la copa quede plana. Llega más luz a más cogollos → más cosecha, sin cortar nada. (aplícalo abajo)'},
-    { levels: [ 'avanzado'], icon: '', title: ' Topping / mainlining', body: ' Cortar la punta sobre un nudo crea 2 colas y una copa uniforme. Combínalo con LST. Solo en veg y con la planta sana.'},
+    { levels: [ 'novato'], icon: '', title: 'Qué es la EC', body: 'La EC mide cuánto alimento (sales) hay disuelto en el agua. Más EC = más comida, pero de más quema. En veg apunta ~1.0–1.6 y sube de a poco.'},
+    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Empújalas', body: 'Crecen rápido: más luz y nitrógeno gradual. Mantén el aire moviéndose para tallos fuertes.'},
+    { levels: [ 'medio', 'avanzado'], icon: '', title: 'LST: abre la copa', body: 'Low Stress Training: dobla con cuidado las ramas hacia afuera y átalas para que la copa quede plana. Llega más luz a más cogollos → más cosecha, sin cortar nada. (aplícalo abajo)'},
+    { levels: [ 'avanzado'], icon: '', title: 'Topping / mainlining', body: 'Cortar la punta sobre un nudo crea 2 colas y una copa uniforme. Combínalo con LST. Solo en veg y con la planta sana.'},
   ],
   flor: [
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: ' Cambia el abono', body: ' Aparecen los cogollos: baja el nitrógeno y sube fósforo y potasio (P-K), los nutrientes de floración.'},
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: ' Cuida la humedad', body: ' Baja la humedad a 40–55% y mantén aire circulando: en flor el moho (botrytis) arruina cogollos.'},
-    { levels: [ 'novato'], icon: '', title: ' No la estreses', body: ' Ya no se poda ni entrena fuerte: la planta está concentrada en engordar cogollos.'},
-    { levels: [ 'medio', 'avanzado'], icon: '', title: ' Defoliación selectiva', body: ' Hacia la semana ~3 de flor, quita hojas grandes que tapan cogollos bajos para que entre luz y aire. Poco a poco.'},
-    { levels: [ 'avanzado'], icon: '', title: ' Vigila tricomas', body: ' Hacia el final, revisa con lupa: transparentes (espera), lechosos (potencia), ámbar (efecto relax).'},
+    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Cambia el abono', body: 'Aparecen los cogollos: baja el nitrógeno y sube fósforo y potasio (P-K), los nutrientes de floración.'},
+    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Cuida la humedad', body: 'Baja la humedad a 40–55% y mantén aire circulando: en flor el moho (botrytis) arruina cogollos.'},
+    { levels: [ 'novato'], icon: '', title: 'No la estreses', body: 'Ya no se poda ni entrena fuerte: la planta está concentrada en engordar cogollos.'},
+    { levels: [ 'medio', 'avanzado'], icon: '', title: 'Defoliación selectiva', body: 'Hacia la semana ~3 de flor, quita hojas grandes que tapan cogollos bajos para que entre luz y aire. Poco a poco.'},
+    { levels: [ 'avanzado'], icon: '', title: 'Vigila tricomas', body: 'Hacia el final, revisa con lupa: transparentes (espera), lechosos (potencia), ámbar (efecto relax).'},
   ],
   cosecha: [
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: ' Cuándo cortar', body: ' Mira los tricomas con una lupa: transparentes = espera; lechosos = potencia máxima; ámbar = efecto más relajante. Corta según el efecto que busques.'},
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: ' Flush (lavado)', body: ' Las últimas ~1–2 semanas riega solo con agua (sin nutrientes) para limpiar sabores y que la ceniza sea suave.'},
+    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Cuándo cortar', body: 'Mira los tricomas con una lupa: transparentes = espera; lechosos = potencia máxima; ámbar = efecto más relajante. Corta según el efecto que busques.'},
+    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Flush (lavado)', body: 'Las últimas ~1–2 semanas riega solo con agua (sin nutrientes) para limpiar sabores y que la ceniza sea suave.'},
   ],
   secando: [
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Secado', body: ' Cuelga las ramas a 18–21° y 55–62% de humedad, en oscuridad y con aire suave (sin viento directo). Tarda ~7–14 días.'},
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Curado', body: ' Cuando los tallos finos crujan al doblarlos, mete los cogollos en frascos de vidrio y ábrelos un rato cada día durante 2–3 semanas.'},
+    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Secado', body: 'Cuelga las ramas a 18–21° y 55–62% de humedad, en oscuridad y con aire suave (sin viento directo). Tarda ~7–14 días.'},
+    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Curado', body: 'Cuando los tallos finos crujan al doblarlos, mete los cogollos en frascos de vidrio y ábrelos un rato cada día durante 2–3 semanas.'},
   ],
 }
 
@@ -139,7 +139,7 @@ function daysSinceWater(c: Cultivo): number | null {
 export function mentorAdvice(c: Cultivo, guide: Guide): Advice[] {
   const out: Advice[] = []
   // atención dinámica primero
-  if (c.thirst >0.55) out.push({ icon: '', title: ' Tienen sed', body: ' El sustrato está seco. Riega ahora tocando las plantas en la carpa.', tone: 'warn'})
+  if (c.thirst >0.55) out.push({ icon: '', title: 'Tienen sed', body: 'El sustrato está seco. Riega ahora tocando las plantas en la carpa.', tone: 'warn'})
   const days = daysSinceWater(c)
   const alertAt = WATER_ALERT_DAYS[c.stage]
   if (days !== null && alertAt !== undefined && days >= alertAt) {
@@ -147,14 +147,14 @@ export function mentorAdvice(c: Cultivo, guide: Guide): Advice[] {
   }
   // fotoperiodo: la flor no llega sola — recuérdaselo cuando la veg ya está madura
   if (c.stage === 'veg' && c.seedType === 'foto' && !c.flowerTs && c.day >= 30) {
-    out.push({ icon: '', title: '¿Pasamos a floración? ', body: ' Cuando las plantas llenen ~la mitad de la carpa, cambia tu luz a 12 h de luz / 12 h de oscuridad: eso dispara la flor. Cuando lo hagas, márcalo aquí abajo con"Pasar a floración".'})
+    out.push({ icon: '', title: '¿Pasamos a floración? ', body: 'Cuando las plantas llenen ~la mitad de la carpa, cambia tu luz a 12 h de luz / 12 h de oscuridad: eso dispara la flor. Cuando lo hagas, márcalo aquí abajo con"Pasar a floración".'})
   }
   if (c.stage === 'veg' && c.seedType === 'auto' && guide !== 'avanzado') {
-    out.push({ icon: '', title: 'Autofloreciente', body: ' Florecerá sola hacia el día ~32, sin cambiar el ciclo de luz. Déjale 18–20 h de luz todo el ciclo.'})
+    out.push({ icon: '', title: 'Autofloreciente', body: 'Florecerá sola hacia el día ~32, sin cambiar el ciclo de luz. Déjale 18–20 h de luz todo el ciclo.'})
   }
   // RIEGO concreto: cuánto (según litros de maceta) y cuándo
   const w = wateringGuide(c)
-  if (w) out.push({ icon: '', title: ' Cuánto y cuándo regar', body:`En tu maceta de ${c.potL || 11} L: riega ${w.amount}, ${w.when}. Hazlo despacio en círculo hasta que drene ~10–20% por abajo (tira ese drenaje).`})
+  if (w) out.push({ icon: '', title: 'Cuánto y cuándo regar', body:`En tu maceta de ${c.potL || 11} L: riega ${w.amount}, ${w.when}. Hazlo despacio en círculo hasta que drene ~10–20% por abajo (tira ese drenaje).`})
   // contenido por etapa filtrado por nivel
   for (const a of ADVICE[c.stage] ?? []) {
     if (a.levels.includes(guide)) out.push({ icon: a.icon, title: a.title, body: a.body, tone: a.tone })

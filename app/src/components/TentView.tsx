@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import SceneFx from './SceneFx'
 import { useShallow } from 'zustand/react/shallow'
 import { useStore, selectActive } from '../store'
 import { frontImg, cenitalTops, statusText, stageLabel, stageAt, previewStage, MAX_DAY, TIMELAPSE_URL, TIMELAPSE_DAYS, HAS_TIMELAPSE, type Cultivo, type MetricKey, type SceneState } from '../lib'
@@ -196,6 +197,8 @@ export default function TentView() {
           {/* tinte por temperatura dentro de la abertura de la puerta (frío azul / calor rojo) */}
           <div className={`tinte ${scene === 'calor' ? 'tinte-calor' : 'tinte-frio'}`}
             style={{ opacity: view === 'front' && (scene === 'frio' || scene === 'calor') ? 1 : 0 }} />
+          {/* vida en la carpa: vapor hacia el filtro, aspas del ventilador y halo de la LED */}
+          <SceneFx active={!preview && !intro && view === 'front'} fan={c.fan} exhaust={c.exhaust} light={c.light} state={scene} humidity={c.readings.hr ?? null} />
         </div>
         <div className="absolute top-0 left-0 right-0 h-28 pointer-events-none" style={{ background: 'linear-gradient(180deg,rgba(4,7,10,.7),transparent)' }} />
         <div className="absolute bottom-0 left-0 right-0 h-36 pointer-events-none" style={{ background: 'linear-gradient(0deg,rgba(4,7,10,.82),rgba(4,7,10,.28) 60%,transparent)' }} />

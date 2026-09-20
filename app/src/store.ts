@@ -42,7 +42,8 @@ function sanitizeGrows(raw: unknown[]): Cultivo[] {
       finishedTs: num(o.finishedTs),
       dryWeight: num(o.dryWeight),
       lastWaterTs: num(o.lastWaterTs),
-      training: o.training === 'lst' || o.training === 'lollipop' ? o.training : 'none',
+      training: o.training === 'lst' || o.training === 'lollipop' || o.training === 'apical' ? o.training : 'none',
+      defoliatedTs: num(o.defoliatedTs),
       readings: o.readings && typeof o.readings === 'object' && !Array.isArray(o.readings) ? (o.readings as Cultivo['readings']) : {},
       readingDays: o.readingDays && typeof o.readingDays === 'object' && !Array.isArray(o.readingDays) ? (o.readingDays as Cultivo['readingDays']) : {},
       day: 0, stage: 'remojo', thirst: 0.2,
@@ -109,6 +110,7 @@ interface AppState {
   updateGrow: (cfg: { grow: string; potL: number; substrate: Substrate; seedType: SeedType }) => void
   toggleLight: () => void
   applyTraining: (t: Training) => void
+  defoliate: () => void
   startFlowering: () => void
   setPreview: (d: number | null) => void
   water: (toastOverride?: string, force?: boolean) => void
@@ -312,7 +314,7 @@ export const useStore = create<AppState>()(
         toggleLight: () => {
           const c = selectActive(get())
           patchActive((g) => ({ ...g, light: !g.light }), {
-            toast: c.light ? 'Luz apagada · la carpa descansa': ' Luz encendida',
+            toast: c.light ? 'Luz apagada · la carpa descansa': 'Luz encendida',
             pendingUndo: null,
           })
         },
@@ -325,11 +327,15 @@ export const useStore = create<AppState>()(
 
         // ---- entrenamiento (LST / lollipop) en vegetativo ----
         applyTraining: (t) => {
-          patchActive((g) => ({ ...g, training: t }), {
-            toast: t === 'none'? ' Entrenamiento quitado': t === 'lst'? ' LST aplicado': ' Lollipop aplicado',
-            pendingUndo: null,
-          })
-          if (t !== 'none') log('entrenamiento', t === 'lst' ? 'Apliqué LST (low stress training)' : 'Apliqué lollipopping')
+          const nombre = { none: 'Entrenamiento quitado', lst: 'LST aplicado', lollipop: 'Lollipop aplicado', apical: 'Poda apical aplicada' }[t]
+          patchActive((g) => ({ ...g, training: t }), { toast: nombre, pendingUndo: null })
+          if (t !== 'none') log('entrenamiento', t === 'lst' ? 'Apliqué LST (low stress training)' : t === 'apical' ? 'Poda apical: corté la punta principal' : 'Apliqué lollipopping')
+        },
+
+        // ---- defoliación: se anota y la planta se ve más abierta unos días ----
+        defoliate: () => {
+          patchActive((g) => ({ ...g, defoliatedTs: Date.now() }), { toast: 'Defoliación anotada', pendingUndo: null })
+          log('defoliacion', 'Quité hojas grandes para abrir la copa')
         },
 
         // ---- fotoperiódicas: el usuario cambió la luz a 12/12 → arranca la floración ----
@@ -749,7 +755,7 @@ export const useStore = create<AppState>()(
         const raw: any[] = Array.isArray(p.grows) ? p.grows : (p.hasGrow && p.c ? [p.c] : [])
         const grows: Cultivo[] = raw.map((g) => {
           const c: Cultivo = { ...emptyCultivo, ...g, id: g.id || genId() }
-          // 'secando' SOLO lo pone harvest() manual → derivar harvestedTs si falta (blob viejo).
+          // 'secando'SOLO lo pone harvest() manual → derivar harvestedTs si falta (blob viejo).
           // OJO: 'cosecha' es etapa VIVA derivada por tiempo (day>=105), NO implica cosecha → no tocar.
           if (!c.harvestedTs && c.stage === 'secando') {
             c.harvestedTs = c.germTs ? c.germTs + (c.day || 0) * 86400000 : Date.now()

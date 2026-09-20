@@ -2,11 +2,15 @@ import { useState } from 'react'
 import { useStore, selectActive } from '../store'
 import { stageLabel, type Training } from '../lib'
 import { mentorAdvice, canTrain, STATUS_COLOR } from '../mentor'
+import { isDefoliated } from '../lib'
+import { HOWTOS } from '../howtos'
+import HowTo from './HowTo'
 
 const TECHNIQUES: { id: Training; label: string }[] = [
   { id: 'none', label: 'Ninguna' },
   { id: 'lst', label: 'LST' },
   { id: 'lollipop', label: 'Lollipop' },
+  { id: 'apical', label: 'Poda apical' },
 ]
 
 // Consejos del mentor: enseñan cómo hacer las cosas según la etapa y el nivel del usuario.
@@ -14,10 +18,14 @@ export default function Today({ onClose }: { onClose: () => void }) {
   const c = useStore(selectActive)
   const guide = useStore((s) => s.guide)
   const applyTraining = useStore((s) => s.applyTraining)
+  const defoliate = useStore((s) => s.defoliate)
+  const [howto, setHowto] = useState<'apical' | 'defoliacion' | null>(null)
   const startFlowering = useStore((s) => s.startFlowering)
   const [confirmFlower, setConfirmFlower] = useState(false)
   const advice = mentorAdvice(c, guide)
   const showTraining = c.stage === 'veg' && canTrain(guide)
+  // defoliar: en vegetativo o floración (nivel medio/avanzado); la imagen lo muestra unos días
+  const showDefol = (c.stage === 'veg' || c.stage === 'flor') && canTrain(guide)
   // fotoperiódicas en veg: aquí se anota el cambio real de luz a 12/12
   const showFlowering = c.stage === 'veg' && c.seedType === 'foto' && !c.flowerTs
 
@@ -77,7 +85,7 @@ export default function Today({ onClose }: { onClose: () => void }) {
               <div className="text-[.58rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--faint)'}}>Aplicar entrenamiento</div>
               <div className="flex gap-[7px]">
                 {TECHNIQUES.map((t) => (
-                  <button key={t.id} onClick={() => applyTraining(t.id)}
+                  <button key={t.id} onClick={() => t.id === 'apical' && c.training !== 'apical' ? setHowto('apical') : applyTraining(t.id)}
                     className="flex-1 text-center rounded-2xl py-2.5 text-[.78rem] font-semibold"
                     style={c.training === t.id
                       ? { background: 'linear-gradient(135deg,var(--acc),var(--acc2))', color: '#04150c', border: '1px solid var(--acc)' }
@@ -88,12 +96,34 @@ export default function Today({ onClose }: { onClose: () => void }) {
               </div>
             </div>
           )}
+          {showDefol && (
+            <div className="pt-2">
+              <div className="label mb-1.5">Defoliación</div>
+              {isDefoliated(c) ? (
+                <div className="text-[.78rem] py-2" style={{ color: 'var(--muted)' }}>Defoliadas hace poco: deja que recuperen antes de volver a quitar hojas.</div>
+              ) : (
+                <button onClick={() => setHowto('defoliacion')}
+                  className="w-full rounded-2xl py-2.5 text-[.78rem] font-semibold"
+                  style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.4)', color: '#fff' }}>
+                  Defoliar · quitar hojas grandes
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <p className="text-[.64rem] mt-3 text-center" style={{ color: 'var(--faint)' }}>
           Guía de referencia general · no sustituye tu criterio ni consejo profesional.
         </p>
       </div>
+      {howto === 'apical' && (
+        <HowTo def={HOWTOS.apical} actionLabel="Ya la podé"
+          onAction={() => { setHowto(null); applyTraining('apical') }} onClose={() => setHowto(null)} />
+      )}
+      {howto === 'defoliacion' && (
+        <HowTo def={HOWTOS.defoliacion} actionLabel="Ya defolié"
+          onAction={() => { setHowto(null); defoliate() }} onClose={() => setHowto(null)} />
+      )}
       <style>{`@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
     </div>
   )

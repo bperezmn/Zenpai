@@ -2,7 +2,7 @@
 export type Substrate = 'tierra' | 'coco' | 'hidro'
 export type Stage = 'remojo' | 'germinacion' | 'plantula' | 'veg' | 'flor' | 'cosecha' | 'secando' | 'vacia'
 export type MetricKey = 'temp' | 'hr' | 'vpd' | 'ppfd' | 'ph' | 'ec'
-export type Training = 'none' | 'lst' | 'lollipop'
+export type Training = 'none' | 'lst' | 'lollipop' | 'apical'
 export type Guide = 'novato' | 'medio' | 'avanzado'   // nivel de experiencia (se elige al crear el cultivo)
 export type SeedType = 'foto' | 'auto'                // fotoperiódica (12/12 la dispara el usuario) o autofloreciente
 
@@ -22,6 +22,7 @@ export interface Cultivo {
   dryWeight: number | null    // peso seco opcional que registró el usuario al terminar
   lastWaterTs: number | null  // último riego real
   training: Training           // técnica de entrenamiento aplicada en vegetativo
+  defoliatedTs: number | null  // última defoliación (la imagen la muestra unos días)
   readings: Partial<Record<MetricKey, number>>     // últimas mediciones que registró el usuario
   readingDays: Partial<Record<MetricKey, number>>  // día del cultivo en que se tomó cada medición
   // day / stage / thirst son DERIVADOS (caché que el store mantiene sincronizada con el reloj real)
@@ -37,7 +38,7 @@ export interface Cultivo {
 export const emptyCultivo: Cultivo = {
   id: '', grow: 'Carpa A', plants: 3, pots: 3, potL: 11, substrate: 'tierra', seedType: 'foto',
   soakTs: null, germTs: null, flowerTs: null, harvestedTs: null, finishedTs: null, dryWeight: null,
-  lastWaterTs: null, training: 'none',
+  lastWaterTs: null, training: 'none', defoliatedTs: null,
   readings: {}, readingDays: {},
   day: 0, stage: 'vacia', thirst: 0.2, health: 92,
   light: true, fan: true, exhaust: true,
@@ -147,7 +148,7 @@ export function fmtWhen(ts: number): string {
 }
 
 // ===== bitácora (event log) =====
-export type EventType = 'creado' | 'sembrado' | 'transplante' | 'riego' | 'sed' | 'entrenamiento' | 'floracion' | 'cosecha' | 'terminado' | 'nota' | 'medicion' | 'foto'
+export type EventType = 'creado' | 'sembrado' | 'transplante' | 'riego' | 'sed' | 'entrenamiento' | 'floracion' | 'cosecha' | 'terminado' | 'nota' | 'medicion' | 'foto' | 'defoliacion'
 export interface GrowEvent {
   id?: number
   growId: string
@@ -158,17 +159,18 @@ export interface GrowEvent {
   photoId?: number    // eventos 'foto': id del blob en la tabla photos
 }
 export const EVENT_META: Record<EventType, { icon: string; label: string }> = {
-  creado: { icon: '', label: ' Cultivo creado'},
-  sembrado: { icon: '', label: ' Semillas en remojo'},
+  creado: { icon: '', label: 'Cultivo creado'},
+  sembrado: { icon: '', label: 'Semillas en remojo'},
   transplante: { icon: '', label: 'Transplante'},
   riego: { icon: '', label: 'Riego'},
-  sed: { icon: '', label: ' Sed detectada'},
+  sed: { icon: '', label: 'Sed detectada'},
   entrenamiento: { icon: '', label: 'Entrenamiento'},
-  floracion: { icon: '', label: ' A floración (12/12)'},
+  defoliacion: { icon: '', label: 'Defoliación' },
+  floracion: { icon: '', label: 'A floración (12/12)'},
   cosecha: { icon: '', label: 'Cosecha'},
-  terminado: { icon: '', label: ' Cultivo terminado'},
+  terminado: { icon: '', label: 'Cultivo terminado'},
   nota: { icon: '', label: 'Nota'},
-  medicion: { icon: '', label: ' Medición'},
+  medicion: { icon: '', label: 'Medición'},
   foto: { icon: '', label: 'Foto'},
 }
 
@@ -183,7 +185,7 @@ const HAVE = new Set([
   'coco-plantula', 'coco-veg', 'coco-sed', 'coco-flor', 'hidro-plantula', 'hidro-veg', 'hidro-sed', 'hidro-flor',
   'germinacion', 'cosecha', 'secando', 'carpa-apagada', 'carpa-noche-aire',
   'agua-1', 'agua-2', 'agua-3', 'agua-1-brote', 'agua-2-brote', 'agua-3-brote',
-  'veg-temprano', 'veg-lst', 'veg-lollipop',
+  'veg-temprano', 'veg-lst', 'veg-lollipop', 'veg-apical', 'veg-defoliada', 'flor-lst', 'flor-defoliada',
 ])
 // rutas relativas a la base del deploy (BASE_URL termina en '/'): así la app
 // funciona igual en raíz (localhost, Vercel) que bajo subcarpeta (GitHub Pages)
@@ -201,6 +203,12 @@ export function waterImg(seeds: number, brote: boolean): string {
 // dentro de la abertura de la puerta (TentView), como el hero de AC Infinity.
 export type SceneState = 'dia' | 'noche' | 'frio' | 'calor'
 
+// una defoliación se nota en la planta unos días; después el follaje vuelve
+export const DEFOLIATION_DAYS = 12
+export function isDefoliated(c: Cultivo): boolean {
+  return c.defoliatedTs != null && Date.now() - c.defoliatedTs < DEFOLIATION_DAYS * 86400000
+}
+
 // imagen frontal según etapa / sustrato / sed / nº de macetas (respaldo a tierra)
 export function frontImg(c: Cultivo, view: 'front' | 'cenital', state: SceneState = 'dia'): string {
   if (view === 'cenital') return A('carpa-cenital')
@@ -210,9 +218,16 @@ export function frontImg(c: Cultivo, view: 'front' | 'cenital', state: SceneStat
   if (c.stage === 'secando') return A('secando')
   // vegetativo: arte de entrenamiento / temprano SOLO existe en tierra; coco/hidro conservan su imagen
   if (c.stage === 'veg' && c.thirst <= 0.55 && c.substrate === 'tierra') {
+    if (isDefoliated(c)) return A('veg-defoliada')
     if (c.training === 'lst' && HAVE.has('veg-lst')) return A('veg-lst')
     if (c.training === 'lollipop' && HAVE.has('veg-lollipop')) return A('veg-lollipop')
+    if (c.training === 'apical' && HAVE.has('veg-apical')) return A('veg-apical')
     if (c.training === 'none' && c.day < 30 && HAVE.has('veg-temprano')) return A('veg-temprano')
+  }
+  // floración (tierra): la defoliación reciente y el LST también se ven
+  if (c.stage === 'flor' && c.thirst <= 0.55 && c.substrate === 'tierra') {
+    if (isDefoliated(c)) return A('flor-defoliada')
+    if (c.training === 'lst') return A('flor-lst')
   }
   let key: string, tierra: string
   if (c.stage === 'germinacion') { key = 'germinacion'; tierra = 'germinacion' }
@@ -257,8 +272,8 @@ export function cenitalTops(c: Cultivo): string[] {
 export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
   if (view === 'cenital') return 'Vista desde arriba · ' + (c.grow || 'tu carpa')
   if (c.finishedTs) return 'Terminado · su bitácora queda guardada'
-  if (c.stage === 'secando') return ' Secando · cuelga 7–14 días y luego a curar'
-  if (c.stage === 'cosecha') return ' Lista para cosechar · revisa los tricomas'
+  if (c.stage === 'secando') return 'Secando · cuelga 7–14 días y luego a curar'
+  if (c.stage === 'cosecha') return 'Lista para cosechar · revisa los tricomas'
   if (c.thirst >0.55) return 'Tienen sed · toca las plantas para regar'
   // mismos umbrales que el guardarraíl y los avisos (GUARD_HOURS / WATER_ALERT_DAYS):
   // la caption nunca debe contradecir a la ficha de riego ni al chip de Home
@@ -271,8 +286,8 @@ export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
   if (days !== null && alertAt !== undefined && days >= alertAt) {
     return`Hace ${days} días sin riego · si la maceta pesa poco, toca las plantas`
   }
-  if (c.stage === 'plantula') return ' Plántulas · riegos pequeños · toca las plantas para regar'
-  if (c.stage === 'flor') return ' Cogollos engordando · toca las plantas para regar'
+  if (c.stage === 'plantula') return 'Plántulas · riegos pequeños · toca las plantas para regar'
+  if (c.stage === 'flor') return 'Cogollos engordando · toca las plantas para regar'
   return 'En vegetativo · toca las plantas para regar'
 }
 
