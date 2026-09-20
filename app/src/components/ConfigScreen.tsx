@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useStore } from '../store'
-import { Logo } from '../App'
 import { stageAt, stageLabel, type Substrate, type SeedType } from '../lib'
 
 const SIZES = [
@@ -64,14 +63,14 @@ export default function ConfigScreen() {
   }
 
   return (
-    <div className="absolute inset-0"
-      style={{ background: 'radial-gradient(80% 45% at 50% 14%, rgba(52,211,153,.12), transparent 60%), linear-gradient(180deg,#0a1210,#05080b)' }}>
+    <div className="absolute inset-0" style={{ background: '#000' }}>
       {/* el Volver vive FUERA del scroller: siempre a mano aunque el formulario sea largo */}
-      <button onClick={cancelNew} className="absolute left-4 top-5 z-10 h-9 px-3.5 rounded-2xl glass text-white/85"
-        style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: '.72rem' }}>Volver</button>
-      <div className="absolute inset-0 overflow-y-auto px-6 pb-8 pt-14 flex flex-col">
-      <div className="mx-auto mb-3"><Logo size={50} /></div>
-      <h2 className="display text-center text-[1.45rem] font-bold">Nuevo cultivo</h2>
+      <button onClick={cancelNew} aria-label="Volver a tus cultivos" title="Volver" className="back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
+      </button>
+      <div className="absolute inset-0 overflow-y-auto px-6 pb-8 pt-[104px] flex flex-col">
+      <div className="label mb-2">Configura tu carpa</div>
+      <h2 className="display text-[1.75rem] font-semibold leading-tight mb-1">Nuevo cultivo</h2>
 
       {/* ¿de cero o ya en marcha? */}
       <div className="flex gap-[7px] mt-3 mb-4">
@@ -150,15 +149,17 @@ export default function ConfigScreen() {
       </div>
 
       <style>{`
-        .lbl{font-size:.62rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-family:'Space Grotesk';display:block;margin-bottom:6px}
-        .inp{background:rgba(255,255,255,.05);border:1px solid var(--glass-bd);border-radius:12px;padding:.6rem .75rem;color:var(--text);width:100%;font-size:.9rem}
-        .size{display:flex;align-items:center;justify-content:space-between;width:100%;background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);border-radius:13px;padding:.7rem .9rem;cursor:pointer;color:var(--text);font-weight:600;font-size:.86rem;font-family:'Space Grotesk';transition:.15s}
-        .size.on{background:linear-gradient(135deg,rgba(52,211,153,.22),rgba(190,242,100,.1));border-color:var(--acc)}
-        .size .cap{font-size:.68rem;color:var(--faint);font-weight:600}
-        .size.on .cap{color:var(--acc)}
-        .sub{flex:1;text-align:center;background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);border-radius:12px;padding:.6rem .3rem;cursor:pointer;color:var(--text);font-weight:600;font-size:.8rem;font-family:'Space Grotesk';transition:.15s}
-        .sub.on{background:linear-gradient(135deg,rgba(52,211,153,.22),rgba(190,242,100,.1));border-color:var(--acc);color:var(--acc)}
-        .cbtn{width:100%;border:none;border-radius:15px;font-weight:700;padding:.85rem;font-family:'Space Grotesk';font-size:.92rem;cursor:pointer;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c}
+        .back{position:absolute;left:16px;top:52px;z-index:10;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.28);border-radius:5px;background:transparent;color:#fff;cursor:pointer}
+        .lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:6px}
+        .inp{background:transparent;border:1px solid rgba(255,255,255,.28);border-radius:5px;padding:.7rem .8rem;color:var(--text);width:100%;font-size:1rem;font-family:'Instrument Sans',system-ui,sans-serif}
+        .inp:focus{outline:none;border-color:#fff}
+        .size{display:flex;align-items:center;justify-content:space-between;width:100%;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.75rem .9rem;cursor:pointer;color:var(--text);font-weight:500;font-size:.9rem;font-family:'Instrument Sans',system-ui,sans-serif;transition:.15s}
+        .size.on{border-color:#fff;background:rgba(255,255,255,.06)}
+        .size .cap{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+        .size.on .cap{color:#fff}
+        .sub{flex:1;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.65rem .3rem;cursor:pointer;color:var(--muted);font-weight:500;font-size:.82rem;font-family:'Instrument Sans',system-ui,sans-serif;transition:.15s}
+        .sub.on{border-color:#fff;color:#fff;background:rgba(255,255,255,.06)}
+        .cbtn{width:100%;border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.95rem;letter-spacing:.02em;cursor:pointer;background:#fff;color:#000}
       `}</style>
     </div>
   )

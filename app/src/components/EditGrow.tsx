@@ -72,13 +72,14 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
 
         <style>{`
           @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-          .elbl{font-size:.6rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-family:'Space Grotesk';display:block;margin-bottom:6px}
-          .esub{color:var(--faint);text-transform:none;letter-spacing:0;font-weight:600}
-          .einp{background:rgba(255,255,255,.05);border:1px solid var(--glass-bd);border-radius:12px;padding:.6rem .75rem;color:var(--text);width:100%;font-size:.9rem}
-          .echip{flex:1;text-align:center;background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);border-radius:12px;padding:.55rem .3rem;cursor:pointer;color:var(--text);font-weight:600;font-size:.76rem;font-family:'Space Grotesk';transition:.15s}
-          .echip.on{background:linear-gradient(135deg,rgba(52,211,153,.22),rgba(190,242,100,.1));border-color:var(--acc);color:var(--acc)}
-          .ebtn{border:none;border-radius:15px;font-weight:700;padding:.85rem;font-family:'Space Grotesk';font-size:.92rem;cursor:pointer;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c}
-          .ebtn-ghost{border:1px solid var(--glass-bd);border-radius:15px;font-weight:600;padding:.85rem;font-family:'Space Grotesk';font-size:.86rem;cursor:pointer;background:rgba(255,255,255,.05);color:var(--text)}
+          .elbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:6px}
+          .esub{color:var(--faint);text-transform:none;letter-spacing:0;font-weight:500;font-family:'Instrument Sans',system-ui,sans-serif}
+          .einp{background:transparent;border:1px solid rgba(255,255,255,.28);border-radius:5px;padding:.65rem .8rem;color:var(--text);width:100%;font-size:1rem;font-family:'Instrument Sans',system-ui,sans-serif}
+          .einp:focus{outline:none;border-color:#fff}
+          .echip{flex:1;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.6rem .3rem;cursor:pointer;color:var(--muted);font-weight:500;font-size:.78rem;font-family:'Instrument Sans',system-ui,sans-serif;transition:.15s}
+          .echip.on{border-color:#fff;color:#fff;background:rgba(255,255,255,.06)}
+          .ebtn{border:none;border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}
+          .ebtn-ghost{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.88rem;cursor:pointer;background:transparent;color:var(--text)}
         `}</style>
       </div>
     </div>
