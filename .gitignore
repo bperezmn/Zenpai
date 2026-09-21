@@ -25,3 +25,7 @@ blender/plantas/*.glb
 # recortes de plantas: se versionan como WebP sin pérdida (blender/plantas/*_cutout.webp);
 # los PNG intermedios (descargas de Higgsfield) no
 blender/plantas/*.png
+
+# fotos 4K originales del set fotorrealista (GPT Image 2.5): ~2 GB, fuera del repo
+fotos_4k/raw/
+fotos_4k/color/

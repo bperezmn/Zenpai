@@ -192,13 +192,18 @@ export const CONSENT_VERSION = 1
 
 // ===== imágenes de la carpa: el arte IA original (la escena 3D de blender/ quedó apartada,
 // junto con su set en app/_assets_v2_3d/, por decisión de Bruno: se veía peor que las fotos) =====
+// Set fotorrealista (2026-09-21, GPT Image 2.5 desde una única base: misma cámara en todas).
+// El arte anterior quedó en app/_assets_ia_antiguas/.
 const HAVE = new Set([
-  'carpa-vacia', 'carpa-plantula', 'carpa-dia', 'carpa-dia-1p', 'carpa-dia-2p', 'carpa-sedienta',
-  'floracion', 'carpa-cenital', 'carpa-cerrada', 'carpa-entreabierta', 'ajar-vacia', 'ajar-flor',
+  'carpa-vacia', 'carpa-plantula', 'carpa-plantula-1p', 'carpa-plantula-2p',
+  'carpa-dia', 'carpa-dia-1p', 'carpa-dia-2p', 'carpa-sedienta',
+  'floracion', 'floracion-1p', 'floracion-2p', 'flor-temprana',
+  'cosecha', 'cosecha-1p', 'cosecha-2p', 'secando', 'germinacion',
+  'carpa-cerrada', 'carpa-entreabierta', 'ajar-vacia', 'ajar-flor',
+  'carpa-apagada', 'noche-plantula', 'noche-veg', 'noche-flor', 'noche-cosecha',
   'coco-plantula', 'coco-veg', 'coco-sed', 'coco-flor', 'hidro-plantula', 'hidro-veg', 'hidro-sed', 'hidro-flor',
-  'germinacion', 'cosecha', 'secando', 'carpa-apagada', 'carpa-noche-aire',
   'agua-1', 'agua-2', 'agua-3', 'agua-1-brote', 'agua-2-brote', 'agua-3-brote',
-  'veg-temprano', 'veg-lst', 'veg-lollipop', 'veg-apical', 'veg-defoliada', 'flor-lst', 'flor-defoliada',
+  'veg-temprano', 'veg-medio', 'veg-lst', 'veg-lollipop', 'veg-apical', 'veg-defoliada', 'flor-lst', 'flor-defoliada',
 ])
 // rutas relativas a la base del deploy (BASE_URL termina en '/'): así la app
 // funciona igual en raíz (localhost, Vercel) que bajo subcarpeta (GitHub Pages)
@@ -263,12 +268,16 @@ export function frontImg(c: Cultivo, view: 'front' | 'cenital', state: SceneStat
     if (c.training === 'lst' && HAVE.has('veg-lst')) return A('veg-lst')
     if (c.training === 'lollipop' && HAVE.has('veg-lollipop')) return A('veg-lollipop')
     if (c.training === 'apical' && HAVE.has('veg-apical')) return A('veg-apical')
-    if (c.training === 'none' && c.day < 30 && HAVE.has('veg-temprano')) return A('veg-temprano')
+    // sin técnica, la planta crece por tramos: temprano (<21 d) → medio (<30 d) → tupida
+    if (c.training === 'none' && c.day < 21) return A('veg-temprano')
+    if (c.training === 'none' && c.day < 30) return A('veg-medio')
   }
-  // floración (tierra): la defoliación reciente y el LST también se ven
+  // floración (tierra): la defoliación reciente y el LST también se ven; las dos primeras
+  // semanas (estirón y primeros pistilos) tienen su propia foto
   if (c.stage === 'flor' && c.thirst <= 0.55 && c.substrate === 'tierra') {
     if (isDefoliated(c)) return A('flor-defoliada')
     if (c.training === 'lst') return A('flor-lst')
+    if (florDays(c) < 14) return A('flor-temprana')
   }
   let key: string, tierra: string
   if (c.stage === 'germinacion') { key = 'germinacion'; tierra = 'germinacion' }
@@ -283,9 +292,19 @@ export function frontImg(c: Cultivo, view: 'front' | 'cenital', state: SceneStat
   return A(base)
 }
 
-// imagen de noche (luz apagada), con/ sin ventilador
+// días de floración: desde el 12/12 anotado (foto) o desde el día 32 (auto)
+export function florDays(c: Cultivo): number {
+  if (c.flowerTs) return (Date.now() - c.flowerTs) / 86400000
+  return c.day - 32
+}
+
+// imagen de noche (luz apagada): la misma carpa, con las plantas de la etapa, a oscuras
 export function nightImg(c: Cultivo): string {
-  return c.fan ? A('carpa-noche-aire') : A('carpa-apagada')
+  if (c.stage === 'plantula') return A('noche-plantula')
+  if (c.stage === 'veg') return A('noche-veg')
+  if (c.stage === 'flor') return A('noche-flor')
+  if (c.stage === 'cosecha') return A('noche-cosecha')
+  return A('carpa-apagada')
 }
 
 // cuadro "entreabierta" para la animación de apertura, según etapa
@@ -350,6 +369,6 @@ export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
 
 // preload selectivo: solo lo que se va a ver ahora (no las 31 imágenes)
 export function preloadFor(c: Cultivo, state: SceneState = 'dia') {
-  const urls = new Set<string>([closedImg, ajarImg(c), frontImg(c, 'front', 'dia'), nightImg(c), frontImg(c, 'front', state), A('carpa-cenital')])
+  const urls = new Set<string>([closedImg, ajarImg(c), frontImg(c, 'front', 'dia'), nightImg(c), frontImg(c, 'front', state), topImg(c, state)])
   urls.forEach((u) => { const i = new Image(); i.src = u })
 }
