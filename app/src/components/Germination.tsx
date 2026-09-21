@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useStore, selectActive } from '../store'
-import { waterImg, soakDays, hasSprouted } from '../lib'
+import { waterImg, soakDays, hasSprouted, preloadIntro } from '../lib'
 import { HOWTOS } from '../howtos'
 import { useBackClose } from '../useBackClose'
 import HowTo from './HowTo'
@@ -31,6 +31,7 @@ export default function Germination() {
   // el brote sigue el TIEMPO REAL de remojo (nada de simularlo): re-evaluar cada minuto
   const [, setTick] = useState(0)
   useEffect(() => {
+    preloadIntro() // la apertura de la carpa (tras trasplantar) ya tendrá sus fotos en caché
     const t = setInterval(() => setTick((n) => n + 1), 60000)
     return () => clearInterval(t)
   }, [])

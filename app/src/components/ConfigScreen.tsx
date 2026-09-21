@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../store'
-import { stageAt, stageLabel, fmtHour, type Substrate, type SeedType, type PotType } from '../lib'
+import { stageAt, stageLabel, fmtHour, preloadIntro, type Substrate, type SeedType, type PotType } from '../lib'
 import { lineaPorId } from '../data/nutrientes'
 import NutrientesPicker from './NutrientesPicker'
 
@@ -37,9 +37,13 @@ function nextName(n: number): string {
   return n < 26 ? 'Carpa ' + String.fromCharCode(65 + n) : 'Carpa ' + (n + 1)
 }
 
+// las fotos de la puerta se descargan mientras el usuario rellena el alta
+function usePreloadIntro() { useEffect(() => { preloadIntro() }, []) }
+
 // Alta de un cultivo en pasos (uno por pantalla, sin amontonar): modo → carpa → maceta y
 // sustrato → nutrientes → luz → semilla, con resumen y el botón final.
 export default function ConfigScreen() {
+  usePreloadIntro()
   const createGrow = useStore((s) => s.createGrow)
   const registerExisting = useStore((s) => s.registerExisting)
   const cancelNew = useStore((s) => s.cancelNew)

@@ -297,6 +297,13 @@ export function ajarImg(c: Cultivo): string {
 
 export const closedImg = A('carpa-cerrada')
 
+// las fotos de la puerta se piden mientras el usuario rellena el alta o espera la germinación,
+// así la apertura de la carpa ya las tiene en caché cuando toca reproducirla
+export function preloadIntro() {
+  const names = ['carpa-cerrada', 'carpa-entreabierta', ...['ajar-vacia', 'ajar-flor'].filter((n) => HAVE.has(n))]
+  names.forEach((n) => { const i = new Image(); i.src = A(n) })
+}
+
 // timelapse del ciclo (Seedance, 10 s): plántula → cosecha. La línea de tiempo lo arrastra:
 // el día d cae en el segundo d / TIMELAPSE_DAYS × duración. HAS_TIMELAPSE se apaga si el
 // archivo no está (assets/timelapse.mp4), y entonces solo se ven las fotos fijas.
