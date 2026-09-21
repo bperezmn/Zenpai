@@ -37,8 +37,11 @@ export default function Home() {
   const fecha = `${DIA[now.getDay()]} ${now.getDate()} ${MES[now.getMonth()]}`
   const activos = grows.filter((g) => g.stage !== 'secando').length
 
+  // la lista hace scroll en su propia capa; el botón "Nuevo cultivo" vive FUERA de ella, en una
+  // banda negra fija abajo, para que ninguna fila pase por debajo ni se mueva con el scroll
   return (
-    <div className="absolute inset-0 overflow-y-auto pb-28" style={{ background: '#000' }}>
+    <div className="absolute inset-0" style={{ background: '#000' }}>
+    <div className="absolute inset-0 overflow-y-auto" style={{ paddingBottom: grows.length > 0 ? 100 : 32 }}>
       <div className="flex items-center justify-between px-6 pt-12">
         <div className="flex items-center gap-2.5">
           <Logo size={26} />
@@ -49,8 +52,6 @@ export default function Home() {
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
         </button>
       </div>
-
-      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
 
       <div className="px-6 pt-8 flex flex-col gap-2">
         <div className="label">{fecha} · {activos === 0 ? 'sin cultivos activos' : `${activos} ${activos === 1 ? 'cultivo activo' : 'cultivos activos'}`}</div>
@@ -89,13 +90,19 @@ export default function Home() {
         </>
       )}
 
+    </div>
+
       {grows.length > 0 && (
-        <button className="cbtn-fixed" onClick={startNew}>Nuevo cultivo</button>
+        <div className="absolute left-0 right-0 bottom-0 px-6 pt-3 pb-[22px]" style={{ background: '#000' }}>
+          <button className="cbtn-fixed" onClick={startNew}>Nuevo cultivo</button>
+        </div>
       )}
+
+      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
 
       <style>{`
         .cbtn{width:100%;max-width:320px;border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.95rem;letter-spacing:.02em;cursor:pointer;background:#fff;color:#000}
-        .cbtn-fixed{position:absolute;left:24px;right:24px;bottom:22px;border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.95rem;letter-spacing:.02em;cursor:pointer;background:#fff;color:#000}
+        .cbtn-fixed{display:block;width:100%;border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.95rem;letter-spacing:.02em;cursor:pointer;background:#fff;color:#000}
         .hrow{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid rgba(255,255,255,.12);width:100%;text-align:left;background:none;border-top:0;border-left:0;border-right:0;color:inherit;cursor:pointer}
         .xbtn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--faint);background:none;border:0;cursor:pointer;flex:none}
         .xbtn:hover{color:#fff}
@@ -195,15 +202,17 @@ function Row({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDele
       <button onClick={onOpen} className="hrow min-w-0">
         <img src={frontImg(g, 'front')} alt="" className="w-[54px] h-[54px] object-cover flex-none" style={{ borderRadius: 5, objectPosition: '50% 45%' }} />
         <div className="min-w-0 flex-1 flex flex-col gap-1">
-          <div className="display font-semibold text-[1rem] truncate">{g.grow}</div>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="display font-semibold text-[1rem] truncate">{g.grow}</div>
+            {st.alert && !confirming && (
+              <span className="flex items-center gap-1.5 flex-none text-[.74rem] font-medium" style={{ color: st.color }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />
+                {st.text}
+              </span>
+            )}
+          </div>
           <div className="text-[.78rem] truncate" style={{ color: 'var(--muted)' }}>{meta(g)}</div>
         </div>
-        {st.alert && !confirming && (
-          <span className="flex items-center gap-1.5 flex-none text-[.78rem] font-medium" style={{ color: st.color }}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />
-            {st.text}
-          </span>
-        )}
       </button>
       {confirming ? (
         <div className="flex items-center gap-1 flex-none pl-2" style={{ borderBottom: '1px solid rgba(255,255,255,.12)', alignSelf: 'stretch' }}>
