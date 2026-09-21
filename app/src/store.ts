@@ -299,9 +299,9 @@ export const useStore = create<AppState>()(
               const live = deriveLive(next)
               return { ...next, ...live }
             },
-            { justCreated: true, previewDay: null, toast:`Transplante · ${n} ${n === 1 ? 'planta': 'plantas'}`, pendingUndo: null },
+            { justCreated: true, previewDay: null, toast: `Trasplante · ${n} ${n === 1 ? 'planta' : 'plantas'}`, pendingUndo: null },
           )
-          log('transplante', `Transplantadas ${n} ${n === 1 ? 'planta' : 'plantas'}`)
+          log('transplante', `Trasplantadas ${n} ${n === 1 ? 'planta' : 'plantas'}`)
         },
 
         // ---- editar los datos del cultivo tras crearlo ----
@@ -365,7 +365,7 @@ export const useStore = create<AppState>()(
             if (change > now || change <= prev) continue
             lightNotified.set(g.id, change)
             const on = scheduledLight(g)
-            const body = `${g.grow}: ${on ? 'hora de ENCENDER la luz' : 'hora de APAGAR la luz'}`
+            const body = `${g.grow} · ${on ? 'hora de encender la luz' : 'hora de apagar la luz'}`
             if (document.visibilityState === 'visible') { set({ toast: body, pendingUndo: null }); continue }
             if (!notifyEnabled || typeof Notification === 'undefined' || Notification.permission !== 'granted') continue
             try {
@@ -532,7 +532,7 @@ export const useStore = create<AppState>()(
           if (!g) return
           set({ lastNotifiedDay: today })
           const title = 'zenpai'
-          const body = `${g.grow}: toca regar hoy (día ${g.day} · revisa el peso de la maceta)`
+          const body = `${g.grow} · día ${g.day} · toca regar hoy`
           try {
             navigator.serviceWorker?.getRegistration()
               .then((r) => { const icon = import.meta.env.BASE_URL + 'pwa-192.png'; if (r) r.showNotification(title, { body, icon, badge: icon }); else new Notification(title, { body, icon }) })
@@ -641,11 +641,11 @@ export const useStore = create<AppState>()(
             evs.push({ growId, ts: now - daysAgo * D, day, type, note })
           // plántula: recién arranca
           ev(g1.id, 5, 0, 'sembrado', '2 semillas en remojo')
-          ev(g1.id, 3, 0, 'transplante', 'Transplantadas 2 plantas')
+          ev(g1.id, 3, 0, 'transplante', 'Trasplantadas 2 plantas')
           ev(g1.id, 1, 2, 'riego')
           // veg: rutina + LST + mediciones
           ev(g2.id, 30, 0, 'sembrado', '3 semillas en remojo')
-          ev(g2.id, 28, 0, 'transplante', 'Transplantadas 3 plantas')
+          ev(g2.id, 28, 0, 'transplante', 'Trasplantadas 3 plantas')
           ev(g2.id, 24, 4, 'riego')
           ev(g2.id, 20, 8, 'riego')
           ev(g2.id, 16, 12, 'medicion', 'pH 6.5 · en rango')
@@ -657,7 +657,7 @@ export const useStore = create<AppState>()(
           ev(g2.id, 1, 27, 'medicion', 'Temp 25 °C · en rango')
           // flor: cambio de luz + rutina
           ev(g3.id, 63, 0, 'sembrado', '3 semillas en remojo')
-          ev(g3.id, 61, 0, 'transplante', 'Transplantadas 3 plantas')
+          ev(g3.id, 61, 0, 'transplante', 'Trasplantadas 3 plantas')
           ev(g3.id, 40, 21, 'nota', 'Huelen increíble al abrir la carpa')
           ev(g3.id, 21, 40, 'floracion', 'Cambié la luz a 12/12')
           ev(g3.id, 14, 47, 'riego')
@@ -666,7 +666,7 @@ export const useStore = create<AppState>()(
           ev(g3.id, 1, 60, 'riego')
           // terminado: ciclo completo cerrado
           ev(g4.id, 100, 0, 'sembrado', '2 semillas en remojo')
-          ev(g4.id, 98, 0, 'transplante', 'Transplantadas 2 plantas')
+          ev(g4.id, 98, 0, 'transplante', 'Trasplantadas 2 plantas')
           ev(g4.id, 66, 32, 'nota', 'Autofloreciente: arrancó la flor sola, puntual')
           ev(g4.id, 20, 78, 'cosecha')
           ev(g4.id, 6, 92, 'terminado', 'Peso seco: 85 g · Buen primer ciclo, el próximo con más ventilación')

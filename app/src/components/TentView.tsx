@@ -153,7 +153,7 @@ export default function TentView() {
     const w = wateringGuide(c)
     const ph = targetFor('ph', c.stage, c.substrate)
     const ec = targetFor('ec', c.stage, c.substrate)
-    return [ ''+ (w ? w.amount : ' a fondo'), 'pH'+ fmtRange(ph, 1), ec ? 'EC'+ fmtRange(ec, 1) : null].filter(Boolean).join( '·')
+    return [w ? w.amount : 'a fondo', 'pH ' + fmtRange(ph, 1), ec ? 'EC ' + fmtRange(ec, 1) : null].filter(Boolean).join(' · ')
   }
   function onWater(e?: React.PointerEvent) {
     // encontró el hotspot por su cuenta: el coach ya no tiene nada que enseñarle ahí
@@ -266,20 +266,20 @@ export default function TentView() {
       )}
 
       {/* saliste del presente: pill explícita para volver (la única salida no puede ser secreta) */}
-      {preview && (
+      {preview && !toast && (
         <button onClick={() => setPreview(null)}
-          className="absolute left-1/2 -translate-x-1/2 top-[88px] z-30 glass rounded-full h-9 px-4 flex items-center gap-2 whitespace-nowrap"
-          style={{ borderColor: 'var(--warn)' }}>
-          <span className="text-[.72rem] leading-none" style={{ color: 'var(--warn)'}}>Día {effDay}</span>
-          <span className="display font-bold text-[.72rem] leading-none" style={{ color: 'var(--warn)'}}>· Volver a hoy</span>
+          className="absolute left-1/2 -translate-x-1/2 top-[88px] z-30 glass rounded-[5px] h-9 px-4 flex items-center whitespace-nowrap text-[.78rem] font-medium leading-none"
+          style={{ borderColor: 'var(--warn)', color: 'var(--warn)' }}>
+          Día {effDay} · Volver a hoy
         </button>
       )}
 
       {/* toast (con "Deshacer" cuando la última acción se puede revertir) */}
-      <div className={`absolute left-1/2 -translate-x-1/2 top-[92px] z-40 glass rounded-xl px-4 py-2 text-[.78rem] font-semibold text-center transition-all duration-300 ${toast ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3 pointer-events-none'}`} style={{ maxWidth: '82%' }}>
-        {toast}
+      <div className={`absolute left-1/2 -translate-x-1/2 top-[92px] z-40 glass rounded-[5px] pl-4 text-[.78rem] font-semibold text-center flex items-center transition-all duration-300 ${toast ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-3 pointer-events-none'} ${toast && pendingUndo ? 'pr-0' : 'pr-4 py-2'}`} style={{ maxWidth: '82%' }}>
+        <span className={toast && pendingUndo ? 'py-2' : undefined}>{toast}</span>
         {toast && pendingUndo && (
-          <button onClick={runUndo} className="ml-2.5 display font-bold underline underline-offset-2" style={{ color: 'var(--acc2)' }}>Deshacer</button>
+          <button onClick={runUndo} className="ml-3 px-3 font-semibold self-stretch flex items-center"
+            style={{ color: 'var(--blue)', minHeight: 36, borderLeft: '1px solid rgba(255,255,255,.16)', background: 'none' }}>Deshacer</button>
         )}
       </div>
 
@@ -289,30 +289,26 @@ export default function TentView() {
       <div className="absolute left-4 right-4 bottom-3 z-20 flex flex-col gap-2 pointer-events-none">
         {!preview && (c.stage === 'cosecha' || done) && (
           confirmHarvest && c.stage === 'cosecha' ? (
-            <div className="glass rounded-2xl px-4 py-3 text-center self-center pointer-events-auto" style={{ maxWidth: 360 }}>
-              <div className="display font-bold text-[.85rem] mb-1">¿Cortamos ya?</div>
-              <p className="text-[.7rem] mb-2.5" style={{ color: 'var(--muted)' }}>
-                Mira los tricomas con lupa: lechosos = potencia · ámbar = relax. Esto termina el cultivo.
+            <div className="glass rounded-[5px] px-4 py-3 text-center self-center pointer-events-auto" style={{ maxWidth: 360 }}>
+              <div className="display font-semibold text-[.9rem] mb-1">¿Cortamos ya?</div>
+              <p className="text-[.8rem] mb-3 leading-snug" style={{ color: 'var(--muted)' }}>
+                Mira los tricomas con lupa: lechosos dan más potencia, ámbar un efecto más relajado. Al cosechar se cierra el cultivo.
               </p>
-              <div className="flex gap-2 justify-center">
-                <button onClick={() => setConfirmHarvest(false)} className="tbtn">Todavía no</button>
-                <button onClick={() => { setConfirmHarvest(false); harvest() }}
-                  className="btn-glow rounded-2xl px-5 display font-bold text-[.78rem]" style={{ height: 34 }}>Sí, cosechar</button>
+              <div className="flex gap-2">
+                <button onClick={() => setConfirmHarvest(false)} className="abtn ghost flex-1">Todavía no</button>
+                <button onClick={() => { setConfirmHarvest(false); harvest() }} className="abtn flex-1">Sí, cosechar</button>
               </div>
             </div>
           ) : done && !c.finishedTs ? (
             // secando: el ciclo aún no cierra — Terminar es la acción principal
             <div className="flex gap-2 self-center pointer-events-auto">
-              <button onClick={startNew} className="tbtn">Nuevo cultivo</button>
-              <button onClick={() => setShowFinish(true)}
-                className="btn-glow rounded-2xl px-5 py-2.5 display font-bold text-[.85rem]">Terminar cultivo</button>
+              <button onClick={startNew} className="abtn ghost">Nuevo cultivo</button>
+              <button onClick={() => setShowFinish(true)} className="abtn">Terminar cultivo</button>
             </div>
           ) : done ? (
-            <button onClick={startNew}
-              className="btn-glow self-center rounded-2xl px-6 py-2.5 display font-bold text-[.85rem] pointer-events-auto">Nuevo cultivo</button>
+            <button onClick={startNew} className="abtn self-center pointer-events-auto">Nuevo cultivo</button>
           ) : (
-            <button onClick={() => setConfirmHarvest(true)}
-              className="btn-glow self-center rounded-2xl px-6 py-2.5 display font-bold text-[.85rem] pointer-events-auto">Cosechar</button>
+            <button onClick={() => setConfirmHarvest(true)} className="abtn self-center pointer-events-auto">Cosechar</button>
           )
         )}
 
@@ -350,7 +346,7 @@ export default function TentView() {
                     {!noTarget && <div className="absolute" style={{ left: '28%', width: '44%', height: 2, background: 'rgba(255,255,255,.35)' }} />}
                     {showReading && <div className="absolute" style={{ left: `calc(${markerPct}% - 2px)`, top: -2, width: 4, height: 6, background: color }} />}
                   </div>
-                  <div className="label mt-1.5" style={{ fontSize: '.56rem' }}>{noTarget ? 'sin objetivo' : showReading ? `meta ${fmtRange(range, m.dec)}` : 'objetivo de la etapa'}</div>
+                  {showReading && <div className="label mt-1.5">meta {fmtRange(range, m.dec)}</div>}
                 </button>
               )
             })}
@@ -365,10 +361,10 @@ export default function TentView() {
             <span className="coach-ring" />
           </div>
           <div className="absolute left-8 right-8 text-center pointer-events-none" style={{ top: '38%' }}>
-            <div className="coach-tip"><b>Toca las plantas</b>para regar</div>
+            <div className="coach-tip"><b>Toca las plantas</b> para regar.</div>
           </div>
           <div className="absolute left-6 right-6 text-center pointer-events-none" style={{ bottom: '112px' }}>
-            <div className="coach-tip">Abajo, los <b>objetivos de la etapa</b> · toca una métrica para anotar tu lectura</div>
+            <div className="coach-tip">Abajo tienes los <b>objetivos de la etapa</b>. Toca una métrica para anotar tu lectura.</div>
           </div>
           <button onClick={dismissCoach} className="coach-ok">Entendido</button>
         </div>
@@ -403,8 +399,10 @@ export default function TentView() {
         @keyframes aparece{from{opacity:0}to{opacity:1}}
         @media (prefers-reduced-motion:reduce){.escena-viva,.aparece{animation:none}}
         .cenname{position:absolute;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;padding:.3rem .7rem;border-radius:5px;white-space:nowrap}
-        .tbtn{height:36px;padding:0 .75rem;border-radius:5px;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+        .tbtn{height:36px;padding:0 .75rem;border-radius:5px;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
         .tbtn-ico{width:36px;padding:0}
+        .abtn{height:40px;padding:0 1.25rem;border-radius:5px;border:1px solid #fff;background:#fff;color:#000;font-family:'Sora',system-ui,sans-serif;font-weight:600;font-size:.85rem;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;cursor:pointer}
+        .abtn.ghost{background:rgba(0,0,0,.5);backdrop-filter:blur(12px);border-color:rgba(255,255,255,.4);color:#fff;font-family:'Instrument Sans',system-ui,sans-serif;font-weight:500}
         .tile{background:rgba(0,0,0,.6);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.14);border-radius:5px;padding:10px 12px}
         .tbtn:active{background:rgba(255,255,255,.14)}
         .tbtn:disabled{opacity:.45}
@@ -413,9 +411,9 @@ export default function TentView() {
         .dock-row>button{scroll-snap-align:start}
         .coach-ring{display:block;width:64px;height:64px;border-radius:50%;border:2px solid var(--acc);box-shadow:0 0 24px var(--glow);animation:coachPulse 1.6s ease-out infinite}
         @keyframes coachPulse{0%{transform:scale(.7);opacity:.95}70%{transform:scale(1.25);opacity:.18}100%{transform:scale(1.35);opacity:0}}
-        .coach-tip{display:inline-block;background:rgba(8,14,11,.8);backdrop-filter:blur(14px);border:1px solid var(--glass-bd);border-radius:14px;padding:.6rem .95rem;font-size:.8rem;line-height:1.45;color:var(--text)}
+        .coach-tip{display:inline-block;background:rgba(8,14,11,.8);backdrop-filter:blur(14px);border:1px solid var(--glass-bd);border-radius:5px;padding:.6rem .95rem;font-size:.8rem;line-height:1.45;color:var(--text)}
         .coach-tip b{color:var(--acc2);font-weight:700}
-        .coach-ok{position:absolute;left:50%;transform:translateX(-50%);bottom:40px;height:38px;padding:0 1.5rem;border:none;border-radius:999px;font-family:'Space Grotesk';font-weight:700;font-size:.8rem;cursor:pointer;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c;box-shadow:0 8px 22px -6px var(--glow)}
+        .coach-ok{position:absolute;left:50%;transform:translateX(-50%);bottom:40px;height:40px;padding:0 1.5rem;border:none;border-radius:5px;font-family:'Sora',system-ui,sans-serif;font-weight:600;font-size:.85rem;cursor:pointer;background:#fff;color:#000}
         @media (prefers-reduced-motion: reduce){.coach-ring{animation:none}}
       `}</style>
     </div>

@@ -36,56 +36,55 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
         </div>
 
         <div className="space-y-2">
-          <Row icon="" label="Agua" value={w ? w.amount : 'a fondo'} />
-          <Row icon="" label="pH" value={fmtRange(ph, 1)} />
-          <Row icon="" label="EC · fuerza del abono" value={ec ?`${fmtRange(ec, 1)} mS`: 'solo agua'} />
+          <Row label="Agua" value={w ? w.amount : 'a fondo'} />
+          <Row label="pH" value={fmtRange(ph, 1)} />
+          <Row label="EC · fuerza del abono" value={ec ?`${fmtRange(ec, 1)} mS`: 'solo agua'} />
         </div>
 
         {linea && fase && (
           <div className="mt-3 rounded-2xl px-3.5 py-3" style={{ border: '1px solid rgba(255,255,255,.14)', background: 'var(--panel)' }}>
-            <button onClick={() => setShowInfo(true)} className="flex items-center gap-2.5 w-full text-left mb-2" style={{ background: 'none', border: 0, padding: 0, color: 'inherit', cursor: 'pointer' }}>
-              <BrandMark linea={linea} size={26} />
+            <div className="flex items-center gap-3">
+              <BrandMark linea={linea} size={36} wide />
               <div className="min-w-0 flex-1">
-                <div className="label truncate" style={{ color: '#fff' }}>{linea.marca} · {fase.nombre}</div>
-                <div className="label" style={{ fontSize: '.52rem' }}>{litros} L de agua · toca para ver la tabla</div>
+                <div className="text-[.86rem] font-medium truncate">{linea.marca}</div>
+                <div className="text-[.72rem] truncate" style={{ color: 'var(--muted)' }}>{fase.nombre} · {litros} L de agua</div>
               </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)', flex: 'none' }}><path d="M9 6l6 6-6 6" /></svg>
-            </button>
+              <button onClick={() => setShowInfo(true)} aria-label={`Ver la tabla de ${linea.marca}`} className="rtabla">Tabla</button>
+            </div>
             {dosis.length === 0 ? (
-              <div className="text-[.78rem]" style={{ color: 'var(--muted)' }}>Esta semana: solo agua, sin abono.</div>
+              <div className="text-[.78rem] mt-3" style={{ color: 'var(--muted)' }}>Esta semana toca solo agua, sin abono.</div>
             ) : (
-              <div className="space-y-1.5">
+              <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,.1)' }}>
                 {dosis.map((d) => (
-                  <div key={d.producto.id} className="flex items-baseline justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-[.82rem] font-medium truncate">{d.producto.nombre}</div>
-                      <div className="label truncate" style={{ fontSize: '.55rem' }}>{d.producto.rol}</div>
+                  <div key={d.producto.id} className="flex items-center justify-between gap-3">
+                    <div className="text-[.84rem] min-w-0 truncate">{d.producto.nombre}</div>
+                    <div className="flex items-baseline gap-2 flex-none">
+                      {d.ml < 1 && <span className="text-[.7rem]" style={{ color: 'var(--faint)' }}>≈ {Math.max(1, Math.round(d.ml * 20))} gotas</span>}
+                      <span className="mono text-[1rem] font-medium">{d.ml} <span className="text-[.68rem]" style={{ color: 'var(--muted)' }}>ml</span></span>
                     </div>
-                    <div className="mono text-[1rem] font-medium flex-none">{d.ml} <span className="text-[.65rem]" style={{ color: 'var(--muted)' }}>ml</span></div>
                   </div>
                 ))}
-                <div className="label pt-1" style={{ fontSize: '.55rem' }}>pH tras mezclar {linea.ph[0]}–{linea.ph[1]}{linea.aguaC ? ` · agua ${linea.aguaC[0]}–${linea.aguaC[1]} °C` : ''}</div>
               </div>
             )}
             {!linea.verificado && (
-              <div className="text-[.62rem] mt-2" style={{ color: 'var(--warn)' }}>Dosis según la tabla pública del fabricante: compara con la versión vigente de tu botella.</div>
+              <div className="text-[.7rem] mt-3" style={{ color: 'var(--warn)' }}>Dosis de la tabla pública del fabricante. Compárala con la etiqueta de tu botella.</div>
             )}
           </div>
         )}
 
-        <div className="mt-3 mb-4 space-y-1">
-          <p className="text-[.72rem]" style={{ color: 'var(--muted)' }}>
-            Ajusta el pH del agua ANTES de regar.{w?.when ? ` Riega ${w.when}.` : ''}
+        <div className="mt-4 mb-4 space-y-1.5">
+          <p className="text-[.76rem] leading-snug" style={{ color: 'var(--muted)' }}>
+            Ajusta el pH del agua antes de regar.{w?.when ? ` Riega ${w.when}.` : ''}
           </p>
-          {guide === 'novato' && ec && (
-            <p className="text-[.68rem]" style={{ color: 'var(--faint)' }}>
-              ¿Sin medidor de EC? Empieza con 1/4 de la dosis de abono que indique el fabricante.
+          {guide === 'novato' && ec && dosis.length === 0 && (
+            <p className="text-[.72rem] leading-snug" style={{ color: 'var(--faint)' }}>
+              ¿Sin medidor de EC? Empieza con un cuarto de la dosis que indique tu abono.
             </p>
           )}
         </div>
 
         {guard && (
-          <div className="mb-3 rounded-2xl px-3.5 py-2.5 text-[.74rem]"
+          <div className="mb-3 rounded-2xl px-3.5 py-2.5 text-[.76rem] leading-snug"
             style={{ background: 'rgba(232,179,75,.1)', border: '1px solid var(--warn)', color: 'var(--warn)' }}>
             {guard}
           </div>
@@ -93,8 +92,8 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
 
         {guard ? (
           <div className="flex gap-2">
-            <button onClick={() =>onConfirm(true)} className="rbtn-ghost flex-1 whitespace-nowrap">Regar igualmente</button>
-            <button onClick={onClose} className="rbtn flex-[2] whitespace-nowrap">Esperar</button>
+            <button onClick={() =>onConfirm(true)} className="rbtn-ghost flex-1">Regar igualmente</button>
+            <button onClick={onClose} className="rbtn flex-1">Esperar</button>
           </div>
         ) : (
           <div className="flex gap-2">
@@ -107,19 +106,19 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
         <style>{`
           @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
           .rbtn{border:none;border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}
-          .rbtn-ghost{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.88rem;cursor:pointer;background:transparent;color:var(--text)}
+          .rbtn-ghost{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.88rem;cursor:pointer;background:transparent;color:var(--text);white-space:nowrap;padding:0 8px}
+          .rtabla{flex:none;height:32px;padding:0 10px;border:1px solid rgba(255,255,255,.28);border-radius:5px;background:transparent;color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
         `}</style>
       </div>
     </div>
   )
 }
 
-function Row({ icon, label, value }: { icon: string; label: string; value: string }) {
+function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5" style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--glass-bd)' }}>
-      <span className="text-[1.1rem] leading-none">{icon}</span>
       <span className="flex-1 text-[.82rem]" style={{ color: 'var(--muted)' }}>{label}</span>
-      <span className="display font-bold text-[.98rem]">{value}</span>
+      <span className="display font-bold text-[.98rem] text-right">{value}</span>
     </div>
   )
 }

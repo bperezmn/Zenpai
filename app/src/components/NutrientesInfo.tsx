@@ -15,21 +15,23 @@ export default function NutrientesInfo({ linea, onClose }: { linea: LineaNutrien
         onClick={(e) => e.stopPropagation()} style={{ animation: 'sheetUp .28s ease-out' }}>
         <div className="mx-auto mb-3 h-1 w-10 rounded-full flex-none" style={{ background: 'var(--glass-bd)' }} />
         <div className="flex items-center gap-3 mb-1 flex-none">
-          <BrandMark linea={linea} size={44} />
+          <BrandMark linea={linea} size={40} wide />
           <div className="min-w-0 flex-1">
             <div className="display font-semibold text-[1.05rem] leading-tight">{linea.marca}</div>
-            <div className="label truncate" style={{ fontSize: '.58rem' }}>{linea.linea}</div>
+            <div className="truncate text-[.78rem]" style={{ color: 'var(--muted)' }}>{linea.linea}</div>
           </div>
           <button onClick={onClose} aria-label="Cerrar" className="w-11 h-11 flex items-center justify-center flex-none" style={{ border: '1px solid rgba(255,255,255,.28)', borderRadius: 5, color: '#fff', background: 'transparent' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 mb-3 flex-none">
-          <span className="label" style={{ fontSize: '.56rem' }}>{linea.sustratos.join(' · ')}</span>
-          <span className="label" style={{ fontSize: '.56rem' }}>pH {linea.ph[0]}–{linea.ph[1]}</span>
-          {linea.aguaC && <span className="label" style={{ fontSize: '.56rem' }}>agua {linea.aguaC[0]}–{linea.aguaC[1]} °C</span>}
-          <span className="label" style={{ fontSize: '.56rem', color: linea.verificado ? 'var(--blue)' : 'var(--warn)' }}>{linea.verificado ? 'tabla oficial verificada' : 'dosis de etiqueta · compara con tu botella'}</span>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mb-1.5 flex-none">
+          <span className="label">{linea.sustratos.join(' · ')}</span>
+          <span className="label">pH {linea.ph[0]}–{linea.ph[1]}</span>
+          {linea.aguaC && <span className="label">agua {linea.aguaC[0]}–{linea.aguaC[1]} °C</span>}
         </div>
+        <p className="text-[.74rem] mb-3 flex-none" style={{ color: linea.verificado ? 'var(--blue)' : 'var(--warn)' }}>
+          {linea.verificado ? 'Tabla oficial verificada.' : 'Dosis de la etiqueta: compárala con tu botella.'}
+        </p>
 
         <div className="overflow-y-auto -mx-1 px-1" style={{ minHeight: 0 }}>
           <div className="label mb-1.5">Tabla · ml por litro</div>
@@ -62,7 +64,7 @@ export default function NutrientesInfo({ linea, onClose }: { linea: LineaNutrien
           <div className="space-y-1.5">
             {cols.map((p) => (
               <div key={p.id} className="flex items-baseline justify-between gap-3 text-[.78rem]">
-                <span className="font-medium">{p.nombre}{p.base ? <span className="label ml-2" style={{ fontSize: '.5rem' }}>base</span> : null}</span>
+                <span className="font-medium">{p.nombre}{p.base ? <span className="label ml-2">base</span> : null}</span>
                 <span style={{ color: 'var(--muted)', textAlign: 'right' }}>{p.rol}</span>
               </div>
             ))}
@@ -75,7 +77,7 @@ export default function NutrientesInfo({ linea, onClose }: { linea: LineaNutrien
                 {linea.suplementos.map((sp) => (
                   <div key={sp.id} className="text-[.78rem]">
                     <span className="font-medium">{sp.nombre}</span> <span className="mono" style={{ color: 'var(--muted)' }}>{sp.dosis[0] === sp.dosis[1] && sp.dosis[0] === 0 ? '' : `${sp.dosis[0]}–${sp.dosis[1]} ml/L`}</span>
-                    <div style={{ color: 'var(--faint)', fontSize: '.7rem' }}>{sp.rol}. {sp.cuando}</div>
+                    <div className="text-[.74rem]" style={{ color: 'var(--faint)' }}>{sp.rol}. {sp.cuando}</div>
                   </div>
                 ))}
               </div>
@@ -86,7 +88,7 @@ export default function NutrientesInfo({ linea, onClose }: { linea: LineaNutrien
           <ul className="space-y-1 text-[.76rem] pl-4" style={{ color: 'var(--muted)', listStyle: 'disc' }}>
             {linea.reglas.map((r, i) => <li key={i}>{r}</li>)}
           </ul>
-          <p className="text-[.62rem] mt-4" style={{ color: 'var(--faint)' }}>
+          <p className="text-[.74rem] mt-4" style={{ color: 'var(--faint)' }}>
             Fuente: {linea.fuente}.{linea.web ? ` Más en ${linea.web}.` : ''} Las marcas y logos pertenecen a sus dueños; se muestran solo para identificar tus productos.
           </p>
         </div>

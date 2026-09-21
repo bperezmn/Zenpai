@@ -5,6 +5,9 @@ import { metricDef, targetFor, evalMetric, metricTip, fmtRange, STATUS_COLOR } f
 
 // Hoja para registrar TU medición de una métrica → semáforo + consejo + queda en la bitácora.
 // Honesto: no inventamos lecturas de sensores; el dato lo pones tú.
+// nombre completo para el título de la hoja (los chips usan la etiqueta corta de METRICS)
+const METRIC_NAME: Record<MetricKey, string> = { temp: 'Temperatura', hr: 'Humedad', ph: 'pH', vpd: 'VPD', ec: 'EC', ppfd: 'PPFD' }
+
 export default function Measure({ metric, onClose }: { metric: MetricKey; onClose: () => void }) {
   const c = useStore(selectActive)
   const measure = useStore((s) => s.measure)
@@ -26,9 +29,9 @@ export default function Measure({ metric, onClose }: { metric: MetricKey; onClos
       <div className="absolute left-0 right-0 bottom-0 glass rounded-t-3xl px-5 pt-3 pb-7"
         onClick={(e) => e.stopPropagation()} style={{ animation: 'sheetUp .28s ease-out' }}>
         <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ background: 'var(--glass-bd)' }} />
-        <div className="flex items-baseline justify-between mb-1">
-          <h3 className="display font-bold text-[1.05rem]">Medir {def.label}</h3>
-          <span className="text-[.7rem]" style={{ color: 'var(--faint)' }}>objetivo {fmtRange(range, def.dec)} {def.unit}</span>
+        <div className="mb-1">
+          <h3 className="display font-bold text-[1.05rem]">{METRIC_NAME[metric]}</h3>
+          <div className="text-[.74rem] mt-0.5" style={{ color: 'var(--muted)' }}>Objetivo {fmtRange(range, def.dec)}{def.unit ? ` ${def.unit}` : ''}</div>
         </div>
 
         {/* lectura + stepper */}
@@ -38,7 +41,7 @@ export default function Measure({ metric, onClose }: { metric: MetricKey; onClos
             <div className="display font-bold text-[2.4rem] leading-none" style={{ color }}>
               {def.dec ? val.toFixed(def.dec) : Math.round(val)}
             </div>
-            <div className="text-[.62rem] font-bold uppercase tracking-wide" style={{ color: 'var(--faint)' }}>{def.unit || def.label}</div>
+            <div className="label mt-1">{def.unit || def.label}</div>
           </div>
           <button className="step" onClick={() => bump(1)}>+</button>
         </div>
@@ -46,16 +49,16 @@ export default function Measure({ metric, onClose }: { metric: MetricKey; onClos
         {/* consejo del mentor */}
         <div className="flex items-start gap-2.5 rounded-2xl px-3.5 py-3 mb-4" style={{ background: 'rgba(255,255,255,.04)', border: `1px solid ${color}` }}>
           <span className="w-2.5 h-2.5 rounded-full mt-1.5 flex-none" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
-          <span className="text-[.84rem] leading-snug">{tip}</span>
+          <span className="text-[.84rem] leading-relaxed">{tip}</span>
         </div>
 
         <button className="anota" onClick={() => { measure(metric, round(val)); onClose() }}>Anotar en la bitácora</button>
 
         <style>{`
           @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-          .step{width:46px;height:46px;border-radius:16px;border:1px solid var(--glass-bd);background:rgba(255,255,255,.05);color:var(--text);font-size:1.5rem;font-weight:300;display:flex;align-items:center;justify-content:center;cursor:pointer}
+          .step{width:46px;height:46px;border-radius:5px;border:1px solid var(--glass-bd);background:rgba(255,255,255,.05);color:var(--text);font-size:1.5rem;font-weight:300;display:flex;align-items:center;justify-content:center;cursor:pointer}
           .step:active{background:rgba(255,255,255,.12)}
-          .anota{width:100%;border:none;border-radius:15px;font-weight:700;padding:.85rem;font-family:'Space Grotesk';font-size:.92rem;cursor:pointer;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c}
+          .anota{width:100%;border:1px solid #fff;border-radius:5px;font-weight:700;padding:.85rem;font-family:'Sora',sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}
         `}</style>
       </div>
     </div>

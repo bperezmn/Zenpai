@@ -15,15 +15,15 @@ export const HOWTOS: Record<string, HowToDef> = {
     steps: [
       { img: A('agua-3'), caption: 'Llena un vaso con agua sin cloro a temperatura ambiente (si es del grifo, déjala reposar unas horas destapada).' },
       { img: A('agua-3'), caption: 'Deja caer las semillas y pon el vaso en un sitio oscuro y templado (22–26°). No lo muevas.' },
-      { img: A('agua-3-brote'), caption: 'Revisa cada día: cuando la raíz blanca mida ~1–2 cm, a trasplantar. Máximo ~4 días en agua — más tiempo se ahogan.' },
+      { img: A('agua-3-brote'), caption: 'Revisa cada día: cuando la raíz blanca mida 1–2 cm, a trasplantar. Máximo 4 días en agua: más tiempo se ahogan.' },
     ],
   },
   transplante: {
-    title: 'Cómo transplantar',
+    title: 'Cómo trasplantar',
     steps: [
       { img: A('howto-transplante-1'), caption: 'Cuando la raíz blanca mida ~1–2 cm, saca la semilla del agua con mucho cuidado (tócala lo menos posible).' },
-      { img: A('howto-transplante-2'), caption: 'Haz un hoyo de ~1–2 cm en el sustrato húmedo y mete la raíz hacia ABAJO. Cubre suave, sin apretar.' },
-      { img: A('howto-transplante-3'), caption: 'Dale un primer riego ligero (un vaso) cerca del tallo. ¡Listo: ya es una plántula!' },
+      { img: A('howto-transplante-2'), caption: 'Haz un hoyo de ~1–2 cm en el sustrato húmedo y mete la raíz hacia abajo. Cubre suave, sin apretar.' },
+      { img: A('howto-transplante-3'), caption: 'Dale un primer riego ligero (un vaso) cerca del tallo. Listo: ya es una plántula.' },
     ],
   },
   riego: {
@@ -31,9 +31,9 @@ export const HOWTOS: Record<string, HowToDef> = {
     steps: [
       { img: A('howto-agua-1'), caption: 'Prepara tu agua. El agua del grifo casi siempre necesita un ajuste antes de usarla.' },
       { img: A('howto-agua-2'), caption: 'Mide el pH. Las raíces solo absorben bien entre 6.2–7.0 (tierra) o 5.5–6.2 (coco/hidro).' },
-      { img: A('howto-agua-3'), caption: 'Si el pH está alto, bájalo con unas gotas de “pH-” y vuelve a medir. Ajústalo ANTES de regar.' },
+      { img: A('howto-agua-3'), caption: 'Si el pH está alto, bájalo con unas gotas de «pH-» y vuelve a medir. Ajústalo antes de regar, nunca después.' },
       { img: A('howto-regar-1'), caption: 'Riega despacio, en círculo alrededor del tallo. Sin encharcar de golpe.' },
-      { img: A('howto-regar-2'), caption: 'Sigue hasta que drene un 10–20% por abajo (limpia sales). Tira ese drenaje. ¡Listo!' },
+      { img: A('howto-regar-2'), caption: 'Sigue hasta que drene un 10–20 % por abajo (limpia sales). Tira ese drenaje. Listo.' },
     ],
   },
   apical: {

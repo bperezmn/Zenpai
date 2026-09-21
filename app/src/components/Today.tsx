@@ -37,7 +37,7 @@ export default function Today({ onClose }: { onClose: () => void }) {
         <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ background: 'var(--glass-bd)' }} />
         <div className="flex items-baseline justify-between mb-3">
           <h3 className="display font-bold text-[1.05rem]">Consejos</h3>
-          <span className="text-[.7rem]" style={{ color: 'var(--faint)' }}>{stageLabel[c.stage]} · día {c.day}</span>
+          <span className="text-[.74rem]" style={{ color: 'var(--faint)' }}>{stageLabel[c.stage]} · día {c.day}</span>
         </div>
 
         <div className="overflow-y-auto -mx-1 px-1 space-y-2">
@@ -47,7 +47,7 @@ export default function Today({ onClose }: { onClose: () => void }) {
               <span className="w-1.5 h-1.5 rounded-full mt-[7px] flex-none" style={{ background: a.tone && a.tone !== 'ok' ? STATUS_COLOR[a.tone] : 'var(--blue)' }} />
               <div className="min-w-0">
                 <div className="text-[.86rem] font-bold leading-tight mb-0.5">{a.title}</div>
-                <div className="text-[.8rem] leading-snug" style={{ color: 'var(--muted)' }}>{a.body}</div>
+                <div className="text-[.8rem] leading-relaxed" style={{ color: 'var(--muted)' }}>{a.body}</div>
               </div>
             </div>
           ))}
@@ -58,15 +58,15 @@ export default function Today({ onClose }: { onClose: () => void }) {
               {confirmFlower ? (
                 <div className="rounded-2xl px-3.5 py-3" style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--acc)' }}>
                   <div className="text-[.82rem] font-bold mb-1">¿Ya pusiste la luz en 12/12?</div>
-                  <p className="text-[.72rem] mb-2.5" style={{ color: 'var(--muted)' }}>
-                    Desde hoy cuentan las ~8–9 semanas de floración; los objetivos y consejos cambian a modo flor.
+                  <p className="text-[.76rem] leading-snug mb-2.5" style={{ color: 'var(--muted)' }}>
+                    Desde hoy cuentan las 8–9 semanas de floración. Los objetivos y consejos cambian a modo flor.
                   </p>
                   <div className="flex gap-2">
-                    <button onClick={() => setConfirmFlower(false)} className="flex-1 rounded-2xl py-2.5 text-[.78rem] font-semibold"
-                      style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--glass-bd)', color: 'var(--text)' }}>Aún no</button>
+                    <button onClick={() => setConfirmFlower(false)} className="flex-1 rounded-2xl py-2.5 text-[.82rem] font-semibold"
+                      style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.4)', color: '#fff' }}>Aún no</button>
                     <button onClick={() => { setConfirmFlower(false); startFlowering(); onClose() }}
-                      className="flex-[2] rounded-2xl py-2.5 text-[.78rem] font-bold"
-                      style={{ background: 'linear-gradient(135deg,var(--acc),var(--acc2))', color: '#04150c', border: 'none'}}>Sí, ya está en 12/12</button>
+                      className="flex-1 rounded-2xl py-2.5 text-[.82rem] display font-bold"
+                      style={{ background: '#fff', color: '#000', border: '1px solid #fff' }}>Sí, ya está en 12/12</button>
                   </div>
                 </div>
               ) : (
@@ -82,13 +82,13 @@ export default function Today({ onClose }: { onClose: () => void }) {
           {/* entrenamiento (solo veg y nivel medio/avanzado): cambia la imagen + bitácora */}
           {showTraining && (
             <div className="pt-1">
-              <div className="text-[.58rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--faint)'}}>Aplicar entrenamiento</div>
-              <div className="flex gap-[7px]">
+              <div className="label mb-1.5">Entrenamiento</div>
+              <div className="grid grid-cols-2 gap-2">
                 {TECHNIQUES.map((t) => (
                   <button key={t.id} onClick={() => t.id === 'apical' && c.training !== 'apical' ? setHowto('apical') : applyTraining(t.id)}
-                    className="flex-1 text-center rounded-2xl py-2.5 text-[.78rem] font-semibold"
+                    className="text-center rounded-2xl py-2.5 text-[.82rem] font-semibold"
                     style={c.training === t.id
-                      ? { background: 'linear-gradient(135deg,var(--acc),var(--acc2))', color: '#04150c', border: '1px solid var(--acc)' }
+                      ? { background: '#fff', color: '#000', border: '1px solid #fff' }
                       : { background: 'rgba(255,255,255,.04)', border: '1px solid var(--glass-bd)', color: 'var(--text)' }}>
                     {t.label}
                   </button>
@@ -100,20 +100,20 @@ export default function Today({ onClose }: { onClose: () => void }) {
             <div className="pt-2">
               <div className="label mb-1.5">Defoliación</div>
               {isDefoliated(c) ? (
-                <div className="text-[.78rem] py-2" style={{ color: 'var(--muted)' }}>Defoliadas hace poco: deja que recuperen antes de volver a quitar hojas.</div>
+                <div className="text-[.78rem] leading-snug py-2" style={{ color: 'var(--muted)' }}>Defoliadas hace poco. Deja que recuperen antes de volver a quitar hojas.</div>
               ) : (
                 <button onClick={() => setHowto('defoliacion')}
-                  className="w-full rounded-2xl py-2.5 text-[.78rem] font-semibold"
+                  className="w-full rounded-2xl py-2.5 text-[.82rem] font-semibold"
                   style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.4)', color: '#fff' }}>
-                  Defoliar · quitar hojas grandes
+                  Ver cómo defoliar
                 </button>
               )}
             </div>
           )}
         </div>
 
-        <p className="text-[.64rem] mt-3 text-center" style={{ color: 'var(--faint)' }}>
-          Guía de referencia general · no sustituye tu criterio ni consejo profesional.
+        <p className="text-[.74rem] mt-3 text-center leading-snug" style={{ color: 'var(--faint)' }}>
+          Guía de referencia general. No sustituye tu criterio ni el consejo profesional.
         </p>
       </div>
       {howto === 'apical' && (

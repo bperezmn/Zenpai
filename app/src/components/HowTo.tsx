@@ -7,7 +7,7 @@ const STEP_MS = 5000
 // barras de progreso tipo historias, toca izquierda/derecha para retroceder/avanzar.
 export default function HowTo({ def, actionLabel, onAction, onClose }: {
   def: HowToDef
-  actionLabel?: string          // botón del último paso (p.ej. "Transplantar →")
+  actionLabel?: string          // botón del último paso (p.ej. "Trasplantar →")
   onAction?: () => void         // al pulsar ese botón
   onClose: () => void
 }) {
@@ -45,7 +45,7 @@ export default function HowTo({ def, actionLabel, onAction, onClose }: {
         {def.steps.map((_, idx) => (
           <div key={idx} className="flex-1 h-[3px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,.25)' }}>
             <div style={{
-              height: '100%', borderRadius: '9px', background: 'linear-gradient(90deg,var(--acc),var(--acc2))',
+              height: '100%', borderRadius: '9px', background: '#fff',
               width: idx < i ? '100%' : idx === i ? '100%' : '0%',
               transition: idx === i && !last ? `width ${STEP_MS}ms linear` : 'none',
               animation: idx === i && !last ? `fill ${STEP_MS}ms linear both` : undefined,
@@ -57,19 +57,18 @@ export default function HowTo({ def, actionLabel, onAction, onClose }: {
       {/* título + cerrar */}
       <div className="absolute top-9 left-4 right-4 z-20 flex items-center justify-between">
         <span className="display font-bold text-[1rem]" style={{ textShadow: '0 2px 8px rgba(0,0,0,.8)' }}>{def.title}</span>
-        <button onClick={onClose} className="h-8 px-3 rounded-2xl glass text-white/85"
-          style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: '.68rem' }}>Cerrar</button>
+        <button onClick={onClose} className="h-8 px-3 rounded-2xl glass text-white/85 display font-bold text-[.78rem]">Cerrar</button>
       </div>
 
       {/* texto del paso + acción */}
       <div className="absolute left-5 right-5 bottom-7 z-20">
-        <div className="text-[.62rem] font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--acc)' }}>Paso {i + 1} de {def.steps.length}</div>
+        <div className="label mb-1.5" style={{ color: 'rgba(255,255,255,.85)', textShadow: '0 1px 6px rgba(0,0,0,.8)' }}>Paso {i + 1} de {def.steps.length}</div>
         <p className="text-[.98rem] font-medium leading-snug mb-4" style={{ textShadow: '0 2px 10px rgba(0,0,0,.9)' }}>{def.steps[i].caption}</p>
         {last && actionLabel && (
           <button onClick={onAction} className="w-full btn-glow rounded-2xl py-3 display font-bold text-[.9rem]">{actionLabel}</button>
         )}
         {last && !actionLabel && (
-          <button onClick={onClose} className="w-full btn-glow rounded-2xl py-3 display font-bold text-[.9rem]">Entendido 👍</button>
+          <button onClick={onClose} className="w-full btn-glow rounded-2xl py-3 display font-bold text-[.9rem]">Entendido</button>
         )}
       </div>
 

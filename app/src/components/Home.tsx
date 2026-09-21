@@ -64,8 +64,8 @@ export default function Home() {
             Crea tu carpa virtual y zenpai te guía de la germinación a la cosecha.
           </p>
           <button className="cbtn" onClick={startNew}>Crear mi primer cultivo</button>
-          <button onClick={seedDemo} className="mt-5 label" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}>
-            O explora con cultivos de ejemplo
+          <button onClick={seedDemo} className="mt-5 text-[.85rem] underline underline-offset-4" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', minHeight: 44 }}>
+            Ver cultivos de ejemplo
           </button>
         </div>
       ) : (
@@ -99,24 +99,31 @@ export default function Home() {
         .hrow{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid rgba(255,255,255,.12);width:100%;text-align:left;background:none;border-top:0;border-left:0;border-right:0;color:inherit;cursor:pointer}
         .xbtn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--faint);background:none;border:0;cursor:pointer;flex:none}
         .xbtn:hover{color:#fff}
-        .dbtn{height:34px;padding:0 12px;border-radius:5px;font-size:.72rem;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;font-family:'Instrument Sans',system-ui,sans-serif}
+        .dbtn{height:36px;padding:0 12px;border-radius:5px;font-size:.82rem;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;font-family:'Instrument Sans',system-ui,sans-serif;white-space:nowrap}
         .dbtn.rojo{background:var(--danger);border-color:var(--danger);color:#fff}
+        .dbtn.link{border-color:transparent;color:var(--muted);padding:0 8px}
       `}</style>
     </div>
   )
 }
 
-// estado de un cultivo en una palabra, para las filas y la portada
-function estado(g: Cultivo): { text: string; color: string } {
-  if (g.stage === 'remojo') return { text: 'Germinando', color: 'var(--muted)' }
-  if (g.finishedTs) return { text: 'Terminado', color: 'var(--faint)' }
-  if (g.stage === 'secando') return { text: 'Secando', color: 'var(--muted)' }
-  return needsAttention(g) ? { text: 'Riego', color: 'var(--danger)' } : { text: 'OK', color: 'var(--muted)' }
+// estado de un cultivo en pocas palabras, con el mismo nombre en las filas y en la portada
+function estado(g: Cultivo): { text: string; color: string; alert: boolean } {
+  if (g.stage === 'remojo') return { text: 'Germinando', color: 'var(--muted)', alert: false }
+  if (g.finishedTs) return { text: 'Terminado', color: 'var(--faint)', alert: false }
+  if (g.stage === 'secando') return { text: 'Secando', color: 'var(--muted)', alert: false }
+  return needsAttention(g) ? { text: 'Riega hoy', color: 'var(--danger)', alert: true } : { text: 'Al día', color: 'var(--blue)', alert: false }
 }
-function meta(g: Cultivo): string {
+// withDay=false cuando el día ya se muestra aparte (contador grande de la portada)
+function meta(g: Cultivo, withDay = true): string {
   if (g.stage === 'remojo') return `${g.plants} ${g.plants === 1 ? 'semilla' : 'semillas'} en agua`
   if (g.finishedTs && g.dryWeight) return `${g.dryWeight} g secos · ${g.substrate}`
-  return `Día ${g.day} · ${stageLabel[g.stage]} · ${g.plants} ${g.plants === 1 ? 'planta' : 'plantas'}`
+  const rest = `${stageLabel[g.stage]} · ${g.plants} ${g.plants === 1 ? 'planta' : 'plantas'}`
+  return withDay ? `Día ${g.day} · ${rest}` : rest
+}
+// '~2 L (unos 8 vasos)' → '~2 L, unos 8 vasos' para leerlo como frase
+function amountText(amount: string): string {
+  return amount.replace(/\s*\(([^)]+)\)/, ', $1')
 }
 
 type CardProps = { g: Cultivo; onOpen: () => void; confirming: boolean; onAskDelete: () => void; onCancelDelete: () => void; onConfirmDelete: () => void }
@@ -136,8 +143,8 @@ function Hero({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDel
           <span className="label" style={{ color: '#fff' }}>{g.stage === 'remojo' ? 'En remojo' : g.stage === 'secando' ? 'Cosechado' : g.light ? 'Luz encendida' : 'Luz apagada'}</span>
         </div>
         <div className="absolute left-6 right-6 bottom-5 flex items-end justify-between gap-4">
-          <div className="flex flex-col gap-2 min-w-0">
-            <div className="label" style={{ color: 'var(--muted)' }}>{meta(g)}</div>
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <div className="text-[.78rem] truncate" style={{ color: 'var(--muted)' }}>{meta(g, g.stage === 'remojo')}</div>
             <div className="display text-[1.75rem] font-semibold leading-none truncate">{g.grow}</div>
           </div>
           {g.stage !== 'remojo' && (
@@ -150,23 +157,24 @@ function Hero({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDel
       </button>
       <div className="px-6">
         <div className="flex items-center gap-2.5 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,.12)' }}>
-          {attention ? (
-            <>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" /></svg>
-              <span className="text-[.88rem] font-medium">Riega hoy</span>
-              {w && <span className="label ml-auto">{w.amount}</span>}
-            </>
-          ) : (
-            <>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.text === 'OK' ? 'var(--blue)' : 'var(--faint)' }} />
-              <span className="text-[.88rem] font-medium">{st.text === 'OK' ? 'Al día' : st.text}</span>
-            </>
-          )}
-          <span className="ml-auto flex items-center gap-1.5">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            {attention ? (
+              <svg className="flex-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" /></svg>
+            ) : (
+              <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: st.color }} />
+            )}
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="text-[.88rem] font-medium">{st.text}</span>
+              {attention && w && !confirming && (
+                <span className="text-[.78rem] truncate" style={{ color: 'var(--muted)' }}>{amountText(w.amount)}</span>
+              )}
+            </div>
+          </div>
+          <span className="flex items-center gap-1 flex-none">
             {confirming ? (
               <>
                 <button onClick={onConfirmDelete} className="dbtn rojo">Eliminar</button>
-                <button onClick={onCancelDelete} className="dbtn">No</button>
+                <button onClick={onCancelDelete} className="dbtn link">Cancelar</button>
               </>
             ) : (
               <button onClick={onAskDelete} aria-label="Eliminar cultivo" title="Eliminar" className="xbtn">
@@ -188,14 +196,19 @@ function Row({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDele
         <img src={frontImg(g, 'front')} alt="" className="w-[54px] h-[54px] object-cover flex-none" style={{ borderRadius: 5, objectPosition: '50% 45%' }} />
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <div className="display font-semibold text-[1rem] truncate">{g.grow}</div>
-          <div className="label truncate">{meta(g)}</div>
+          <div className="text-[.78rem] truncate" style={{ color: 'var(--muted)' }}>{meta(g)}</div>
         </div>
-        <span className="label flex-none" style={{ color: st.color }}>{st.text}</span>
+        {st.alert && !confirming && (
+          <span className="flex items-center gap-1.5 flex-none text-[.78rem] font-medium" style={{ color: st.color }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />
+            {st.text}
+          </span>
+        )}
       </button>
       {confirming ? (
-        <div className="flex items-center gap-1.5 flex-none pl-2" style={{ borderBottom: '1px solid rgba(255,255,255,.12)', alignSelf: 'stretch' }}>
+        <div className="flex items-center gap-1 flex-none pl-2" style={{ borderBottom: '1px solid rgba(255,255,255,.12)', alignSelf: 'stretch' }}>
           <button onClick={onConfirmDelete} className="dbtn rojo">Eliminar</button>
-          <button onClick={onCancelDelete} className="dbtn">No</button>
+          <button onClick={onCancelDelete} className="dbtn link">Cancelar</button>
         </div>
       ) : (
         <span style={{ borderBottom: '1px solid rgba(255,255,255,.12)', alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>

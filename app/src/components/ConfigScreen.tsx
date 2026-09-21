@@ -75,7 +75,8 @@ export default function ConfigScreen() {
     if (!existing) { createGrow(base); return }
     registerExisting({ ...base, weeksAgo, flowerWeeksAgo: seedType === 'foto' ? flowerWeeks : null })
   }
-  const hint = (t: string) => <span style={{ color: 'var(--faint)', textTransform: 'none', letterSpacing: 0 }}>{t}</span>
+  // ayuda de cada paso: una línea de texto normal debajo del título, nunca dentro de la etiqueta
+  const help = (t: string) => <p className="text-[.78rem] mb-3" style={{ color: 'var(--muted)' }}>{t}</p>
 
   return (
     <div className="absolute inset-0" style={{ background: '#000' }}>
@@ -105,7 +106,8 @@ export default function ConfigScreen() {
 
         {step === 1 && (
           <>
-            <label className="lbl mb-2 block">Tamaño de tu carpa {hint('→ nº de plantas')}</label>
+            <label className="lbl block">Tamaño de tu carpa</label>
+            {help('Define cuántas plantas caben.')}
             <div className="space-y-[7px]">
               {SIZES.map((s) => (
                 <button key={s.plants} onClick={() => setPlants(s.plants)} className={`size ${plants === s.plants ? 'on' : ''}`}>
@@ -118,7 +120,8 @@ export default function ConfigScreen() {
 
         {step === 2 && (
           <>
-            <label className="lbl mb-2 block">Tipo de maceta {hint('→ cambia cada cuánto se riega')}</label>
+            <label className="lbl block">Tipo de maceta</label>
+            {help('Cambia cada cuánto se riega.')}
             <div className="space-y-[7px] mb-5">
               {POT_TYPES.map((t) => (
                 <button key={t.id} onClick={() => setPotType(t.id)} className={`size ${potType === t.id ? 'on' : ''}`}>
@@ -126,7 +129,8 @@ export default function ConfigScreen() {
                 </button>
               ))}
             </div>
-            <label className="lbl mb-2 block">Tamaño de maceta {hint('→ para calcular el riego')}</label>
+            <label className="lbl block">Tamaño de maceta</label>
+            {help('Con esto calculamos el riego.')}
             <div className="flex gap-[7px] mb-5">
               {POTS.map((L) => (
                 <button key={L} onClick={() => setPotL(L)} className={`sub ${potL === L ? 'on' : ''}`}>{L} L</button>
@@ -143,48 +147,50 @@ export default function ConfigScreen() {
 
         {step === 3 && (
           <>
-            <label className="lbl mb-2 block">Tu línea de nutrientes {hint('→ dosis exactas en cada riego')}</label>
+            <label className="lbl block">Tu línea de nutrientes</label>
+            {help('Con ella te damos la dosis exacta en cada riego.')}
             <NutrientesPicker value={nut} onChange={setNut} substrate={sub} chipClass="sub" />
-            <p className="text-[.66rem] mt-3" style={{ color: 'var(--faint)' }}>Si tu marca no está, elige "Solo agua / otra": la ficha de riego te dará agua, pH y EC objetivo.</p>
+            <p className="text-[.78rem] mt-3" style={{ color: 'var(--faint)' }}>Si tu marca no está, elige «Solo agua / otra marca»: la ficha de riego te dará agua, pH y EC objetivo.</p>
           </>
         )}
 
         {step === 4 && (
           <>
-            <label className="lbl mb-2 block">La luz enciende a las {hint('→ y se apaga sola según la etapa')}</label>
+            <label className="lbl mb-2 block">Hora de encendido</label>
             <div className="flex items-center gap-3 mb-2">
               <input type="time" step={3600} value={`${String(lightOn).padStart(2, '0')}:00`}
                 onChange={(e) => { const h = parseInt(e.target.value.slice(0, 2), 10); if (!Number.isNaN(h)) setLightOn(h) }} className="inp" style={{ width: 150, fontFamily: "'IBM Plex Mono', monospace", colorScheme: 'dark' }} />
-              <div className="label">{fmtHour(lightOn)} → {fmtHour((lightOn + 18) % 24)}</div>
+              <div className="mono text-[.82rem]" style={{ color: 'var(--muted)' }}>{fmtHour(lightOn)} → {fmtHour((lightOn + 18) % 24)}</div>
             </div>
-            <p className="text-[.66rem] mb-5" style={{ color: 'var(--faint)' }}>18 h de luz en crecimiento; al pasar a floración baja sola a 12 h. Lo puedes cambiar en la carpa.</p>
+            <p className="text-[.78rem] mb-5" style={{ color: 'var(--muted)' }}>Se apaga sola según la etapa: 18 h en crecimiento, 12 h en floración. Lo puedes cambiar en la carpa.</p>
             <label className="size cursor-pointer" style={{ borderColor: ctrl ? '#fff' : undefined }}>
               <span className="flex items-center gap-3">
                 <input type="checkbox" checked={ctrl} onChange={(e) => setCtrl(e.target.checked)} style={{ width: 20, height: 20, margin: 0, accentColor: '#1F73B7' }} />
                 Tengo temporizador o controlador
               </span>
-              <span className="cap">{ctrl ? 'sin avisos' : 'te avisamos'}</span>
             </label>
-            <p className="text-[.66rem] mt-3" style={{ color: 'var(--faint)' }}>Sin temporizador, la app te avisa a la hora de encender y de apagar la luz.</p>
+            <p className="text-[.78rem] mt-3" style={{ color: 'var(--muted)' }}>{ctrl ? 'Con temporizador no te avisamos de la luz.' : 'Sin temporizador, te avisamos a la hora de encender y de apagar la luz.'}</p>
           </>
         )}
 
         {step === 5 && (
           <>
-            <label className="lbl mb-2 block">Tipo de semilla {hint('→ define cuándo florece')}</label>
+            <label className="lbl block">Tipo de semilla</label>
+            {help('Define cuándo florece.')}
             <div className="flex gap-[7px]">
               <button onClick={() => setSeedType('foto')} className={`sub ${seedType === 'foto' ? 'on' : ''}`}>Fotoperiódica</button>
               <button onClick={() => { setSeedType('auto'); setFlowerWeeks(null) }} className={`sub ${seedType === 'auto' ? 'on' : ''}`}>Autofloreciente</button>
             </div>
-            <p className="text-[.66rem] mt-1.5" style={{ color: 'var(--faint)' }}>
+            <p className="text-[.78rem] mt-2" style={{ color: 'var(--muted)' }}>
               {seedType === 'foto'
-                ? 'Florece cuando TÚ cambias la luz a 12 h de luz / 12 h de oscuridad. Si no sabes cuál es, casi seguro es esta.'
-                : 'Florece sola (~día 32) sin cambiar la luz. Ciclo corto, ~75 días en total.'}
+                ? 'Florece cuando tú cambias la luz a 12/12. Si no sabes cuál es, casi seguro es esta.'
+                : 'Florece sola hacia el día 32, sin cambiar la luz. Ciclo corto, unos 75 días en total.'}
             </p>
 
             {existing && (
               <>
-                <label className="lbl mt-4 mb-2 block">¿Hace cuánto germinó? {hint('→ aproximado está bien')}</label>
+                <label className="lbl mt-4 block">¿Hace cuánto germinó?</label>
+                {help('Aproximado está bien.')}
                 <div className="grid grid-cols-3 gap-[7px]">
                   {AGES.map((a) => (
                     <button key={a.w} onClick={() => { setWeeksAgo(a.w); if (flowerWeeks != null && flowerWeeks >= a.w) setFlowerWeeks(null) }}
@@ -208,23 +214,23 @@ export default function ConfigScreen() {
             <div className="mt-6 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,.12)' }}>
               <div className="label mb-2">Resumen</div>
               <div className="text-[.8rem] leading-relaxed" style={{ color: 'var(--muted)' }}>
-                {name || 'Carpa'} · {plants} {plants === 1 ? 'planta' : 'plantas'} · maceta de {potType} de {potL} L · {sub} · {linea ? linea.marca : 'solo agua'} · luz {fmtHour(lightOn)}{ctrl ? ' con controlador' : ''}.
-                {existing ? ` Tu carpa abrirá en el día ~${prevDay} · ${stageLabel[prevStage]}.` : ` Pondremos ${plants} ${plants === 1 ? 'semilla' : 'semillas'} a germinar en agua.`}
+                {name || 'Carpa'} · {plants} {plants === 1 ? 'planta' : 'plantas'} · maceta de {POT_TYPES.find((t) => t.id === potType)!.label.toLowerCase()} de {potL} L · {SUBS.find((s) => s.id === sub)!.label.toLowerCase()} · {linea ? linea.marca : 'solo agua'} · luz {fmtHour(lightOn)}{ctrl ? ' con controlador' : ''}.
+                {existing ? ` Tu carpa abrirá en el día ${prevDay} aproximadamente, en ${stageLabel[prevStage].toLowerCase()}.` : ` Pondremos ${plants} ${plants === 1 ? 'semilla' : 'semillas'} a germinar en agua.`}
               </div>
             </div>
           </>
         )}
       </div>
 
-      <div className="absolute left-6 right-6 bottom-8 flex gap-2">
+      <div className="absolute left-0 right-0 bottom-0 px-6 pt-3 pb-8 flex gap-2" style={{ background: '#000' }}>
         {step > 0 && <button onClick={() => setStep(step - 1)} className="gbtn flex-1">Atrás</button>}
         {last
-          ? <button className="cbtn flex-[2]" onClick={submit}>{existing ? 'Registrar mi planta' : 'Germinar'}</button>
-          : <button className="cbtn flex-[2]" onClick={() => setStep(step + 1)} disabled={step === 0 && !name.trim()}>Siguiente</button>}
+          ? <button className="cbtn flex-1" onClick={submit}>{existing ? 'Registrar mi planta' : 'Germinar'}</button>
+          : <button className="cbtn flex-1" onClick={() => setStep(step + 1)} disabled={step === 0 && !name.trim()}>Siguiente</button>}
       </div>
 
       <style>{`
-        .back{position:absolute;left:16px;top:52px;z-index:10;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.28);border-radius:5px;background:transparent;color:#fff;cursor:pointer}
+        .back{position:absolute;left:16px;top:52px;z-index:10;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.28);border-radius:5px;background:#000;color:#fff;cursor:pointer}
         .lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:6px}
         .inp{background:transparent;border:1px solid rgba(255,255,255,.28);border-radius:5px;padding:.7rem .8rem;color:var(--text);width:100%;font-size:1rem;font-family:'Instrument Sans',system-ui,sans-serif}
         .inp:focus{outline:none;border-color:#fff}
@@ -234,9 +240,9 @@ export default function ConfigScreen() {
         .size.on .cap{color:#fff}
         .sub{flex:1;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.65rem .3rem;cursor:pointer;color:var(--muted);font-weight:500;font-size:.82rem;font-family:'Instrument Sans',system-ui,sans-serif;transition:.15s}
         .sub.on{border-color:#fff;color:#fff;background:rgba(255,255,255,.06)}
-        .cbtn{border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.95rem;letter-spacing:.02em;cursor:pointer;background:#fff;color:#000}
+        .cbtn{border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}
         .cbtn:disabled{opacity:.4}
-        .gbtn{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.9rem;cursor:pointer;background:rgba(0,0,0,.6);color:var(--text)}
+        .gbtn{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:rgba(0,0,0,.6);color:var(--text)}
       `}</style>
     </div>
   )

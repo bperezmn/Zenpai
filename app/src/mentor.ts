@@ -24,17 +24,22 @@ export const metricsFor = (g: Guide) => METRICS.filter((m) => levelIdx(g) >= lev
 
 // ¿cuánto y cuándo regar? aproximado por etapa y tamaño de maceta (litros).
 // Regla práctica: ~15–25% del volumen de la maceta por riego, apuntando a 10–20% de drenaje.
+// amount = valor corto para filas y chips ("2 L", "1 vaso · 0.2 L"); when = frase de ayuda que sigue a "Riega …".
 export function wateringGuide(c: Cultivo): { amount: string; when: string } | null {
   const L = c.potL || 11
-  const txt = (v: number) => {
-    const n = Math.round(v * 10) / 10
-    return n < 3 ? `~${n} L (unos ${Math.max(1, Math.round(n / 0.25))} vasos)` : `~${n} L`
+  const litros = (v: number) => Math.round(v * 10) / 10
+  const vasos = (n: number) => (n < 3 ? `, unos ${Math.max(1, Math.round(n / 0.25))} vasos` : '')
+  if (c.stage === 'plantula') return { amount: '1 vaso · 0.2 L', when: 'cerca del tallo, cuando los 2 cm de arriba estén secos' }
+  const cada = c.potType === 'plastico' ? 'cada 3–4 días' : 'cada 2–3 días'
+  if (c.stage === 'veg') {
+    const n = litros(L * 0.18)
+    return { amount: `${n} L`, when: `cuando la maceta pese poco al levantarla, ${cada}${vasos(n)}` }
   }
-  if (c.stage === 'plantula') return { amount: '~1 vaso (0.2 L) cerca del tallo', when: 'cuando la capa de arriba (~2 cm) esté seca' }
-  const cada = c.potType === 'plastico' ? '≈ cada 3–4 días' : '≈ cada 2–3 días'
-  if (c.stage === 'veg') return { amount: txt(L * 0.18), when: `cuando la maceta pese poco al levantarla (${cada})` }
-  if (c.stage === 'flor') return { amount: txt(L * 0.22), when: `cuando la maceta pese poco (${cada})` }
-  if (c.stage === 'cosecha') return { amount: 'a fondo, solo agua (flush)', when: 'mantén el sustrato apenas húmedo' }
+  if (c.stage === 'flor') {
+    const n = litros(L * 0.22)
+    return { amount: `${n} L`, when: `cuando la maceta pese poco, ${cada}${vasos(n)}` }
+  }
+  if (c.stage === 'cosecha') return { amount: 'A fondo, solo agua', when: 'solo con agua (flush) y mantén el sustrato apenas húmedo' }
   return null
 }
 
@@ -95,7 +100,7 @@ export function fmtRange(r: Range | null, dec: number): string {
 // consejo del mentor para una medición fuera de rango (incluye guardarraíl de pH)
 export function metricTip(key: MetricKey, value: number, status: Status, stage: Stage, sub: Substrate): string {
   const r = targetFor(key, stage, sub)
-  if (!r || status === 'ok') return 'En rango. Vas bien.'
+  if (!r || status === 'ok') return 'Dentro del objetivo para esta etapa.'
   const high = value > r.hi
   if (key === 'ph') {
     const banda = sub === 'tierra' ? '6.2–7.0' : '5.5–6.2'
@@ -118,7 +123,7 @@ interface AdviceDef extends Advice { levels: Guide[] }
 const ADVICE: Partial<Record<Stage, AdviceDef[]>> = {
   plantula: [
     { levels: [ 'novato'], icon: '', title: 'Cuidado: bebe poquísimo', body: 'La plántula casi no toma agua. Regar de más ahoga las raíces (el error nº 1). Si dudas, espera un día más.'},
-    { levels: [ 'novato'], icon: '', title: 'Qué es el pH y cómo medirlo', body: 'El pH dice si el agua está ácida o alcalina. Las raíces solo absorben bien entre 6.2–7.0 en tierra (5.5–6.2 en coco/hidro). Mídelo con tiras o un medidor en el agua de riego y ajústalo ANTES de regar.'},
+    { levels: [ 'novato'], icon: '', title: 'Qué es el pH y cómo medirlo', body: 'El pH dice si el agua está ácida o alcalina. Las raíces solo absorben bien entre 6.2–7.0 en tierra (5.5–6.2 en coco/hidro). Mídelo con tiras o un medidor en el agua de riego y ajústalo antes de regar, nunca después.'},
     { levels: [ 'novato', 'medio'], icon: '', title: 'Ambiente', body: '22–26° y humedad alta (65–80%). Luz suave y no muy cerca, para no quemarlas.'},
     { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Nutrientes', body: 'Si abonas, empieza a 1/4 de dosis para no quemar las raíces. La EC mide cuánto alimento lleva el agua (en plántula ~0.4–0.8); si no tienes medidor, quédate con el 1/4 de dosis.'},
     { levels: [ 'novato'], icon: '', title: 'Sin podas todavía', body: 'Son muy pequeñas: nada de podar ni entrenar aún, solo déjalas crecer sanas.'},
@@ -126,7 +131,7 @@ const ADVICE: Partial<Record<Stage, AdviceDef[]>> = {
   veg: [
     { levels: [ 'novato'], icon: '', title: 'Qué es la EC', body: 'La EC mide cuánto alimento (sales) hay disuelto en el agua. Más EC = más comida, pero de más quema. En veg apunta ~1.0–1.6 y sube de a poco.'},
     { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Empújalas', body: 'Crecen rápido: más luz y nitrógeno gradual. Mantén el aire moviéndose para tallos fuertes.'},
-    { levels: [ 'medio', 'avanzado'], icon: '', title: 'LST: abre la copa', body: 'Low Stress Training: dobla con cuidado las ramas hacia afuera y átalas para que la copa quede plana. Llega más luz a más cogollos → más cosecha, sin cortar nada. (aplícalo abajo)'},
+    { levels: [ 'medio', 'avanzado'], icon: '', title: 'LST: abre la copa', body: 'Low Stress Training: dobla con cuidado las ramas hacia afuera y átalas para que la copa quede plana. Llega más luz a más cogollos y hay más cosecha, sin cortar nada. Cuando lo hagas, anótalo con el botón LST de abajo.'},
     { levels: [ 'avanzado'], icon: '', title: 'Topping / mainlining', body: 'Cortar la punta sobre un nudo crea 2 colas y una copa uniforme. Combínalo con LST. Solo en veg y con la planta sana.'},
   ],
   flor: [
@@ -146,7 +151,7 @@ const ADVICE: Partial<Record<Stage, AdviceDef[]>> = {
   ],
 }
 
-// días desde el último riego; si nunca regó, cuenta desde el transplante (germTs)
+// días desde el último riego; si nunca regó, cuenta desde el trasplante (germTs)
 function daysSinceWater(c: Cultivo): number | null {
   const ref = c.lastWaterTs ?? c.germTs
   if (!ref) return null
@@ -160,18 +165,20 @@ export function mentorAdvice(c: Cultivo, guide: Guide): Advice[] {
   const days = daysSinceWater(c)
   const alertAt = WATER_ALERT_DAYS[c.stage]
   if (days !== null && alertAt !== undefined && days >= alertAt) {
-    out.push({ icon: '⏳', title: `Hace ${days} días sin riego`, body: c.stage === 'plantula' ? 'Las plántulas beben poco pero se secan rápido: dales ~1 vaso cerca del tallo.' : 'Revisa el peso de la maceta; si pesa poco, riega a fondo.', tone: 'warn' })
+    out.push({ icon: '', title: `${days} días sin riego`, body: c.stage === 'plantula' ? 'Las plántulas beben poco pero se secan rápido: dales un vaso cerca del tallo.' : 'Levanta la maceta: si pesa poco, riega a fondo.', tone: 'warn' })
   }
   // fotoperiodo: la flor no llega sola — recuérdaselo cuando la veg ya está madura
   if (c.stage === 'veg' && c.seedType === 'foto' && !c.flowerTs && c.day >= 30) {
-    out.push({ icon: '', title: '¿Pasamos a floración? ', body: 'Cuando las plantas llenen ~la mitad de la carpa, cambia tu luz a 12 h de luz / 12 h de oscuridad: eso dispara la flor. Cuando lo hagas, márcalo aquí abajo con"Pasar a floración".'})
+    out.push({ icon: '', title: '¿Pasamos a floración?', body: 'Cuando las plantas llenen la mitad de la carpa, cambia tu luz a 12 h de luz y 12 h de oscuridad: eso dispara la flor. Cuando lo hagas, márcalo abajo con «Pasar a floración».'})
   }
   if (c.stage === 'veg' && c.seedType === 'auto' && guide !== 'avanzado') {
     out.push({ icon: '', title: 'Autofloreciente', body: 'Florecerá sola hacia el día ~32, sin cambiar el ciclo de luz. Déjale 18–20 h de luz todo el ciclo.'})
   }
   // RIEGO concreto: cuánto (según litros de maceta) y cuándo
   const w = wateringGuide(c)
-  if (w) out.push({ icon: '', title: 'Cuánto y cuándo regar', body:`En tu maceta de ${c.potL || 11} L: riega ${w.amount}, ${w.when}. Hazlo despacio en círculo hasta que drene ~10–20% por abajo (tira ese drenaje).`})
+  if (w) out.push({ icon: '', title: 'Cuánto y cuándo regar', body: c.stage === 'cosecha'
+    ? `Riega a fondo, ${w.when}.`
+    : `Maceta de ${c.potL || 11} L: riega ${w.amount} ${w.when}. Despacio, en círculo, hasta que drene un 10–20 % por abajo.` })
   // contenido por etapa filtrado por nivel
   for (const a of ADVICE[c.stage] ?? []) {
     if (a.levels.includes(guide)) out.push({ icon: a.icon, title: a.title, body: a.body, tone: a.tone })

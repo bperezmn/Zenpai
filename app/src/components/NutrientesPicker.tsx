@@ -20,7 +20,7 @@ export default function NutrientesPicker({ value, onChange, substrate }: {
         <span aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 5, border: '1px dashed rgba(255,255,255,.35)', flex: 'none' }} />
         <span className="min-w-0 flex-1">
           <span className="block text-[.86rem] font-medium">Solo agua / otra marca</span>
-          <span className="label block" style={{ fontSize: '.55rem' }}>sin plan de abono</span>
+          <span className="block text-[.74rem]" style={{ color: 'var(--muted)' }}>Sin plan de abono</span>
         </span>
       </button>
       {lineas.map((l) => (
@@ -29,7 +29,7 @@ export default function NutrientesPicker({ value, onChange, substrate }: {
           <BrandMark linea={l} size={32} />
           <span className="min-w-0 flex-1">
             <span className="block text-[.86rem] font-medium truncate">{l.marca}</span>
-            <span className="label block truncate" style={{ fontSize: '.55rem' }}>{l.linea}</span>
+            <span className="block truncate text-[.74rem]" style={{ color: 'var(--muted)' }}>{l.linea}</span>
           </span>
           <button onClick={(e) => { e.stopPropagation(); setInfo(l) }} aria-label={`Ver la tabla de ${l.marca}`} className="ninfo">Tabla</button>
         </div>
@@ -38,7 +38,7 @@ export default function NutrientesPicker({ value, onChange, substrate }: {
       <style>{`
         .nrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 10px;border:1px solid rgba(255,255,255,.14);border-radius:5px;background:transparent;color:#fff;cursor:pointer;margin-bottom:7px;font-family:'Instrument Sans',system-ui,sans-serif}
         .nrow.on{border-color:#fff;background:rgba(255,255,255,.06)}
-        .ninfo{flex:none;height:32px;padding:0 10px;border:1px solid rgba(255,255,255,.28);border-radius:5px;background:transparent;color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+        .ninfo{flex:none;height:32px;padding:0 10px;border:1px solid rgba(255,255,255,.28);border-radius:5px;background:transparent;color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
       `}</style>
     </div>
   )

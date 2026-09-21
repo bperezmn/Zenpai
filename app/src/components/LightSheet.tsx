@@ -41,10 +41,10 @@ export default function LightSheet({ onClose }: { onClose: () => void }) {
             <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: c.light ? 'var(--blue)' : 'var(--faint)' }} />
             <div className="min-w-0">
               <div className="text-[.9rem] font-medium">{c.light ? 'Encendida' : 'Apagada'} ahora</div>
-              <div className="label" style={{ fontSize: '.56rem' }}>{c.lightOverrideUntil ? `manual · el horario vuelve a las ${nextTxt}` : `según horario · próximo cambio ${nextTxt}`}</div>
+              <div className="text-[.74rem]" style={{ color: 'var(--muted)' }}>{c.lightOverrideUntil ? `Manual · vuelve al horario a las ${nextTxt}` : `Según horario · cambia a las ${nextTxt}`}</div>
             </div>
           </div>
-          <button onClick={toggleLight} className="lbtn-ghost flex-none">{c.light ? 'Apagar ahora' : 'Encender ahora'}</button>
+          <button onClick={toggleLight} className="lbtn-ghost flex-none" style={{ minWidth: 96 }}>{c.light ? 'Apagar' : 'Encender'}</button>
         </div>
 
         <div className="label mt-4 mb-2">Enciende a las</div>
@@ -52,40 +52,38 @@ export default function LightSheet({ onClose }: { onClose: () => void }) {
           <input type="time" step={3600} value={`${String(on).padStart(2, '0')}:00`}
             onChange={(e) => { const h = parseInt(e.target.value.slice(0, 2), 10); if (!Number.isNaN(h)) setOn(h) }}
             className="linp" />
-          <div className="label" style={{ fontSize: '.6rem' }}>{fmtHour(on)} → {fmtHour(off)} · {eff} h de luz</div>
+          <div className="mono text-[.82rem]" style={{ color: 'var(--muted)' }}>{fmtHour(on)} → {fmtHour(off)} · {eff} h</div>
         </div>
 
         <div className="label mt-4 mb-2">Horas de luz al día</div>
         <div className="flex gap-[7px]">
           {HORAS.map((h) => (
-            <button key={String(h.v)} onClick={() => setHours(h.v)} className={`lchip ${hours === h.v ? 'on' : ''}`}>
-              {h.v === null ? `Auto · ${auto} h` : h.label}
-            </button>
+            <button key={String(h.v)} onClick={() => setHours(h.v)} className={`lchip ${hours === h.v ? 'on' : ''}`}>{h.label}</button>
           ))}
         </div>
-        <p className="text-[.66rem] mt-1.5" style={{ color: 'var(--faint)' }}>Auto: 18 h en crecimiento y 12 h desde que pasas a floración.</p>
+        <p className="text-[.76rem] mt-2" style={{ color: 'var(--muted)' }}>Auto: ahora {auto} h. Da 18 h en crecimiento y baja a 12 h cuando pasas a floración.</p>
 
         <label className="flex items-center gap-3 mt-4 py-3 cursor-pointer" style={{ borderTop: '1px solid rgba(255,255,255,.12)', borderBottom: '1px solid rgba(255,255,255,.12)' }}>
           <input type="checkbox" checked={ctrl} onChange={(e) => setCtrl(e.target.checked)} style={{ width: 20, height: 20, margin: 0, accentColor: '#1F73B7' }} />
           <span className="text-[.86rem] font-medium flex-1">Tengo temporizador o controlador</span>
-          <span className="label" style={{ fontSize: '.56rem' }}>{ctrl ? 'sin avisos' : 'te aviso'}</span>
         </label>
-        {!ctrl && (
-          <p className="text-[.66rem] mt-2" style={{ color: 'var(--muted)' }}>
-            Te aviso a la hora de encender y de apagar: dentro de la app si la tienes a la vista, y como notificación si está en segundo plano{notifyEnabled ? '' : ' (activa los avisos en Ajustes)'}.
-          </p>
+        <p className="text-[.76rem] mt-2" style={{ color: 'var(--muted)' }}>
+          {ctrl ? 'Con temporizador no te avisamos de la luz.' : 'Te avisamos al encender y al apagar. Con la app en segundo plano llega como notificación.'}
+        </p>
+        {!ctrl && !notifyEnabled && (
+          <p className="text-[.76rem] mt-1" style={{ color: 'var(--warn)' }}>Activa los avisos en Ajustes para recibirlos.</p>
         )}
 
         <div className="flex gap-2 mt-4">
-          <button onClick={onClose} className="lbtn-ghost flex-1">{dirty ? 'Cancelar' : 'Cerrar'}</button>
-          {dirty && <button onClick={() => { setLightSchedule({ lightOnHour: on, lightHours: hours, hasController: ctrl }); onClose() }} className="lbtn flex-[2]">Guardar horario</button>}
+          <button onClick={onClose} className="lbtn-ghost flex-1" style={{ height: 48 }}>{dirty ? 'Cancelar' : 'Cerrar'}</button>
+          {dirty && <button onClick={() => { setLightSchedule({ lightOnHour: on, lightHours: hours, hasController: ctrl }); onClose() }} className="lbtn flex-1">Guardar horario</button>}
         </div>
 
         <style>{`
           @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-          .lbtn{border:none;border-radius:5px;font-weight:600;height:48px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.9rem;cursor:pointer;background:#fff;color:#000}
-          .lbtn-ghost{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:40px;padding:0 .9rem;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.8rem;cursor:pointer;background:transparent;color:var(--text)}
-          .lchip{flex:1;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.55rem .2rem;cursor:pointer;color:var(--muted);font-weight:500;font-size:.74rem;font-family:'Instrument Sans',system-ui,sans-serif;white-space:nowrap}
+          .lbtn{border:none;border-radius:5px;font-weight:600;height:48px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}
+          .lbtn-ghost{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:40px;padding:0 .9rem;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.84rem;cursor:pointer;background:transparent;color:var(--text)}
+          .lchip{flex:1;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.55rem .2rem;cursor:pointer;color:var(--muted);font-weight:500;font-size:.82rem;font-family:'Instrument Sans',system-ui,sans-serif;white-space:nowrap}
           .lchip.on{border-color:#fff;color:#fff;background:rgba(255,255,255,.06)}
           .linp{background:transparent;border:1px solid rgba(255,255,255,.28);border-radius:5px;padding:.55rem .7rem;color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:1rem;color-scheme:dark}
         `}</style>

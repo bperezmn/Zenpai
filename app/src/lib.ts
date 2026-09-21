@@ -91,7 +91,7 @@ export function previewStage(c: Cultivo, d: number): Stage {
   return stageAt(c, d)
 }
 export const stageLabel: Record<Stage, string> = {
-  remojo: 'Germinando', germinacion: 'Germinación', plantula: 'Plántula', veg: 'Vegetativo',
+  remojo: 'En remojo', germinacion: 'Germinando', plantula: 'Plántula', veg: 'Vegetativo',
   flor: 'Floración', cosecha: 'Cosecha', secando: 'Secando', vacia: 'Vacía',
 }
 export const MAX_DAY = 120
@@ -174,7 +174,7 @@ export interface GrowEvent {
 export const EVENT_META: Record<EventType, { icon: string; label: string }> = {
   creado: { icon: '', label: 'Cultivo creado'},
   sembrado: { icon: '', label: 'Semillas en remojo'},
-  transplante: { icon: '', label: 'Transplante'},
+  transplante: { icon: '', label: 'Trasplante'},
   riego: { icon: '', label: 'Riego'},
   sed: { icon: '', label: 'Sed detectada'},
   entrenamiento: { icon: '', label: 'Entrenamiento'},
@@ -331,9 +331,9 @@ export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
   const days = ref ? Math.floor((Date.now() - ref) / 86400000) : null
   const alertAt = WATER_ALERT_DAYS[c.stage]
   if (days !== null && alertAt !== undefined && days >= alertAt) {
-    return`Hace ${days} días sin riego · si la maceta pesa poco, toca las plantas`
+    return `${days} días sin riego · toca las plantas para regar`
   }
-  if (c.stage === 'plantula') return 'Plántulas · riegos pequeños · toca las plantas para regar'
+  if (c.stage === 'plantula') return 'Plántulas · toca las plantas para regar'
   if (c.stage === 'flor') return 'Cogollos engordando · toca las plantas para regar'
   return 'En vegetativo · toca las plantas para regar'
 }

@@ -4,10 +4,17 @@ import { EVENT_META, fmtWhen, type EventType, type GrowEvent } from '../lib'
 import { getPhoto } from '../db'
 import { compressImage } from '../img'
 
-// Solo se pueden borrar registros "de diario". Los estructurales (sembrado, transplante,
+// Solo se pueden borrar registros "de diario". Los estructurales (sembrado, trasplante,
 // floración, cosecha, terminado) definen el estado del cultivo: borrarlos dejaría la
 // bitácora mintiendo (p.ej. un cultivo "secando" sin ninguna cosecha registrada).
 const DELETABLE = new Set<EventType>(['riego', 'nota', 'medicion', 'sed', 'foto'])
+
+const TrashIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" />
+    <path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" />
+  </svg>
+)
 
 export default function Journal({ onClose }: { onClose: () => void }) {
   const events = useStore((s) => s.events)
@@ -65,16 +72,20 @@ export default function Journal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="absolute inset-0 z-50" onClick={onClose}>
-      <div className="absolute inset-0" style={{ background: 'rgba(3,6,9,.55)', backdropFilter: 'blur(2px)' }} />
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(2px)' }} />
       <div className="absolute left-0 right-0 bottom-0 glass rounded-t-3xl px-5 pt-3 pb-6 max-h-[72%] flex flex-col"
         onClick={(e) => e.stopPropagation()} style={{ animation: 'sheetUp .28s ease-out' }}>
         <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ background: 'var(--glass-bd)' }} />
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <h3 className="display font-bold text-[1.05rem] flex-none">Bitácora</h3>
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[.7rem] mr-0.5 min-w-0 truncate" style={{ color: 'var(--faint)' }}>{grow} · {events.length} {events.length === 1 ? 'evento' : 'eventos'}</span>
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="min-w-0">
+            <h3 className="display font-bold text-[1.05rem] leading-tight">Bitácora</h3>
+            <div className="text-[.74rem] mt-0.5 truncate" style={{ color: 'var(--faint)' }}>
+              {grow} · {events.length} {events.length === 1 ? 'evento' : 'eventos'}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-none">
             <button onClick={() => fileRef.current?.click()} className="jbtn-note" disabled={busyPhoto} style={{ opacity: busyPhoto ? 0.5 : 1 }}>
-              {busyPhoto ? '…': '+ Foto'}
+              {busyPhoto ? '…' : '+ Foto'}
             </button>
             {!writing && <button onClick={() => setWriting(true)} className="jbtn-note">+ Nota</button>}
           </div>
@@ -82,13 +93,13 @@ export default function Journal({ onClose }: { onClose: () => void }) {
         {/* sin `capture`: el selector nativo ya ofrece cámara O galería */}
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickPhoto} />
         {photoError && (
-          <p className="text-[.7rem] mb-2" style={{ color: 'var(--warn)' }}>
+          <p className="text-[.74rem] mb-2" style={{ color: 'var(--warn)' }}>
             No pudimos leer esa imagen. Prueba con otra foto.
           </p>
         )}
 
         {writing && (
-          <div className="mb-3 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--glass-bd)' }}>
+          <div className="mb-3 rounded-[5px] p-3" style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--glass-bd)' }}>
             <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} rows={3}
               placeholder="Apunta lo que quieras: «vi hojas amarillas», «cambié la lámpara»…"
               className="w-full bg-transparent resize-none outline-none text-[.85rem]"
@@ -102,7 +113,7 @@ export default function Journal({ onClose }: { onClose: () => void }) {
 
         {rows.length === 0 ? (
           <p className="text-[.82rem] py-8 text-center" style={{ color: 'var(--muted)' }}>
-            Aún no hay registros. Riega o cuida tu cultivo y aparecerán aquí 
+            Aún no hay registros. Riega o cuida tu cultivo y aparecerán aquí.
           </p>
         ) : (
           <div className="overflow-y-auto min-h-0 -mx-1 px-1 space-y-1.5">
@@ -111,29 +122,29 @@ export default function Journal({ onClose }: { onClose: () => void }) {
               const confirming = delId != null && delId === ev.id
               const thumb = ev.type === 'foto' && ev.photoId != null ? urls[ev.photoId] : undefined
               return (
-                <div key={ev.id} className="flex items-center gap-3 rounded-2xl px-3 py-2.5"
+                <div key={ev.id} className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
                   style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--glass-bd)' }}>
-                  {thumb ? (
+                  {thumb && (
                     <button onClick={() => setViewing(ev.photoId!)} className="flex-none">
-                      <img src={thumb} alt="foto del cultivo" className="w-12 h-12 rounded-xl object-cover" style={{ border: '1px solid var(--glass-bd)' }} />
+                      <img src={thumb} alt="foto del cultivo" className="w-12 h-12 rounded-[5px] object-cover" style={{ border: '1px solid var(--glass-bd)' }} />
                     </button>
-                  ) : (
-                    <span className="text-[1.15rem] leading-none">{m.icon}</span>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="text-[.85rem] font-semibold leading-tight">{ev.note || m.label}</div>
-                    <div className="text-[.66rem]" style={{ color: 'var(--faint)' }}>{fmtWhen(ev.ts)} · {ev.type === 'sembrado' ? 'en remojo' : `día ${ev.day}`}</div>
+                    <div className="text-[.74rem] mt-0.5" style={{ color: 'var(--faint)' }}>{fmtWhen(ev.ts)} · {ev.type === 'sembrado' ? 'en remojo' : `día ${ev.day}`}</div>
                   </div>
                   {confirming ? (
                     <div className="flex items-center gap-1.5 flex-none">
                       <button onClick={() => { setDelId(null); if (ev.id != null) removeEvent(ev.id) }}
-                        className="text-[.68rem] font-bold px-2.5 py-1.5 rounded-xl" style={{ background: '#f87171', color: '#1a0606' }}>Borrar</button>
+                        className="text-[.82rem] font-semibold px-2.5 py-1.5 rounded-[5px]" style={{ background: 'var(--danger)', color: '#fff' }}>Borrar</button>
                       <button onClick={() => setDelId(null)}
-                        className="text-[.68rem] font-semibold px-2 py-1.5 rounded-xl" style={{ background: 'rgba(255,255,255,.08)', color: 'var(--muted)' }}>No</button>
+                        className="text-[.82rem] font-semibold px-2.5 py-1.5 rounded-[5px]" style={{ border: '1px solid rgba(255,255,255,.4)', color: 'var(--text)' }}>No</button>
                     </div>
                   ) : DELETABLE.has(ev.type) ? (
                     <button onClick={() => setDelId(ev.id ?? null)} title="Borrar registro" aria-label="Borrar registro"
-                      className="flex-none w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:text-white/60" style={{ fontSize: '.85rem'}}></button>
+                      className="flex-none w-8 h-8 rounded-[5px] flex items-center justify-center" style={{ color: 'var(--faint)' }}>
+                      <TrashIcon />
+                    </button>
                   ) : null}
                 </div>
               )
@@ -145,18 +156,18 @@ export default function Journal({ onClose }: { onClose: () => void }) {
       {/* visor de foto a pantalla completa */}
       {viewing != null && urls[viewing] && (
         <div className="absolute inset-0 z-[60] flex items-center justify-center" onClick={(e) => { e.stopPropagation(); setViewing(null) }}
-          style={{ background: 'rgba(3,6,9,.92)' }}>
+          style={{ background: 'rgba(0,0,0,.92)' }}>
           <img src={urls[viewing]} alt="foto del cultivo" className="max-w-full max-h-full object-contain" />
-          <button onClick={() => setViewing(null)} className="absolute top-4 right-4 h-9 px-3.5 rounded-2xl glass text-white/85"
-            style={{ fontFamily: "'Space Grotesk'", fontWeight: 700, fontSize: '.72rem' }}>Cerrar</button>
+          <button onClick={() => setViewing(null)} className="absolute top-4 right-4 h-9 px-3.5 rounded-[5px] glass text-white/85"
+            style={{ fontFamily: "'Instrument Sans', system-ui, sans-serif", fontWeight: 600, fontSize: '.82rem' }}>Cerrar</button>
         </div>
       )}
 
       <style>{`
         @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-        .jbtn-note{height:28px;padding:0 .7rem;border:none;border-radius:999px;font-family:'Space Grotesk';font-weight:700;font-size:.68rem;cursor:pointer;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c;white-space:nowrap}
-        .jbtn-save{height:30px;padding:0 .8rem;border:none;border-radius:11px;font-family:'Space Grotesk';font-weight:700;font-size:.72rem;cursor:pointer;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#04150c}
-        .jbtn-ghost{height:30px;padding:0 .7rem;border:1px solid var(--glass-bd);border-radius:11px;font-weight:600;font-size:.72rem;cursor:pointer;background:rgba(255,255,255,.05);color:var(--muted)}
+        .jbtn-note{height:32px;padding:0 .75rem;border:1px solid rgba(255,255,255,.4);border-radius:5px;font-family:'Instrument Sans',system-ui,sans-serif;font-weight:600;font-size:.82rem;cursor:pointer;background:transparent;color:var(--text);white-space:nowrap}
+        .jbtn-save{height:34px;padding:0 .9rem;border:none;border-radius:5px;font-family:'Instrument Sans',system-ui,sans-serif;font-weight:600;font-size:.82rem;cursor:pointer;background:#fff;color:#000}
+        .jbtn-ghost{height:34px;padding:0 .8rem;border:1px solid rgba(255,255,255,.4);border-radius:5px;font-family:'Instrument Sans',system-ui,sans-serif;font-weight:600;font-size:.82rem;cursor:pointer;background:transparent;color:var(--text)}
       `}</style>
     </div>
   )
