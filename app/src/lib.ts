@@ -209,7 +209,7 @@ const HAVE = new Set([
 // funciona igual en raíz (localhost, Vercel) que bajo subcarpeta (GitHub Pages)
 // ?v=N fuerza la descarga cuando se reemplazan fotos con el mismo nombre (el navegador
 // del teléfono las guarda en caché); súbelo cada vez que cambie el set
-const IMG_V = '?v=3'
+const IMG_V = '?v=4'
 const A = (name: string) => `${import.meta.env.BASE_URL}assets/${name}.webp${IMG_V}`
 
 // imagen de las semillas en remojo (vaso de agua), según nº de semillas y si ya brotaron

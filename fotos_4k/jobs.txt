@@ -64,3 +64,10 @@ noche-cosecha 09ac8cad-1dd5-4dd0-8723-c102fd7446d8
 top-cosecha-1p 76c2c22b-0a7e-4a2e-87d9-a34a852bde45
 top-cosecha-2p 6f7fab1c-1928-4281-9940-67d049803ef2
 top-cosecha-3p 8cd61ecc-037e-4059-81ff-d02264edcdc0
+# v4 (2026-09-21): etapas re-renderizadas en PRIMERA generación (ref 1 = base nítida, ref 2 = la foto encadenada solo como guía de plantas);
+# la cadena pura degradaba carpa y equipo a partir de la 3ª-4ª generación. veg-temprano = compuesto (compose.py) sobre la base.
+veg-medio 34b54abb-4a1d-45b2-b41b-7905333ae2ba
+carpa-dia 11e64527-7b0a-498b-83d6-9a818b13f7c1
+flor-temprana 0421c4f7-5dca-47f0-b845-38a727c1638c
+floracion dcb57ed1-9963-47af-88cd-02799cbe744c
+cosecha 4d0c0a39-f88c-46b1-982c-839e13c8a4d1
