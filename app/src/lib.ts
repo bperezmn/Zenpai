@@ -309,7 +309,10 @@ export function preloadIntro() {
 // archivo no está (assets/timelapse.mp4), y entonces solo se ven las fotos fijas.
 export const TIMELAPSE_URL = `${import.meta.env.BASE_URL}assets/timelapse.mp4`
 export const TIMELAPSE_DAYS = 105
-export const HAS_TIMELAPSE = true
+// apagado (2026-09-20): el vídeo de Seedance cambia de encuadre y "acerca" la carpa al avanzar
+// los días; la previa usa las fotos por etapa, que mantienen el mismo plano. El mp4 vive en
+// app/_assets_v2_3d/ por si se regenera con encuadre fijo.
+export const HAS_TIMELAPSE = false
 
 // etiquetas de la vista cenital: donde están las macetas en carpa-cenital
 // (cámara a 3.5 m con 24 mm de sensor y 50 mm de lente; macetas a ±0.345 m (3) / ±0.24 m (2);
