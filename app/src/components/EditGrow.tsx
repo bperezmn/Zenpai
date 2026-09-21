@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore, selectActive } from '../store'
-import type { Substrate, SeedType } from '../lib'
+import type { Substrate, SeedType, PotType } from '../lib'
 import NutrientesPicker from './NutrientesPicker'
 
 const SUBS: { id: Substrate; label: string }[] = [
@@ -18,6 +18,7 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState(c.grow)
   const [potL, setPotL] = useState(c.potL)
   const [sub, setSub] = useState<Substrate>(c.substrate)
+  const [potType, setPotType] = useState<PotType>(c.potType ?? 'tela')
   const [nut, setNut] = useState<string | null>(c.nutrientesId ?? null)
   const setNutrientes = useStore((s) => s.setNutrientes)
   const [seedType, setSeedType] = useState<SeedType>(c.seedType)
@@ -26,7 +27,7 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
   const seedEditable = !c.flowerTs && !c.harvestedTs && (c.stage === 'plantula' || c.stage === 'veg' || c.stage === 'remojo')
 
   function save() {
-    updateGrow({ grow: name, potL, substrate: sub, seedType })
+    updateGrow({ grow: name, potL, potType, substrate: sub, seedType })
     setNutrientes(nut)
     onClose()
   }
@@ -41,6 +42,12 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
 
         <label className="elbl">Nombre</label>
         <input className="einp mb-3" value={name} maxLength={24} onChange={(e) => setName(e.target.value)} />
+
+        <label className="elbl">Tipo de maceta <span className="esub">→ la de tela seca antes</span></label>
+        <div className="flex gap-[7px] mb-3">
+          <button onClick={() => setPotType('tela')} className={`echip ${potType === 'tela' ? 'on' : ''}`}>Tela</button>
+          <button onClick={() => setPotType('plastico')} className={`echip ${potType === 'plastico' ? 'on' : ''}`}>Plástico</button>
+        </div>
 
         <label className="elbl">Tamaño de maceta <span className="esub">→ recalcula el riego</span></label>
         <div className="flex gap-[7px] mb-3">

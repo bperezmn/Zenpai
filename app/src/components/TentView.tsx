@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import SceneFx from './SceneFx'
+import LightSheet from './LightSheet'
 import { useShallow } from 'zustand/react/shallow'
 import { useStore, selectActive } from '../store'
 import { frontImg, cenitalTops, statusText, stageLabel, stageAt, previewStage, MAX_DAY, TIMELAPSE_URL, TIMELAPSE_DAYS, HAS_TIMELAPSE, type Cultivo, type MetricKey, type SceneState } from '../lib'
@@ -38,7 +39,7 @@ export default function TentView() {
   const coachDone = useStore((s) => s.coachDone)
   const markCoachDone = useStore((s) => s.markCoachDone)
   const pendingUndo = useStore((s) => s.pendingUndo)
-  const { view, toast, setToast, setPreview, previewDay, water, wilt, harvest, runUndo, setView, goHome, startNew, toggleLight } = useStore(
+  const { view, toast, setToast, setPreview, previewDay, water, wilt, harvest, runUndo, setView, goHome, startNew } = useStore(
     useShallow((s) => ({
       view: s.view,
       toast: s.toast,
@@ -52,13 +53,13 @@ export default function TentView() {
       setView: s.setView,
       goHome: s.goHome,
       startNew: s.startNew,
-      toggleLight: s.toggleLight,
     })),
   )
   const [intro, setIntro] = useState(() => useStore.getState().justCreated)
   useEffect(() => { if (intro) useStore.setState({ justCreated: false }) }, [])
   const [showJournal, setShowJournal] = useState(false)
   const [showToday, setShowToday] = useState(false)
+  const [showLight, setShowLight] = useState(false)
   const [wateringHow, setWateringHow] = useState(false)
   const [showRecipe, setShowRecipe] = useState(false)
   const [measureKey, setMeasureKey] = useState<MetricKey | null>(null)
@@ -86,7 +87,7 @@ export default function TentView() {
     v.currentTime = Math.min(1, Math.max(0, previewDay! / TIMELAPSE_DAYS)) * d
   }, [preview, previewDay])
   const done = c.stage === 'secando'
-  const overlayOpen = showJournal || showToday || wateringHow || showRecipe || showFinish || showEdit || measureKey !== null
+  const overlayOpen = showJournal || showToday || wateringHow || showRecipe || showFinish || showEdit || measureKey !== null || showLight
 
   // gesto atrás del sistema: cierra la capa superior (una a la vez), nunca mata la app.
   // El booleano compuesto mantiene UNA entrada de historial mientras haya alguna abierta
@@ -239,7 +240,7 @@ export default function TentView() {
         <button onClick={() => setShowJournal(true)} className="tbtn">Bitácora</button>
         {!done && <button onClick={() => setShowEdit(true)} className="tbtn">Editar</button>}
         {!done && !preview && (
-          <button onClick={toggleLight} className="tbtn" style={!c.light ? { color: '#8ad2ff', borderColor: '#8ad2ff' } : undefined}>
+          <button onClick={() => setShowLight(true)} className="tbtn" style={!c.light ? { color: 'var(--water)', borderColor: 'var(--water)' } : undefined}>
             {c.light ? 'Luz' : 'Noche'}
           </button>
         )}
@@ -388,6 +389,7 @@ export default function TentView() {
       {showEdit && <EditGrow onClose={() => setShowEdit(false)} />}
       {showJournal && <Journal onClose={() => setShowJournal(false)} />}
       {showToday && <Today onClose={() => setShowToday(false)} />}
+      {showLight && <LightSheet onClose={() => setShowLight(false)} />}
       {measureKey && <Measure metric={measureKey} onClose={() => setMeasureKey(null)} />}
       {intro && <Intro onDone={() => setIntro(false)} />}
 

@@ -32,6 +32,7 @@ export default function App() {
       recomputeTime()
       const s = useStore.getState()
       s.checkWaterReminder()
+      s.checkLightReminder()
       // respaldo en la nube: empujón automático cada ~10 min (silencioso, solo online)
       if (s.cloudOn && Date.now() - (s.lastCloudSyncTs ?? 0) > 10 * 60000) s.syncCloudNow(true)
     }

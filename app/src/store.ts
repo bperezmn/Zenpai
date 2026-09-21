@@ -8,7 +8,8 @@ import {
 import { cloudSignIn, cloudSignOut, cloudHasData, cloudPush, cloudPull } from './sync'
 import {
   emptyCultivo, deriveLive, realDay, CONSENT_VERSION,
-  type Cultivo, type Substrate, type SeedType, type GrowEvent, type EventType, type MetricKey, type Training, type Guide,
+  scheduledLight, nextLightChange,
+  type Cultivo, type Substrate, type SeedType, type GrowEvent, type EventType, type MetricKey, type Training, type Guide, type PotType,
 } from './lib'
 import { overwaterGuard, needsAttention, metricDef, evalMetric } from './mentor'
 
@@ -45,6 +46,11 @@ function sanitizeGrows(raw: unknown[]): Cultivo[] {
       training: o.training === 'lst' || o.training === 'lollipop' || o.training === 'apical' ? o.training : 'none',
       defoliatedTs: num(o.defoliatedTs),
       nutrientesId: typeof o.nutrientesId === 'string' ? o.nutrientesId : null,
+      potType: o.potType === 'plastico' ? 'plastico' : 'tela',
+      lightOnHour: typeof o.lightOnHour === 'number' ? Math.min(23, Math.max(0, Math.floor(o.lightOnHour))) : 6,
+      lightHours: typeof o.lightHours === 'number' ? o.lightHours : null,
+      hasController: o.hasController === true,
+      lightOverrideUntil: num(o.lightOverrideUntil),
       readings: o.readings && typeof o.readings === 'object' && !Array.isArray(o.readings) ? (o.readings as Cultivo['readings']) : {},
       readingDays: o.readingDays && typeof o.readingDays === 'object' && !Array.isArray(o.readingDays) ? (o.readingDays as Cultivo['readingDays']) : {},
       day: 0, stage: 'remojo', thirst: 0.2,
@@ -104,12 +110,14 @@ interface AppState {
   removeEvent: (id: number) => void
 
   // acciones del cultivo activo
-  createGrow: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; seedType: SeedType; nutrientesId?: string | null }) => void
+  createGrow: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; potType?: PotType; seedType: SeedType; nutrientesId?: string | null; lightOnHour?: number; hasController?: boolean }) => void
+  setLightSchedule: (cfg: { lightOnHour: number; lightHours: number | null; hasController: boolean }) => void
+  checkLightReminder: () => void
   setNutrientes: (id: string | null) => void
-  registerExisting: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; seedType: SeedType; weeksAgo: number; flowerWeeksAgo: number | null; nutrientesId?: string | null }) => void
+  registerExisting: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; potType?: PotType; seedType: SeedType; weeksAgo: number; flowerWeeksAgo: number | null; nutrientesId?: string | null; lightOnHour?: number; hasController?: boolean }) => void
   transplant: (count: number) => void
   resoak: () => void
-  updateGrow: (cfg: { grow: string; potL: number; substrate: Substrate; seedType: SeedType }) => void
+  updateGrow: (cfg: { grow: string; potL: number; potType?: PotType; substrate: Substrate; seedType: SeedType }) => void
   toggleLight: () => void
   applyTraining: (t: Training) => void
   defoliate: () => void
@@ -140,6 +148,9 @@ interface AppState {
   // datos de ejemplo (demo para explorar la app sin esperar meses)
   seedDemo: () => Promise<void>
 }
+
+// último cambio de luz avisado por cultivo (en esta sesión)
+const lightNotified = new Map<string, number>()
 
 // selector: el cultivo activo (referencia estable; emptyCultivo como respaldo)
 export const selectActive = (s: AppState): Cultivo =>
@@ -213,7 +224,7 @@ export const useStore = create<AppState>()(
         },
 
         // ---- crear (arranca EN REMOJO: semillas en agua, germTs aún null) ----
-        createGrow: ({ grow, plants, substrate, potL, seedType, nutrientesId = null }) => {
+        createGrow: ({ grow, plants, substrate, potL, potType = 'tela', seedType, nutrientesId = null, lightOnHour = 6, hasController = false }) => {
           const base: Cultivo = {
             ...emptyCultivo,
             id: genId(),
@@ -224,6 +235,7 @@ export const useStore = create<AppState>()(
             substrate,
             seedType,
             nutrientesId,
+            potType, lightOnHour, hasController,
             soakTs: Date.now(),
             germTs: null,
           }
@@ -242,7 +254,7 @@ export const useStore = create<AppState>()(
         },
 
         // ---- registrar una planta que YA está creciendo (sin pasar por el remojo) ----
-        registerExisting: ({ grow, plants, substrate, potL, seedType, weeksAgo, flowerWeeksAgo, nutrientesId = null }) => {
+        registerExisting: ({ grow, plants, substrate, potL, potType = 'tela', seedType, weeksAgo, flowerWeeksAgo, nutrientesId = null, lightOnHour = 6, hasController = false }) => {
           const now = Date.now()
           const germTs = now - weeksAgo * 7 * 86400000
           const base: Cultivo = {
@@ -255,6 +267,7 @@ export const useStore = create<AppState>()(
             substrate,
             seedType,
             nutrientesId,
+            potType, lightOnHour, hasController,
             soakTs: germTs - 2 * 86400000,
             germTs,
             flowerTs: seedType === 'foto' && flowerWeeksAgo != null ? now - flowerWeeksAgo * 7 * 86400000 : null,
@@ -292,12 +305,13 @@ export const useStore = create<AppState>()(
         },
 
         // ---- editar los datos del cultivo tras crearlo ----
-        updateGrow: ({ grow, potL, substrate, seedType }) => {
+        updateGrow: ({ grow, potL, potType, substrate, seedType }) => {
           const c = selectActive(get())
           if (!c.id) return
           const changes: string[] = []
           if (grow.trim() && grow.trim() !== c.grow) changes.push(`nombre «${grow.trim()}»`)
           if (potL !== c.potL) changes.push(`maceta ${potL} L`)
+          if (potType && potType !== c.potType) changes.push(potType === 'tela' ? 'maceta de tela' : 'maceta de plástico')
           if (substrate !== c.substrate) changes.push(`sustrato ${substrate}`)
           // el tipo de semilla solo se corrige mientras no haya floración en marcha
           const seedEditable = !c.flowerTs && !c.harvestedTs
@@ -305,7 +319,7 @@ export const useStore = create<AppState>()(
           if (!changes.length) return
           patchActive(
             (g) => {
-              const next = { ...g, grow: grow.trim() || g.grow, potL, substrate, seedType: seedEditable ? seedType : g.seedType }
+              const next = { ...g, grow: grow.trim() || g.grow, potL, potType: potType ?? g.potType, substrate, seedType: seedEditable ? seedType : g.seedType }
               const live = deriveLive(next) // cambiar el tipo puede recalcular la etapa
               return { ...next, ...live }
             },
@@ -325,10 +339,41 @@ export const useStore = create<AppState>()(
         // ---- luz de la carpa (visual: la escena 3D pasa a noche) ----
         toggleLight: () => {
           const c = selectActive(get())
-          patchActive((g) => ({ ...g, light: !g.light }), {
-            toast: c.light ? 'Luz apagada · la carpa descansa': 'Luz encendida',
+          patchActive((g) => ({ ...g, light: !g.light, lightOverrideUntil: nextLightChange(g) }), {
+            toast: c.light ? 'Luz apagada · hasta el siguiente cambio del horario' : 'Luz encendida · hasta el siguiente cambio del horario',
             pendingUndo: null,
           })
+        },
+
+        // ---- horario de luz ----
+        setLightSchedule: ({ lightOnHour, lightHours, hasController }) => {
+          patchActive((g) => {
+            const next = { ...g, lightOnHour, lightHours, hasController, lightOverrideUntil: null }
+            return { ...next, light: scheduledLight(next) }
+          }, { toast: 'Horario de luz guardado', pendingUndo: null })
+          log('nota', `Luz: enciende ${String(lightOnHour).padStart(2, '0')}:00 · ${lightHours ?? 'según etapa'} h${hasController ? ' · con controlador' : ''}`)
+        },
+        // aviso de encender/apagar (solo sin controlador): toast si la app está a la vista,
+        // notificación local si está en segundo plano (y el usuario activó los avisos)
+        checkLightReminder: () => {
+          const { grows, notifyEnabled } = get()
+          const now = Date.now()
+          for (const g of grows) {
+            if (!g.germTs || g.harvestedTs || g.hasController) continue
+            const prev = lightNotified.get(g.id) ?? 0
+            const change = nextLightChange(g, new Date(now - 60000)) // el cambio de este último minuto, si lo hubo
+            if (change > now || change <= prev) continue
+            lightNotified.set(g.id, change)
+            const on = scheduledLight(g)
+            const body = `${g.grow}: ${on ? 'hora de ENCENDER la luz' : 'hora de APAGAR la luz'}`
+            if (document.visibilityState === 'visible') { set({ toast: body, pendingUndo: null }); continue }
+            if (!notifyEnabled || typeof Notification === 'undefined' || Notification.permission !== 'granted') continue
+            try {
+              navigator.serviceWorker?.getRegistration()
+                .then((r) => { const icon = import.meta.env.BASE_URL + 'pwa-192.png'; if (r) r.showNotification('zenpai', { body, icon, badge: icon }); else new Notification('zenpai', { body, icon }) })
+                .catch(() => { try { new Notification('zenpai', { body }) } catch { /* sin soporte */ } })
+            } catch { /* sin soporte */ }
+          }
         },
 
         // ---- ninguna germinó: reiniciar el remojo con semillas nuevas ----
@@ -554,14 +599,19 @@ export const useStore = create<AppState>()(
         recomputeTime: () => {
           const grows = get().grows
           let changed = false
+          const now = Date.now()
           const next = grows.map((g) => {
             if (!g.germTs) return g
             const live = deriveLive(g)
-            if (live.day !== g.day || live.stage !== g.stage || Math.abs(live.thirst - g.thirst) > 0.02) {
-              changed = true
-              return { ...g, ...live }
+            let out = g
+            if (live.day !== g.day || live.stage !== g.stage || Math.abs(live.thirst - g.thirst) > 0.02) { changed = true; out = { ...g, ...live } }
+            // luz según horario, salvo apagado/encendido manual vigente
+            if (!g.harvestedTs) {
+              const override = g.lightOverrideUntil != null && g.lightOverrideUntil > now
+              const light = override ? g.light : scheduledLight(out)
+              if (light !== g.light || (!override && g.lightOverrideUntil != null)) { changed = true; out = { ...out, light, lightOverrideUntil: override ? g.lightOverrideUntil : null } }
             }
-            return g
+            return out
           })
           if (changed) set({ grows: next })
         },

@@ -3,6 +3,7 @@ export type Substrate = 'tierra' | 'coco' | 'hidro'
 export type Stage = 'remojo' | 'germinacion' | 'plantula' | 'veg' | 'flor' | 'cosecha' | 'secando' | 'vacia'
 export type MetricKey = 'temp' | 'hr' | 'vpd' | 'ppfd' | 'ph' | 'ec'
 export type Training = 'none' | 'lst' | 'lollipop' | 'apical'
+export type PotType = 'tela' | 'plastico'   // la de tela seca más rápido
 export type Guide = 'novato' | 'medio' | 'avanzado'   // nivel de experiencia (se elige al crear el cultivo)
 export type SeedType = 'foto' | 'auto'                // fotoperiódica (12/12 la dispara el usuario) o autofloreciente
 
@@ -12,6 +13,7 @@ export interface Cultivo {
   plants: number              // en remojo = nº de semillas; tras transplante = nº de plantas que brotaron
   pots: number
   potL: number                // litros por maceta (para calcular cuánto regar)
+  potType: PotType            // tela seca ~20 % más rápido que plástico (afecta la sed)
   substrate: Substrate
   seedType: SeedType
   soakTs: number | null       // cuándo se pusieron las semillas en remojo (Germinar)
@@ -24,6 +26,13 @@ export interface Cultivo {
   training: Training           // técnica de entrenamiento aplicada en vegetativo
   defoliatedTs: number | null  // última defoliación (la imagen la muestra unos días)
   nutrientesId: string | null  // línea de nutrientes del catálogo (src/data/nutrientes.ts) o null = solo agua
+  // horario de luz: la luz se enciende a lightOnHour y dura lightHours (null = según etapa:
+  // 18 h en crecimiento, 12 h en floración). Si el usuario tiene temporizador/controlador
+  // no se le avisa; si no, la app le recuerda encender y apagar.
+  lightOnHour: number
+  lightHours: number | null
+  hasController: boolean
+  lightOverrideUntil: number | null  // apagado/encendido manual hasta el siguiente cambio programado
   readings: Partial<Record<MetricKey, number>>     // últimas mediciones que registró el usuario
   readingDays: Partial<Record<MetricKey, number>>  // día del cultivo en que se tomó cada medición
   // day / stage / thirst son DERIVADOS (caché que el store mantiene sincronizada con el reloj real)
@@ -37,7 +46,8 @@ export interface Cultivo {
 }
 
 export const emptyCultivo: Cultivo = {
-  id: '', grow: 'Carpa A', plants: 3, pots: 3, potL: 11, substrate: 'tierra', seedType: 'foto',
+  id: '', grow: 'Carpa A', plants: 3, pots: 3, potL: 11, potType: 'tela', substrate: 'tierra', seedType: 'foto',
+  lightOnHour: 6, lightHours: null, hasController: false, lightOverrideUntil: null,
   soakTs: null, germTs: null, flowerTs: null, harvestedTs: null, finishedTs: null, dryWeight: null,
   lastWaterTs: null, training: 'none', defoliatedTs: null, nutrientesId: null,
   readings: {}, readingDays: {},
@@ -101,8 +111,10 @@ export const WATER_ALERT_DAYS: Partial<Record<Stage, number>> = { plantula: 2, v
 // sed derivada del TIEMPO REAL desde el último riego (o el transplante): horas hasta sed plena
 const THIRST_HOURS: Partial<Record<Stage, number>> = { plantula: 110, veg: 96, flor: 84, cosecha: 110 }
 function thirstAt(c: Cultivo, stage: Stage): number {
-  const H = THIRST_HOURS[stage]
-  if (!H) return 0
+  const base = THIRST_HOURS[stage]
+  if (!base) return 0
+  // las horas de la tabla son para maceta de tela; la de plástico retiene agua ~20 % más
+  const H = base * (c.potType === 'plastico' ? 1.2 : 1)
   const ref = c.lastWaterTs ?? c.germTs
   if (!ref) return 0.2
   const hrs = (Date.now() - ref) / 3600000
@@ -204,15 +216,43 @@ export function waterImg(seeds: number, brote: boolean): string {
 // dentro de la abertura de la puerta (TentView), como el hero de AC Infinity.
 export type SceneState = 'dia' | 'noche' | 'frio' | 'calor'
 
+// ===== horario de luz =====
+export function lightHoursFor(c: Cultivo): number {
+  if (c.lightHours != null) return c.lightHours
+  return c.stage === 'flor' || c.stage === 'cosecha' ? 12 : 18
+}
+// ¿debería estar encendida ahora según el horario?
+export function scheduledLight(c: Cultivo, now = new Date()): boolean {
+  const h = now.getHours() + now.getMinutes() / 60
+  return ((h - c.lightOnHour + 24) % 24) < lightHoursFor(c)
+}
+// instante del siguiente cambio programado (encendido o apagado)
+export function nextLightChange(c: Cultivo, now = new Date()): number {
+  const on = new Date(now); on.setHours(c.lightOnHour, 0, 0, 0)
+  const off = new Date(on.getTime() + lightHoursFor(c) * 3600000)
+  const cands = [on.getTime(), off.getTime(), on.getTime() + 86400000, off.getTime() - 86400000, on.getTime() - 86400000]
+  return Math.min(...cands.filter((t) => t > now.getTime()))
+}
+export const fmtHour = (h: number) => `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`
+
 // una defoliación se nota en la planta unos días; después el follaje vuelve
 export const DEFOLIATION_DAYS = 12
 export function isDefoliated(c: Cultivo): boolean {
   return c.defoliatedTs != null && Date.now() - c.defoliatedTs < DEFOLIATION_DAYS * 86400000
 }
 
+// vista desde arriba: tu foto cenital con las plantas de la etapa compuestas encima (assets/top/)
+const T = (name: string) => `${import.meta.env.BASE_URL}assets/top/${name}.webp`
+export function topImg(c: Cultivo, state: SceneState = 'dia'): string {
+  const p = Math.min(Math.max(c.pots, 1), 3)
+  if (c.stage === 'remojo' || c.stage === 'vacia' || c.stage === 'secando') return T(`top-vacia-${state}`)
+  const stage = c.stage === 'veg' && c.thirst > 0.55 ? 'sed' : c.stage
+  return T(`top-${stage}-${state}-${p}p`)
+}
+
 // imagen frontal según etapa / sustrato / sed / nº de macetas (respaldo a tierra)
 export function frontImg(c: Cultivo, view: 'front' | 'cenital', state: SceneState = 'dia'): string {
-  if (view === 'cenital') return A('carpa-cenital')
+  if (view === 'cenital') return topImg(c, state)
   if (c.stage === 'remojo') return waterImg(c.plants, hasSprouted(c))
   if (state === 'noche') return nightImg(c)
   if (c.stage === 'vacia') return A('carpa-vacia')
@@ -265,8 +305,14 @@ export const TIMELAPSE_DAYS = 105
 export const HAS_TIMELAPSE = true
 
 // etiquetas de la vista cenital: donde están las macetas en carpa-cenital
+// (cámara a 3.5 m con 24 mm de sensor y 50 mm de lente; macetas a ±0.345 m (3) / ±0.24 m (2);
+// cuanto más alta la copa, más cerca de la cámara y más separadas se ven)
 export function cenitalTops(c: Cultivo): string[] {
-  return c.pots === 1 ? ['47%'] : c.pots === 2 ? ['30%', '66%'] : ['21%', '47%', '73%']
+  const s = c.stage
+  const z = s === 'plantula' || s === 'germinacion' ? 0.24 : s === 'flor' || s === 'cosecha' ? 0.62 : c.thirst > 0.55 ? 0.45 : 0.55
+  const pct = (x: number) => `${Math.round(50 + (x / (2 * (3.5 - z) * 0.24)) * 100)}%`
+  const p = Math.min(Math.max(c.pots, 1), 3)
+  return p === 1 ? [pct(0)] : p === 2 ? [pct(-0.24), pct(0.24)] : [pct(-0.345), pct(0), pct(0.345)]
 }
 
 // caption de la carpa: estado honesto + la acción disponible (nada de datos inventados)

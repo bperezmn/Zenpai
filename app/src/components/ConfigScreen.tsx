@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useStore } from '../store'
-import { stageAt, stageLabel, type Substrate, type SeedType } from '../lib'
+import { stageAt, stageLabel, fmtHour, type Substrate, type SeedType, type PotType } from '../lib'
+import { lineaPorId } from '../data/nutrientes'
 import NutrientesPicker from './NutrientesPicker'
 
 const SIZES = [
@@ -11,11 +12,15 @@ const SIZES = [
   { cm: '120 × 120 cm', plants: 5, cap: '5 plantas · muestra 3' },
 ]
 const SUBS: { id: Substrate; label: string }[] = [
-  { id: 'tierra', label: 'Tierra'},
-  { id: 'coco', label: 'Coco'},
-  { id: 'hidro', label: 'Hidro'},
+  { id: 'tierra', label: 'Tierra' },
+  { id: 'coco', label: 'Coco' },
+  { id: 'hidro', label: 'Hidro' },
 ]
 const POTS = [4, 7, 11, 19, 25] // litros por maceta
+const POT_TYPES: { id: PotType; label: string; hint: string }[] = [
+  { id: 'tela', label: 'Tela', hint: 'respira y seca rápido' },
+  { id: 'plastico', label: 'Plástico', hint: 'retiene más agua' },
+]
 
 // "¿hace cuánto germinó?" para registrar una planta que ya crece
 const AGES = [
@@ -26,26 +31,34 @@ const FLOWER_AGES = [
   { w: 1, label: '~1 sem' }, { w: 2, label: '~2 sem' }, { w: 3, label: '~3 sem' },
   { w: 4, label: '~1 mes' }, { w: 6, label: '~6 sem' }, { w: 8, label: '~2 meses' },
 ]
+const PASOS = ['Cómo empezamos', 'Tu carpa', 'Maceta y sustrato', 'Nutrientes', 'Luz', 'Semilla']
 
 function nextName(n: number): string {
   return n < 26 ? 'Carpa ' + String.fromCharCode(65 + n) : 'Carpa ' + (n + 1)
 }
 
+// Alta de un cultivo en pasos (uno por pantalla, sin amontonar): modo → carpa → maceta y
+// sustrato → nutrientes → luz → semilla, con resumen y el botón final.
 export default function ConfigScreen() {
   const createGrow = useStore((s) => s.createGrow)
   const registerExisting = useStore((s) => s.registerExisting)
   const cancelNew = useStore((s) => s.cancelNew)
+  const [step, setStep] = useState(0)
   const [mode, setMode] = useState<'semilla' | 'planta'>('semilla')
   const [name, setName] = useState(() => nextName(useStore.getState().grows.length))
   const [plants, setPlants] = useState(3)
   const [sub, setSub] = useState<Substrate>('tierra')
   const [seedType, setSeedType] = useState<SeedType>('foto')
   const [potL, setPotL] = useState(11)
+  const [potType, setPotType] = useState<PotType>('tela')
   const [nut, setNut] = useState<string | null>(null)
+  const [lightOn, setLightOn] = useState(6)
+  const [ctrl, setCtrl] = useState(false)
   const [weeksAgo, setWeeksAgo] = useState(4)
   const [flowerWeeks, setFlowerWeeks] = useState<number | null>(null) // null = aún en veg
 
   const existing = mode === 'planta'
+  const last = step === PASOS.length - 1
   // vista previa honesta de dónde aterrizará la carpa al registrar
   const prevDay = weeksAgo * 7
   const prevGerm = Date.now() - prevDay * 86400000
@@ -55,102 +68,159 @@ export default function ConfigScreen() {
   )
   // el 12/12 no puede ser anterior a la germinación
   const flowerOptions = FLOWER_AGES.filter((f) => f.w < weeksAgo)
+  const linea = lineaPorId(nut)
 
   function submit() {
-    if (!existing) { createGrow({ grow: name, plants, substrate: sub, potL, seedType, nutrientesId: nut }); return }
-    registerExisting({
-      grow: name, plants, substrate: sub, potL, seedType, weeksAgo, nutrientesId: nut,
-      flowerWeeksAgo: seedType === 'foto' ? flowerWeeks : null,
-    })
+    const base = { grow: name, plants, substrate: sub, potL, potType, seedType, nutrientesId: nut, lightOnHour: lightOn, hasController: ctrl }
+    if (!existing) { createGrow(base); return }
+    registerExisting({ ...base, weeksAgo, flowerWeeksAgo: seedType === 'foto' ? flowerWeeks : null })
   }
+  const hint = (t: string) => <span style={{ color: 'var(--faint)', textTransform: 'none', letterSpacing: 0 }}>{t}</span>
 
   return (
     <div className="absolute inset-0" style={{ background: '#000' }}>
-      {/* el Volver vive FUERA del scroller: siempre a mano aunque el formulario sea largo */}
-      <button onClick={cancelNew} aria-label="Volver a tus cultivos" title="Volver" className="back">
+      <button onClick={() => (step === 0 ? cancelNew() : setStep(step - 1))} aria-label={step === 0 ? 'Volver a tus cultivos' : 'Paso anterior'} title="Atrás" className="back">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
       </button>
-      <div className="absolute inset-0 overflow-y-auto px-6 pb-8 pt-[104px] flex flex-col">
-      <div className="label mb-2">Configura tu carpa</div>
-      <h2 className="display text-[1.75rem] font-semibold leading-tight mb-1">Nuevo cultivo</h2>
+      <div className="absolute inset-0 overflow-y-auto px-6 pb-36 pt-[104px] flex flex-col">
+        <div className="label mb-2">Paso {step + 1} de {PASOS.length} · Nuevo cultivo</div>
+        <h2 className="display text-[1.75rem] font-semibold leading-tight mb-1">{PASOS[step]}</h2>
+        <div className="flex gap-1 mt-3 mb-6">
+          {PASOS.map((_, i) => <span key={i} style={{ flex: 1, height: 2, background: i <= step ? '#fff' : 'rgba(255,255,255,.18)' }} />)}
+        </div>
 
-      {/* ¿de cero o ya en marcha? */}
-      <div className="flex gap-[7px] mt-3 mb-4">
-        <button onClick={() =>setMode( 'semilla')} className={`sub ${!existing ? 'on': ''}`}>Desde semilla</button>
-        <button onClick={() =>setMode( 'planta')} className={`sub ${existing ? 'on': ''}`}>Ya tengo una planta</button>
-      </div>
+        {step === 0 && (
+          <>
+            <div className="flex gap-[7px] mb-5">
+              <button onClick={() => setMode('semilla')} className={`sub ${!existing ? 'on' : ''}`}>Desde semilla</button>
+              <button onClick={() => setMode('planta')} className={`sub ${existing ? 'on' : ''}`}>Ya tengo una planta</button>
+            </div>
+            <p className="text-[.8rem] mb-5" style={{ color: 'var(--muted)' }}>
+              {existing ? 'Registramos una planta que ya está creciendo: te preguntaremos su edad al final.' : 'Empezamos poniendo las semillas a germinar en agua; el resto llega solo.'}
+            </p>
+            <label className="lbl">Nombre del cultivo</label>
+            <input className="inp" value={name} maxLength={24} onChange={(e) => setName(e.target.value)} />
+          </>
+        )}
 
-      <label className="lbl">Nombre del cultivo</label>
-      <input className="inp mb-4" value={name} maxLength={24} onChange={(e) => setName(e.target.value)} />
+        {step === 1 && (
+          <>
+            <label className="lbl mb-2 block">Tamaño de tu carpa {hint('→ nº de plantas')}</label>
+            <div className="space-y-[7px]">
+              {SIZES.map((s) => (
+                <button key={s.plants} onClick={() => setPlants(s.plants)} className={`size ${plants === s.plants ? 'on' : ''}`}>
+                  <span>{s.cm}</span><span className="cap">{s.cap}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-      <label className="lbl mb-2 block">Tamaño de tu carpa <span style={{ color: 'var(--faint)', textTransform: 'none', letterSpacing: 0 }}>→ nº de plantas</span></label>
-      <div className="space-y-[7px]">
-        {SIZES.map((s) => (
-          <button key={s.plants} onClick={() => setPlants(s.plants)}
-            className={`size ${plants === s.plants ? 'on' : ''}`}>
-            <span>{s.cm}</span><span className="cap">{s.cap}</span>
-          </button>
-        ))}
-      </div>
+        {step === 2 && (
+          <>
+            <label className="lbl mb-2 block">Tipo de maceta {hint('→ cambia cada cuánto se riega')}</label>
+            <div className="space-y-[7px] mb-5">
+              {POT_TYPES.map((t) => (
+                <button key={t.id} onClick={() => setPotType(t.id)} className={`size ${potType === t.id ? 'on' : ''}`}>
+                  <span>{t.label}</span><span className="cap">{t.hint}</span>
+                </button>
+              ))}
+            </div>
+            <label className="lbl mb-2 block">Tamaño de maceta {hint('→ para calcular el riego')}</label>
+            <div className="flex gap-[7px] mb-5">
+              {POTS.map((L) => (
+                <button key={L} onClick={() => setPotL(L)} className={`sub ${potL === L ? 'on' : ''}`}>{L} L</button>
+              ))}
+            </div>
+            <label className="lbl mb-2 block">Sustrato</label>
+            <div className="flex gap-[7px]">
+              {SUBS.map((s) => (
+                <button key={s.id} onClick={() => { setSub(s.id); if (linea && !linea.sustratos.includes(s.id)) setNut(null) }} className={`sub ${sub === s.id ? 'on' : ''}`}>{s.label}</button>
+              ))}
+            </div>
+          </>
+        )}
 
-      <label className="lbl mt-4 mb-2 block">Tipo de semilla <span style={{ color: 'var(--faint)', textTransform: 'none', letterSpacing: 0 }}>→ define cuándo florece</span></label>
-      <div className="flex gap-[7px]">
-        <button onClick={() =>setSeedType( 'foto')} className={`sub ${seedType === 'foto'? 'on': ''}`}>Fotoperiódica</button>
-        <button onClick={() =>{ setSeedType( 'auto'); setFlowerWeeks(null) }} className={`sub ${seedType === 'auto'? 'on': ''}`}>Autofloreciente</button>
-      </div>
-      <p className="text-[.64rem] mt-1.5" style={{ color: 'var(--faint)' }}>
-        {seedType === 'foto'
-          ? 'Florece cuando TÚ cambias la luz a 12 h de luz / 12 h de oscuridad. Si no sabes cuál es, casi seguro es esta.'
-          : 'Florece sola (~día 32) sin cambiar la luz. Ciclo corto, ~75 días en total.'}
-      </p>
+        {step === 3 && (
+          <>
+            <label className="lbl mb-2 block">Tu línea de nutrientes {hint('→ dosis exactas en cada riego')}</label>
+            <NutrientesPicker value={nut} onChange={setNut} substrate={sub} chipClass="sub" />
+            <p className="text-[.66rem] mt-3" style={{ color: 'var(--faint)' }}>Si tu marca no está, elige "Solo agua / otra": la ficha de riego te dará agua, pH y EC objetivo.</p>
+          </>
+        )}
 
-      <label className="lbl mt-4 mb-2 block">Sustrato</label>
-      <div className="flex gap-[7px]">
-        {SUBS.map((s) => (
-          <button key={s.id} onClick={() => setSub(s.id)} className={`sub ${sub === s.id ? 'on' : ''}`}>{s.label}</button>
-        ))}
-      </div>
+        {step === 4 && (
+          <>
+            <label className="lbl mb-2 block">La luz enciende a las {hint('→ y se apaga sola según la etapa')}</label>
+            <div className="flex items-center gap-3 mb-2">
+              <input type="time" step={3600} value={`${String(lightOn).padStart(2, '0')}:00`}
+                onChange={(e) => { const h = parseInt(e.target.value.slice(0, 2), 10); if (!Number.isNaN(h)) setLightOn(h) }} className="inp" style={{ width: 150, fontFamily: "'IBM Plex Mono', monospace", colorScheme: 'dark' }} />
+              <div className="label">{fmtHour(lightOn)} → {fmtHour((lightOn + 18) % 24)}</div>
+            </div>
+            <p className="text-[.66rem] mb-5" style={{ color: 'var(--faint)' }}>18 h de luz en crecimiento; al pasar a floración baja sola a 12 h. Lo puedes cambiar en la carpa.</p>
+            <label className="size cursor-pointer" style={{ borderColor: ctrl ? '#fff' : undefined }}>
+              <span className="flex items-center gap-3">
+                <input type="checkbox" checked={ctrl} onChange={(e) => setCtrl(e.target.checked)} style={{ width: 20, height: 20, margin: 0, accentColor: '#1F73B7' }} />
+                Tengo temporizador o controlador
+              </span>
+              <span className="cap">{ctrl ? 'sin avisos' : 'te avisamos'}</span>
+            </label>
+            <p className="text-[.66rem] mt-3" style={{ color: 'var(--faint)' }}>Sin temporizador, la app te avisa a la hora de encender y de apagar la luz.</p>
+          </>
+        )}
 
-      <label className="lbl mt-4 mb-2 block">Nutrientes <span style={{ color: 'var(--faint)', textTransform: 'none', letterSpacing: 0 }}>→ tu plan de abono, dosis por riego</span></label>
-      <NutrientesPicker value={nut} onChange={setNut} substrate={sub} chipClass="sub" />
+        {step === 5 && (
+          <>
+            <label className="lbl mb-2 block">Tipo de semilla {hint('→ define cuándo florece')}</label>
+            <div className="flex gap-[7px]">
+              <button onClick={() => setSeedType('foto')} className={`sub ${seedType === 'foto' ? 'on' : ''}`}>Fotoperiódica</button>
+              <button onClick={() => { setSeedType('auto'); setFlowerWeeks(null) }} className={`sub ${seedType === 'auto' ? 'on' : ''}`}>Autofloreciente</button>
+            </div>
+            <p className="text-[.66rem] mt-1.5" style={{ color: 'var(--faint)' }}>
+              {seedType === 'foto'
+                ? 'Florece cuando TÚ cambias la luz a 12 h de luz / 12 h de oscuridad. Si no sabes cuál es, casi seguro es esta.'
+                : 'Florece sola (~día 32) sin cambiar la luz. Ciclo corto, ~75 días en total.'}
+            </p>
 
-      <label className="lbl mt-4 mb-2 block">Tamaño de maceta <span style={{ color: 'var(--faint)', textTransform: 'none', letterSpacing: 0 }}>→ para calcular el riego</span></label>
-      <div className="flex gap-[7px]">
-        {POTS.map((L) => (
-          <button key={L} onClick={() => setPotL(L)} className={`sub ${potL === L ? 'on' : ''}`}>{L} L</button>
-        ))}
-      </div>
+            {existing && (
+              <>
+                <label className="lbl mt-4 mb-2 block">¿Hace cuánto germinó? {hint('→ aproximado está bien')}</label>
+                <div className="grid grid-cols-3 gap-[7px]">
+                  {AGES.map((a) => (
+                    <button key={a.w} onClick={() => { setWeeksAgo(a.w); if (flowerWeeks != null && flowerWeeks >= a.w) setFlowerWeeks(null) }}
+                      className={`sub ${weeksAgo === a.w ? 'on' : ''}`}>{a.label}</button>
+                  ))}
+                </div>
+                {seedType === 'foto' && flowerOptions.length > 0 && (
+                  <>
+                    <label className="lbl mt-4 mb-2 block">¿Ya está en floración (12/12)?</label>
+                    <div className="grid grid-cols-3 gap-[7px]">
+                      <button onClick={() => setFlowerWeeks(null)} className={`sub ${flowerWeeks === null ? 'on' : ''}`}>Aún no</button>
+                      {flowerOptions.map((f) => (
+                        <button key={f.w} onClick={() => setFlowerWeeks(f.w)} className={`sub ${flowerWeeks === f.w ? 'on' : ''}`}>{f.label}</button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
 
-      {existing && (
-        <>
-          <label className="lbl mt-4 mb-2 block">¿Hace cuánto germinó? <span style={{ color: 'var(--faint)', textTransform: 'none', letterSpacing: 0 }}>→ aproximado está bien</span></label>
-          <div className="grid grid-cols-3 gap-[7px]">
-            {AGES.map((a) => (
-              <button key={a.w} onClick={() => { setWeeksAgo(a.w); if (flowerWeeks != null && flowerWeeks >= a.w) setFlowerWeeks(null) }}
-                className={`sub ${weeksAgo === a.w ? 'on' : ''}`}>{a.label}</button>
-            ))}
-          </div>
-
-          {seedType === 'foto' && flowerOptions.length > 0 && (
-            <>
-              <label className="lbl mt-4 mb-2 block">¿Ya está en floración (12/12)?</label>
-              <div className="grid grid-cols-3 gap-[7px]">
-                <button onClick={() => setFlowerWeeks(null)} className={`sub ${flowerWeeks === null ? 'on' : ''}`}>Aún no</button>
-                {flowerOptions.map((f) => (
-                  <button key={f.w} onClick={() => setFlowerWeeks(f.w)} className={`sub ${flowerWeeks === f.w ? 'on' : ''}`}>{f.label}</button>
-                ))}
+            <div className="mt-6 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,.12)' }}>
+              <div className="label mb-2">Resumen</div>
+              <div className="text-[.8rem] leading-relaxed" style={{ color: 'var(--muted)' }}>
+                {name || 'Carpa'} · {plants} {plants === 1 ? 'planta' : 'plantas'} · maceta de {potType} de {potL} L · {sub} · {linea ? linea.marca : 'solo agua'} · luz {fmtHour(lightOn)}{ctrl ? ' con controlador' : ''}.
+                {existing ? ` Tu carpa abrirá en el día ~${prevDay} · ${stageLabel[prevStage]}.` : ` Pondremos ${plants} ${plants === 1 ? 'semilla' : 'semillas'} a germinar en agua.`}
               </div>
-            </>
-          )}
-        </>
-      )}
+            </div>
+          </>
+        )}
+      </div>
 
-      <button className="cbtn mt-5" onClick={submit}>{existing ? 'Registrar mi planta': 'Germinar'}</button>
-      <p className="text-center text-[.66rem] mt-2.5" style={{ color: 'var(--faint)' }}>
-        {existing
-          ? `Tu carpa abrirá en el día ~${prevDay} · ${stageLabel[prevStage]}.`
-          : `Pondremos ${plants} ${plants === 1 ? 'semilla' : 'semillas'} a germinar en agua.`}
-      </p>
+      <div className="absolute left-6 right-6 bottom-8 flex gap-2">
+        {step > 0 && <button onClick={() => setStep(step - 1)} className="gbtn flex-1">Atrás</button>}
+        {last
+          ? <button className="cbtn flex-[2]" onClick={submit}>{existing ? 'Registrar mi planta' : 'Germinar'}</button>
+          : <button className="cbtn flex-[2]" onClick={() => setStep(step + 1)} disabled={step === 0 && !name.trim()}>Siguiente</button>}
       </div>
 
       <style>{`
@@ -164,7 +234,9 @@ export default function ConfigScreen() {
         .size.on .cap{color:#fff}
         .sub{flex:1;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.65rem .3rem;cursor:pointer;color:var(--muted);font-weight:500;font-size:.82rem;font-family:'Instrument Sans',system-ui,sans-serif;transition:.15s}
         .sub.on{border-color:#fff;color:#fff;background:rgba(255,255,255,.06)}
-        .cbtn{width:100%;border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.95rem;letter-spacing:.02em;cursor:pointer;background:#fff;color:#000}
+        .cbtn{border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.95rem;letter-spacing:.02em;cursor:pointer;background:#fff;color:#000}
+        .cbtn:disabled{opacity:.4}
+        .gbtn{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.9rem;cursor:pointer;background:rgba(0,0,0,.6);color:var(--text)}
       `}</style>
     </div>
   )

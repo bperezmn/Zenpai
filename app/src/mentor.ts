@@ -31,8 +31,9 @@ export function wateringGuide(c: Cultivo): { amount: string; when: string } | nu
     return n < 3 ? `~${n} L (unos ${Math.max(1, Math.round(n / 0.25))} vasos)` : `~${n} L`
   }
   if (c.stage === 'plantula') return { amount: '~1 vaso (0.2 L) cerca del tallo', when: 'cuando la capa de arriba (~2 cm) esté seca' }
-  if (c.stage === 'veg') return { amount: txt(L * 0.18), when: 'cuando la maceta pese poco al levantarla (≈ cada 2–3 días)' }
-  if (c.stage === 'flor') return { amount: txt(L * 0.22), when: 'cuando la maceta pese poco (≈ cada 2–3 días)' }
+  const cada = c.potType === 'plastico' ? '≈ cada 3–4 días' : '≈ cada 2–3 días'
+  if (c.stage === 'veg') return { amount: txt(L * 0.18), when: `cuando la maceta pese poco al levantarla (${cada})` }
+  if (c.stage === 'flor') return { amount: txt(L * 0.22), when: `cuando la maceta pese poco (${cada})` }
   if (c.stage === 'cosecha') return { amount: 'a fondo, solo agua (flush)', when: 'mantén el sustrato apenas húmedo' }
   return null
 }
