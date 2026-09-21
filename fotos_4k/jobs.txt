@@ -56,3 +56,11 @@ top-flor-3p 2cc02873-20aa-4b15-b58e-dcecfca7b553
 top-cosecha-1p e4cf4eac-f2e8-4eb9-aebf-e2ea1de0ff0a
 top-cosecha-2p 7aadec97-67c8-49cf-9bf0-e041721114b5
 top-cosecha-3p 01f70e92-0642-4baa-9332-622029a4a037
+# v2 (2026-09-21): cosecha regenerada desde floracion para que sean las mismas plantas
+cosecha 9ec9d17e-64d2-40cc-bc22-6b57672b7f59
+cosecha-1p ef79137c-b4c0-4f7d-a396-9c47ea129bb4
+cosecha-2p 48a30cb5-1f5a-4582-8c8a-5a3044284086
+noche-cosecha 09ac8cad-1dd5-4dd0-8723-c102fd7446d8
+top-cosecha-1p 76c2c22b-0a7e-4a2e-87d9-a34a852bde45
+top-cosecha-2p 6f7fab1c-1928-4281-9940-67d049803ef2
+top-cosecha-3p 8cd61ecc-037e-4059-81ff-d02264edcdc0
