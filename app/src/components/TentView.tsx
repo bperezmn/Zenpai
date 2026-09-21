@@ -187,7 +187,7 @@ export default function TentView() {
     <div className="absolute inset-0 select-none">
       {/* escena: la escena 3D reacciona a tus datos (luz, temperatura); en preview siempre "día" */}
       <div ref={sceneRef} className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 escena-viva">
+        <div className={`absolute inset-0 escena-viva ${preview ? 'quieta' : ''}`}>
           <SceneImg src={frontImg(dc, view, scene)} />
           {/* timelapse: mientras arrastras la línea de tiempo, el vídeo va al día que señalas */}
           {HAS_TIMELAPSE && view === 'front' && (
@@ -391,10 +391,11 @@ export default function TentView() {
 
       <style>{`
         .escena-viva{animation:respira 16s ease-in-out infinite alternate;transform-origin:50% 62%;will-change:transform}
+        .escena-viva.quieta{animation-play-state:paused}
         .tinte{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;transition:opacity .8s ease;clip-path:polygon(5% 5.5%,69% 5.5%,76% 7.5%,80.5% 12%,80.5% 93.5%,5% 93.5%)}
         .tinte-frio{background:radial-gradient(ellipse at 50% 38%,rgba(150,195,255,.95),rgba(90,140,255,.85) 75%)}
         .tinte-calor{background:radial-gradient(ellipse at 50% 38%,rgba(255,170,110,.95),rgba(255,110,60,.85) 75%)}
-        @keyframes respira{from{transform:scale(1)}to{transform:scale(1.035)}}
+        @keyframes respira{from{transform:scale(1)}to{transform:scale(1.012)}}
         .aparece{animation:aparece .7s ease-out both}
         @keyframes aparece{from{opacity:0}to{opacity:1}}
         @media (prefers-reduced-motion:reduce){.escena-viva,.aparece{animation:none}}
