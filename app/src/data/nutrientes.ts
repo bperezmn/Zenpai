@@ -36,6 +36,9 @@ export interface LineaNutrientes {
   aguaC?: [number, number]      // temperatura ideal del agua (°C)
   verificado: boolean
   fuente: string
+  color: string          // color de marca para el monograma (mientras no haya logo oficial)
+  logo?: string          // archivo en public/assets/marcas/ (logo oficial del kit de prensa; opcional)
+  web?: string
   productos: ProductoNutriente[]
   fases: FaseDosis[]
   suplementos?: { id: string; nombre: string; rol: string; dosis: [number, number]; cuando: string }[]
@@ -47,6 +50,9 @@ const flor = (semanaFlor: number, nombre: string, dosis: Record<string, number>)
 
 export const EMERALD_HARVEST_2PART: LineaNutrientes = {
   id: 'emerald-harvest-2part',
+  color: '#1f8a3b',
+  logo: 'emerald-harvest-2part',
+  web: 'emeraldharvest.co',
   marca: 'Emerald Harvest',
   linea: 'Serie profesional de 2 partes',
   sustratos: ['tierra', 'coco', 'hidro'],
@@ -96,6 +102,9 @@ export const EMERALD_HARVEST_2PART: LineaNutrientes = {
 // por galón (3-2-1 / 2-2-2 / 1-2-3), pasada a ml/L (1 tsp/gal ≈ 1.32 ml/L).
 export const GH_FLORA: LineaNutrientes = {
   id: 'gh-flora',
+  color: '#1e7f45',
+  logo: 'gh-flora',
+  web: 'generalhydroponics.com',
   marca: 'General Hydroponics',
   linea: 'Flora Series (Gro · Micro · Bloom)',
   sustratos: ['hidro', 'coco', 'tierra'],
@@ -133,6 +142,9 @@ export const GH_FLORA: LineaNutrientes = {
 // Rhizotonic al inicio, Cannazym semanal, PK 13/14 una semana a mitad de floración, Boost al final.
 export const CANNA_TERRA: LineaNutrientes = {
   id: 'canna-terra',
+  color: '#e2231a',
+  logo: 'canna-terra',
+  web: 'canna.es',
   marca: 'Canna',
   linea: 'Terra (Vega · Flores)',
   sustratos: ['tierra'],
@@ -171,6 +183,9 @@ export const CANNA_TERRA: LineaNutrientes = {
 // Canna · Coco (A + B). Misma lógica que Terra con la base A/B de 2 a 4 ml/L, siempre en partes iguales.
 export const CANNA_COCO: LineaNutrientes = {
   id: 'canna-coco',
+  color: '#e2231a',
+  logo: 'canna-coco',
+  web: 'canna.es',
   marca: 'Canna',
   linea: 'Coco A + B',
   sustratos: ['coco'],
@@ -209,6 +224,9 @@ export const CANNA_COCO: LineaNutrientes = {
 // Advanced Nutrients · pH Perfect Sensi Grow / Sensi Bloom (A + B). Base a 4 ml/L; suplementos a 2 ml/L.
 export const AN_SENSI: LineaNutrientes = {
   id: 'an-sensi',
+  color: '#111111',
+  logo: 'an-sensi',
+  web: 'advancednutrients.com',
   marca: 'Advanced Nutrients',
   linea: 'pH Perfect Sensi Grow / Bloom A+B',
   sustratos: ['tierra', 'coco', 'hidro'],
@@ -250,6 +268,9 @@ export const AN_SENSI: LineaNutrientes = {
 // BioBizz (orgánico, tierra y coco). Bio-Grow sigue en floración como fuente de azúcares.
 export const BIOBIZZ: LineaNutrientes = {
   id: 'biobizz',
+  color: '#5aa02c',
+  logo: 'biobizz',
+  web: 'biobizz.com',
   marca: 'BioBizz',
   linea: 'Bio-Grow · Bio-Bloom · Top-Max',
   sustratos: ['tierra', 'coco'],
@@ -287,6 +308,9 @@ export const BIOBIZZ: LineaNutrientes = {
 // Plagron · Terra (tierra). Etiqueta: 3–5 ml/L; Power Roots y Green Sensation 1 ml/L.
 export const PLAGRON_TERRA: LineaNutrientes = {
   id: 'plagron-terra',
+  color: '#0b5fa5',
+  logo: 'plagron-terra',
+  web: 'plagron.com',
   marca: 'Plagron',
   linea: 'Terra Grow · Terra Bloom',
   sustratos: ['tierra'],
@@ -320,6 +344,9 @@ export const PLAGRON_TERRA: LineaNutrientes = {
 // Hesi (tierra). Etiqueta: TNT Complex y Bloom Complex a 5 ml/L; Root 1–2 ml/L; PK 13/14 1.5 ml/L.
 export const HESI_TIERRA: LineaNutrientes = {
   id: 'hesi-tierra',
+  color: '#c8102e',
+  logo: 'hesi-tierra',
+  web: 'hesi.nl',
   marca: 'Hesi',
   linea: 'TNT Complex · Bloom Complex (tierra)',
   sustratos: ['tierra'],
@@ -353,6 +380,9 @@ export const HESI_TIERRA: LineaNutrientes = {
 // Top Crop (tierra y coco), muy extendido en Latinoamérica. Rangos de etiqueta 2–4 ml/L.
 export const TOP_CROP: LineaNutrientes = {
   id: 'top-crop',
+  color: '#2e7d32',
+  logo: 'top-crop',
+  web: 'top-crop.eu',
   marca: 'Top Crop',
   linea: 'Top Veg · Top Bloom · Big One',
   sustratos: ['tierra', 'coco'],

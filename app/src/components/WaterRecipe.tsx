@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import { useStore, selectActive } from '../store'
+import BrandMark from './BrandMark'
+import NutrientesInfo from './NutrientesInfo'
 import { stageLabel } from '../lib'
 import { wateringGuide, targetFor, fmtRange, overwaterGuard, litrosRiego, semanaFlor } from '../mentor'
 import { lineaPorId, faseActual, dosisRiego } from '../data/nutrientes'
@@ -19,6 +22,7 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
   const fase = linea && (c.stage === 'plantula' || c.stage === 'veg' || c.stage === 'flor') ? faseActual(linea, c.stage, c.day, semanaFlor(c)) : null
   const litros = litrosRiego(c)
   const dosis = linea && fase ? dosisRiego(linea, fase, litros) : []
+  const [showInfo, setShowInfo] = useState(false)
 
   return (
     <div className="absolute inset-0 z-50" onClick={onClose}>
@@ -39,10 +43,14 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
 
         {linea && fase && (
           <div className="mt-3 rounded-2xl px-3.5 py-3" style={{ border: '1px solid rgba(255,255,255,.14)', background: 'var(--panel)' }}>
-            <div className="flex items-baseline justify-between mb-2">
-              <div className="label" style={{ color: '#fff' }}>{linea.marca} · {fase.nombre}</div>
-              <div className="label">{litros} L de agua</div>
-            </div>
+            <button onClick={() => setShowInfo(true)} className="flex items-center gap-2.5 w-full text-left mb-2" style={{ background: 'none', border: 0, padding: 0, color: 'inherit', cursor: 'pointer' }}>
+              <BrandMark linea={linea} size={26} />
+              <div className="min-w-0 flex-1">
+                <div className="label truncate" style={{ color: '#fff' }}>{linea.marca} · {fase.nombre}</div>
+                <div className="label" style={{ fontSize: '.52rem' }}>{litros} L de agua · toca para ver la tabla</div>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--muted)', flex: 'none' }}><path d="M9 6l6 6-6 6" /></svg>
+            </button>
             {dosis.length === 0 ? (
               <div className="text-[.78rem]" style={{ color: 'var(--muted)' }}>Esta semana: solo agua, sin abono.</div>
             ) : (
@@ -95,6 +103,7 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
           </div>
         )}
 
+        {linea && showInfo && <NutrientesInfo linea={linea} onClose={() => setShowInfo(false)} />}
         <style>{`
           @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
           .rbtn{border:none;border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}
