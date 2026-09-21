@@ -207,7 +207,10 @@ const HAVE = new Set([
 ])
 // rutas relativas a la base del deploy (BASE_URL termina en '/'): así la app
 // funciona igual en raíz (localhost, Vercel) que bajo subcarpeta (GitHub Pages)
-const A = (name: string) => `${import.meta.env.BASE_URL}assets/${name}.webp`
+// ?v=N fuerza la descarga cuando se reemplazan fotos con el mismo nombre (el navegador
+// del teléfono las guarda en caché); súbelo cada vez que cambie el set
+const IMG_V = '?v=3'
+const A = (name: string) => `${import.meta.env.BASE_URL}assets/${name}.webp${IMG_V}`
 
 // imagen de las semillas en remojo (vaso de agua), según nº de semillas y si ya brotaron
 export function waterImg(seeds: number, brote: boolean): string {
@@ -247,7 +250,7 @@ export function isDefoliated(c: Cultivo): boolean {
 }
 
 // vista desde arriba: tu foto cenital con las plantas de la etapa compuestas encima (assets/top/)
-const T = (name: string) => `${import.meta.env.BASE_URL}assets/top/${name}.webp`
+const T = (name: string) => `${import.meta.env.BASE_URL}assets/top/${name}.webp${IMG_V}`
 export function topImg(c: Cultivo, state: SceneState = 'dia'): string {
   const p = Math.min(Math.max(c.pots, 1), 3)
   if (c.stage === 'remojo' || c.stage === 'vacia' || c.stage === 'secando') return T(`top-vacia-${state}`)
