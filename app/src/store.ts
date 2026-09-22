@@ -9,7 +9,7 @@ import { cloudSignIn, cloudSignOut, cloudHasData, cloudPush, cloudPull } from '.
 import {
   emptyCultivo, deriveLive, realDay, CONSENT_VERSION,
   scheduledLight, nextLightChange,
-  type Cultivo, type Substrate, type SeedType, type GrowEvent, type EventType, type MetricKey, type Training, type Guide, type PotType,
+  type Cultivo, type Substrate, type SeedType, type GrowEvent, type EventType, type MetricKey, type Training, type Guide, type PotType, type Equipment,
 } from './lib'
 import { overwaterGuard, needsAttention, metricDef, evalMetric } from './mentor'
 
@@ -51,6 +51,14 @@ function sanitizeGrows(raw: unknown[]): Cultivo[] {
       lightHours: typeof o.lightHours === 'number' ? o.lightHours : null,
       hasController: o.hasController === true,
       lightOverrideUntil: num(o.lightOverrideUntil),
+      strain: typeof o.strain === 'string' && o.strain.trim() ? o.strain.trim().slice(0, 40) : null,
+      breeder: typeof o.breeder === 'string' && o.breeder.trim() ? o.breeder.trim().slice(0, 40) : null,
+      flowerWeeks: num(o.flowerWeeks) != null && (o.flowerWeeks as number) >= 5 && (o.flowerWeeks as number) <= 16 ? (o.flowerWeeks as number) : null,
+      autoWeeks: num(o.autoWeeks) != null && (o.autoWeeks as number) >= 7 && (o.autoWeeks as number) <= 16 ? (o.autoWeeks as number) : null,
+      tentCm: num(o.tentCm),
+      equipment: o.equipment && typeof o.equipment === 'object' && !Array.isArray(o.equipment)
+        ? Object.fromEntries(Object.entries(o.equipment as Record<string, unknown>).filter(([k, v]) => ['luz', 'aire', 'ctrl', 'vent'].includes(k) && typeof v === 'string').map(([k, v]) => [k, (v as string).slice(0, 60)]))
+        : {},
       readings: o.readings && typeof o.readings === 'object' && !Array.isArray(o.readings) ? (o.readings as Cultivo['readings']) : {},
       readingDays: o.readingDays && typeof o.readingDays === 'object' && !Array.isArray(o.readingDays) ? (o.readingDays as Cultivo['readingDays']) : {},
       day: 0, stage: 'remojo', thirst: 0.2,
@@ -110,11 +118,11 @@ interface AppState {
   removeEvent: (id: number) => void
 
   // acciones del cultivo activo
-  createGrow: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; potType?: PotType; seedType: SeedType; nutrientesId?: string | null; lightOnHour?: number; hasController?: boolean }) => void
+  createGrow: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; potType?: PotType; seedType: SeedType; nutrientesId?: string | null; lightOnHour?: number; hasController?: boolean; strain?: string | null; breeder?: string | null; flowerWeeks?: number | null; autoWeeks?: number | null; tentCm?: number | null }) => void
   setLightSchedule: (cfg: { lightOnHour: number; lightHours: number | null; hasController: boolean }) => void
   checkLightReminder: () => void
   setNutrientes: (id: string | null) => void
-  registerExisting: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; potType?: PotType; seedType: SeedType; weeksAgo: number; flowerWeeksAgo: number | null; nutrientesId?: string | null; lightOnHour?: number; hasController?: boolean }) => void
+  registerExisting: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; potType?: PotType; seedType: SeedType; weeksAgo: number; flowerWeeksAgo: number | null; nutrientesId?: string | null; lightOnHour?: number; hasController?: boolean; strain?: string | null; breeder?: string | null; flowerWeeks?: number | null; autoWeeks?: number | null; tentCm?: number | null }) => void
   transplant: (count: number) => void
   resoak: () => void
   updateGrow: (cfg: { grow: string; potL: number; potType?: PotType; substrate: Substrate; seedType: SeedType }) => void
@@ -128,6 +136,13 @@ interface AppState {
   harvest: () => void
   finishGrow: (dryWeight: number | null, note?: string) => void
   measure: (key: MetricKey, value: number) => void
+  setGenetics: (g: { strain: string | null; breeder: string | null; flowerWeeks: number | null; autoWeeks: number | null }) => void
+  setEquipment: (eq: Equipment, tentCm?: number | null) => void
+  addDiagnosis: (blob: Blob, summary: string) => void   // foto + resultado a la bitácora
+
+  // Premium: sin pasarela de pago todavía; el interruptor de prueba lo activa
+  premium: boolean
+  setPremium: (v: boolean) => void
 
   setView: (v: View) => void
   setToast: (t: string | null) => void
@@ -165,10 +180,10 @@ export const useStore = create<AppState>()(
         set({ grows: grows.map((g) => (g.id === activeId ? updater(g) : g)), ...(extra ?? {}) } as Partial<AppState>)
       }
       // registra un evento (append-only) para el cultivo activo; devuelve el evento creado
-      async function log(type: EventType, note?: string, photoId?: number): Promise<GrowEvent | null> {
+      async function log(type: EventType, note?: string, photoId?: number, extra?: Pick<GrowEvent, 'metric' | 'value'>): Promise<GrowEvent | null> {
         const c = selectActive(get())
         if (!c.id) return null
-        const ev = await addEvent({ growId: c.id, ts: Date.now(), day: c.day, type, note, photoId })
+        const ev = await addEvent({ growId: c.id, ts: Date.now(), day: c.day, type, note, photoId, ...(extra ?? {}) })
         set((st) => ({ events: [...st.events, ev] }))
         return ev
       }
@@ -193,6 +208,7 @@ export const useStore = create<AppState>()(
         pendingUndo: null,
         notifyEnabled: false,
         lastNotifiedDay: null,
+        premium: false,
         cloudOn: false,
         cloudBusy: false,
         cloudError: null,
@@ -224,7 +240,7 @@ export const useStore = create<AppState>()(
         },
 
         // ---- crear (arranca EN REMOJO: semillas en agua, germTs aún null) ----
-        createGrow: ({ grow, plants, substrate, potL, potType = 'tela', seedType, nutrientesId = null, lightOnHour = 6, hasController = false }) => {
+        createGrow: ({ grow, plants, substrate, potL, potType = 'tela', seedType, nutrientesId = null, lightOnHour = 6, hasController = false, strain = null, breeder = null, flowerWeeks = null, autoWeeks = null, tentCm = null }) => {
           const base: Cultivo = {
             ...emptyCultivo,
             id: genId(),
@@ -236,6 +252,7 @@ export const useStore = create<AppState>()(
             seedType,
             nutrientesId,
             potType, lightOnHour, hasController,
+            strain: strain?.trim() || null, breeder: breeder?.trim() || null, flowerWeeks, autoWeeks, tentCm,
             soakTs: Date.now(),
             germTs: null,
           }
@@ -254,7 +271,7 @@ export const useStore = create<AppState>()(
         },
 
         // ---- registrar una planta que YA está creciendo (sin pasar por el remojo) ----
-        registerExisting: ({ grow, plants, substrate, potL, potType = 'tela', seedType, weeksAgo, flowerWeeksAgo, nutrientesId = null, lightOnHour = 6, hasController = false }) => {
+        registerExisting: ({ grow, plants, substrate, potL, potType = 'tela', seedType, weeksAgo, flowerWeeksAgo, nutrientesId = null, lightOnHour = 6, hasController = false, strain = null, breeder = null, flowerWeeks = null, autoWeeks = null, tentCm = null }) => {
           const now = Date.now()
           const germTs = now - weeksAgo * 7 * 86400000
           const base: Cultivo = {
@@ -268,6 +285,7 @@ export const useStore = create<AppState>()(
             seedType,
             nutrientesId,
             potType, lightOnHour, hasController,
+            strain: strain?.trim() || null, breeder: breeder?.trim() || null, flowerWeeks, autoWeeks, tentCm,
             soakTs: germTs - 2 * 86400000,
             germTs,
             flowerTs: seedType === 'foto' && flowerWeeksAgo != null ? now - flowerWeeksAgo * 7 * 86400000 : null,
@@ -508,8 +526,50 @@ export const useStore = create<AppState>()(
             (g) => ({ ...g, readings: { ...g.readings, [key]: value }, readingDays: { ...g.readingDays, [key]: g.day } }),
             { toast:`${def.label} anotado en la bitácora`, pendingUndo: null },
           )
-          log('medicion', `${def.label} ${shown}${u} · ${word}`)
+          log('medicion', `${def.label} ${shown}${u} · ${word}`, undefined, { metric: key, value })
         },
+
+        setGenetics: ({ strain, breeder, flowerWeeks, autoWeeks }) => {
+          const c = selectActive(get())
+          if (!c.id) return
+          const s2 = strain?.trim() || null
+          const b2 = breeder?.trim() || null
+          if (s2 === c.strain && b2 === c.breeder && flowerWeeks === c.flowerWeeks && autoWeeks === c.autoWeeks) return
+          patchActive((g) => {
+            const next = { ...g, strain: s2, breeder: b2, flowerWeeks, autoWeeks }
+            return { ...next, ...deriveLive(next) } // las semanas pueden mover la etapa
+          }, { toast: 'Genética guardada', pendingUndo: null })
+          const w = c.seedType === 'auto' ? (autoWeeks ? `${autoWeeks} semanas de ciclo` : null) : (flowerWeeks ? `${flowerWeeks} semanas de flor` : null)
+          log('nota', ['Genética:', s2 ?? 'sin nombre', b2 ? `(${b2})` : null, w ? `· ${w}` : null].filter(Boolean).join(' '))
+        },
+
+        setEquipment: (eq, tentCm) => {
+          const c = selectActive(get())
+          if (!c.id) return
+          const clean: Equipment = {}
+          for (const k of ['luz', 'aire', 'ctrl', 'vent'] as const) { const v = eq[k]?.trim(); if (v) clean[k] = v }
+          patchActive((g) => ({
+            ...g,
+            equipment: clean,
+            tentCm: tentCm === undefined ? g.tentCm : tentCm,
+            // un controlador que gobierna la luz sustituye a los avisos de encendido/apagado
+            hasController: clean.ctrl ? true : g.hasController,
+          }), { toast: 'Equipo guardado', pendingUndo: null })
+        },
+
+        addDiagnosis: (blob, summary) => {
+          const c = selectActive(get())
+          if (!c.id) return
+          dbAddPhoto({ growId: c.id, ts: Date.now(), blob })
+            .then(async (pid) => {
+              const ev = await log('diagnostico', summary, pid).catch(() => null)
+              if (!ev) deletePhoto(pid).catch(() => {})
+              else set({ toast: 'Diagnóstico guardado en la bitácora', pendingUndo: null })
+            })
+            .catch(() => set({ toast: 'No se pudo guardar el diagnóstico', pendingUndo: null }))
+        },
+
+        setPremium: (v) => set({ premium: v, toast: v ? 'Premium de prueba activado' : 'Premium desactivado', pendingUndo: null }),
 
         setGuide: (g) => set({ guide: g }),
         completeOnboarding: (g) => set({ guide: g, onboarded: true }),
@@ -571,7 +631,7 @@ export const useStore = create<AppState>()(
           const ev = get().events.find((e) => e.id === evId)
           if (!ev) return
           deleteEvent(evId).catch(() => {})
-          if (ev.type === 'foto' && ev.photoId != null) deletePhoto(ev.photoId).catch(() => {})
+          if ((ev.type === 'foto' || ev.type === 'diagnostico') && ev.photoId != null) deletePhoto(ev.photoId).catch(() => {})
           const rest = get().events.filter((e) => e.id !== evId)
           set({ events: rest })
           // si borró el riego más reciente, retrocede lastWaterTs al anterior:
@@ -810,7 +870,7 @@ export const useStore = create<AppState>()(
       name: 'zenpai-cultivo',
       storage: createJSONStorage(() => dexieStorage),
       // activeId NO se persiste: al recargar se aterriza en "Mis cultivos" (primero eliges)
-      partialize: (s) => ({ grows: s.grows, consentV: s.consentV, view: s.view, guide: s.guide, onboarded: s.onboarded, firstWaterTipDone: s.firstWaterTipDone, firstGermTipDone: s.firstGermTipDone, coachDone: s.coachDone, notifyEnabled: s.notifyEnabled, lastNotifiedDay: s.lastNotifiedDay, cloudOn: s.cloudOn, lastCloudSyncTs: s.lastCloudSyncTs }) as any,
+      partialize: (s) => ({ grows: s.grows, consentV: s.consentV, view: s.view, guide: s.guide, onboarded: s.onboarded, firstWaterTipDone: s.firstWaterTipDone, firstGermTipDone: s.firstGermTipDone, coachDone: s.coachDone, notifyEnabled: s.notifyEnabled, lastNotifiedDay: s.lastNotifiedDay, cloudOn: s.cloudOn, lastCloudSyncTs: s.lastCloudSyncTs, premium: s.premium }) as any,
       // rellena campos nuevos y migra del modelo de cultivo único → lista
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as any
@@ -838,6 +898,7 @@ export const useStore = create<AppState>()(
           }
           // thirst ahora es derivada del reloj; 0.2 es solo el placeholder hasta recomputeTime
           c.thirst = 0.2
+          if (!c.equipment || typeof c.equipment !== 'object') c.equipment = {}
           if (!c.readings) c.readings = {}
           if (!c.readingDays) c.readingDays = {}
           return c

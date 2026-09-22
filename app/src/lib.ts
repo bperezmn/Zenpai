@@ -7,6 +7,9 @@ export type PotType = 'tela' | 'plastico'   // la de tela seca más rápido
 export type Guide = 'novato' | 'medio' | 'avanzado'   // nivel de experiencia (se elige al crear el cultivo)
 export type SeedType = 'foto' | 'auto'                // fotoperiódica (12/12 la dispara el usuario) o autofloreciente
 
+// equipo por categoría: id del catálogo (data/equipos.ts) o nombre libre escrito por el usuario
+export interface Equipment { luz?: string; aire?: string; ctrl?: string; vent?: string }
+
 export interface Cultivo {
   id: string
   grow: string
@@ -33,6 +36,14 @@ export interface Cultivo {
   lightHours: number | null
   hasController: boolean
   lightOverrideUntil: number | null  // apagado/encendido manual hasta el siguiente cambio programado
+  // genética: con las semanas de la variedad, la fecha de cosecha deja de ser genérica
+  strain: string | null        // nombre de la variedad ("Northern Lights")
+  breeder: string | null       // banco de semillas (opcional)
+  flowerWeeks: number | null   // fotoperiódica: semanas de floración desde el 12/12 (null = 8.5, la curva típica de 60 d)
+  autoWeeks: number | null     // autofloreciente: semanas de semilla a cosecha (null = ~11, la curva típica de 75 d)
+  // equipo: ids del catálogo (src/data/equipos.ts) o texto libre; tentCm = lado de la carpa
+  tentCm: number | null
+  equipment: Equipment
   readings: Partial<Record<MetricKey, number>>     // últimas mediciones que registró el usuario
   readingDays: Partial<Record<MetricKey, number>>  // día del cultivo en que se tomó cada medición
   // day / stage / thirst son DERIVADOS (caché que el store mantiene sincronizada con el reloj real)
@@ -48,6 +59,7 @@ export interface Cultivo {
 export const emptyCultivo: Cultivo = {
   id: '', grow: 'Carpa A', plants: 3, pots: 3, potL: 11, potType: 'tela', substrate: 'tierra', seedType: 'foto',
   lightOnHour: 6, lightHours: null, hasController: false, lightOverrideUntil: null,
+  strain: null, breeder: null, flowerWeeks: null, autoWeeks: null, tentCm: null, equipment: {},
   soakTs: null, germTs: null, flowerTs: null, harvestedTs: null, finishedTs: null, dryWeight: null,
   lastWaterTs: null, training: 'none', defoliatedTs: null, nutrientesId: null,
   readings: {}, readingDays: {},
@@ -70,18 +82,37 @@ export function stageForDay(d: number): Stage {
 // - autofloreciente: florece sola con un ciclo comprimido (~75 días).
 // - fotoperiódica: la flor la dispara EL USUARIO al pasar la luz a 12/12 (flowerTs);
 //   sin ese cambio la planta sigue en vegetativo — el calendario no manda.
-export function stageAt(c: Pick<Cultivo, 'seedType' | 'flowerTs' | 'germTs'>, d: number): Stage {
+export type StageInput = Pick<Cultivo, 'seedType' | 'flowerTs' | 'germTs'> & Partial<Pick<Cultivo, 'flowerWeeks' | 'autoWeeks'>>
+// días de floración de una fotoperiódica (de 12/12 a cosecha) y ciclo total de una auto
+export function flowerDaysOf(c: Partial<Pick<Cultivo, 'flowerWeeks'>>): number {
+  return c.flowerWeeks ? Math.round(c.flowerWeeks * 7) : 60
+}
+export function autoDaysOf(c: Partial<Pick<Cultivo, 'autoWeeks'>>): number {
+  return c.autoWeeks ? Math.round(c.autoWeeks * 7) : 75
+}
+export function stageAt(c: StageInput, d: number): Stage {
   if (c.seedType === 'auto') {
-    if (d < 14) return 'plantula'
-    if (d < 32) return 'veg'
-    if (d < 75) return 'flor'
+    // la curva típica (14/32/75) escala con el ciclo de la variedad
+    const k = autoDaysOf(c) / 75
+    if (d < Math.round(14 * k)) return 'plantula'
+    if (d < Math.round(32 * k)) return 'veg'
+    if (d < autoDaysOf(c)) return 'flor'
     return 'cosecha'
   }
   if (c.flowerTs && c.germTs) {
     const fd = Math.max(0, Math.floor((c.flowerTs - c.germTs) / 86400000))
-    if (d >= fd) return d >= fd + 60 ? 'cosecha' : 'flor'
+    if (d >= fd) return d >= fd + flowerDaysOf(c) ? 'cosecha' : 'flor'
   }
   return d < 18 ? 'plantula' : 'veg'
+}
+
+// fecha estimada de cosecha (epoch) o null si aún no se puede saber (foto sin 12/12).
+// flipTs: para proyectar una fotoperiódica que todavía no pasó a 12/12.
+export function harvestEta(c: StageInput, flipTs?: number | null): number | null {
+  if (!c.germTs && c.seedType === 'auto') return null
+  if (c.seedType === 'auto') return (c.germTs as number) + autoDaysOf(c) * 86400000
+  const f = c.flowerTs ?? flipTs ?? null
+  return f ? f + flowerDaysOf(c) * 86400000 : null
 }
 
 // Etapa para la PREVISUALIZACIÓN (arrastrar la línea de tiempo): usa las reglas reales,
@@ -119,6 +150,18 @@ function thirstAt(c: Cultivo, stage: Stage): number {
   if (!ref) return 0.2
   const hrs = (Date.now() - ref) / 3600000
   return Math.min(0.9, Math.max(0, (hrs / H) * 0.9))
+}
+
+// cuándo tocará regar: el momento en que la sed derivada cruza el umbral de "sed" (0.55),
+// contando desde el último riego. null si la etapa no se riega por reloj (remojo, secado…).
+export const THIRST_THRESHOLD = 0.55
+export function nextWaterTs(c: Cultivo): number | null {
+  const base = THIRST_HOURS[c.stage]
+  if (!base || c.harvestedTs) return null
+  const H = base * (c.potType === 'plastico' ? 1.2 : 1)
+  const ref = c.lastWaterTs ?? c.germTs
+  if (!ref) return null
+  return ref + (THIRST_THRESHOLD / 0.9) * H * 3600000
 }
 
 // estado real del cultivo derivado del reloj (cosecha y remojo son eventos manuales, no de tiempo)
@@ -161,7 +204,7 @@ export function fmtWhen(ts: number): string {
 }
 
 // ===== bitácora (event log) =====
-export type EventType = 'creado' | 'sembrado' | 'transplante' | 'riego' | 'sed' | 'entrenamiento' | 'floracion' | 'cosecha' | 'terminado' | 'nota' | 'medicion' | 'foto' | 'defoliacion'
+export type EventType = 'creado' | 'sembrado' | 'transplante' | 'riego' | 'sed' | 'entrenamiento' | 'floracion' | 'cosecha' | 'terminado' | 'nota' | 'medicion' | 'foto' | 'defoliacion' | 'diagnostico'
 export interface GrowEvent {
   id?: number
   growId: string
@@ -169,7 +212,9 @@ export interface GrowEvent {
   day: number         // día del cultivo en ese momento
   type: EventType
   note?: string
-  photoId?: number    // eventos 'foto': id del blob en la tabla photos
+  photoId?: number    // eventos 'foto' y 'diagnostico': id del blob en la tabla photos
+  metric?: MetricKey  // eventos 'medicion': qué se midió…
+  value?: number      // …y el valor numérico (para las gráficas; los viejos solo traen el texto)
 }
 export const EVENT_META: Record<EventType, { icon: string; label: string }> = {
   creado: { icon: '', label: 'Cultivo creado'},
@@ -185,6 +230,7 @@ export const EVENT_META: Record<EventType, { icon: string; label: string }> = {
   nota: { icon: '', label: 'Nota'},
   medicion: { icon: '', label: 'Medición'},
   foto: { icon: '', label: 'Foto'},
+  diagnostico: { icon: '', label: 'Diagnóstico'},
 }
 
 // ===== legal: control de edad + consentimiento (versionado para re-consentir si cambian términos) =====
