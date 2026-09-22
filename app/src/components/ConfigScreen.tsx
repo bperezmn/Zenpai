@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store'
-import { stageAt, stageLabel, fmtHour, preloadIntro, type Substrate, type SeedType, type PotType } from '../lib'
+import { stageAt, stageLabel, fmtHour, preloadIntro, harvestEta, type Substrate, type SeedType, type PotType } from '../lib'
 import { lineaPorId } from '../data/nutrientes'
 import NutrientesPicker from './NutrientesPicker'
 
 const SIZES = [
-  { cm: '40 × 40 cm', plants: 1, cap: '1 planta' },
-  { cm: '60 × 60 cm', plants: 2, cap: '2 plantas' },
-  { cm: '80 × 80 cm', plants: 3, cap: '3 plantas' },
-  { cm: '100 × 100 cm', plants: 4, cap: '4 plantas · muestra 3' },
-  { cm: '120 × 120 cm', plants: 5, cap: '5 plantas · muestra 3' },
+  { side: 40, cm: '40 × 40 cm', plants: 1, cap: '1 planta' },
+  { side: 60, cm: '60 × 60 cm', plants: 2, cap: '2 plantas' },
+  { side: 80, cm: '80 × 80 cm', plants: 3, cap: '3 plantas' },
+  { side: 100, cm: '100 × 100 cm', plants: 4, cap: '4 plantas · muestra 3' },
+  { side: 120, cm: '120 × 120 cm', plants: 5, cap: '5 plantas · muestra 3' },
 ]
 const SUBS: { id: Substrate; label: string }[] = [
   { id: 'tierra', label: 'Tierra' },
@@ -32,6 +32,12 @@ const FLOWER_AGES = [
   { w: 4, label: '~1 mes' }, { w: 6, label: '~6 sem' }, { w: 8, label: '~2 meses' },
 ]
 const PASOS = ['Cómo empezamos', 'Tu carpa', 'Maceta y sustrato', 'Nutrientes', 'Luz', 'Semilla']
+// semanas de la variedad (vienen en el paquete o en la web del banco); null = no sé
+const FLOWER_WEEKS = [7, 8, 9, 10, 11, 12]
+const AUTO_WEEKS = [8, 9, 10, 11, 12, 13, 14]
+const DIA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+const fmtFecha = (ts: number) => { const d = new Date(ts); return `${DIA[d.getDay()]} ${d.getDate()} ${MES[d.getMonth()]}` }
 
 function nextName(n: number): string {
   return n < 26 ? 'Carpa ' + String.fromCharCode(65 + n) : 'Carpa ' + (n + 1)
@@ -51,6 +57,7 @@ export default function ConfigScreen() {
   const [mode, setMode] = useState<'semilla' | 'planta'>('semilla')
   const [name, setName] = useState(() => nextName(useStore.getState().grows.length))
   const [plants, setPlants] = useState(3)
+  const [tentCm, setTentCm] = useState(80)
   const [sub, setSub] = useState<Substrate>('tierra')
   const [seedType, setSeedType] = useState<SeedType>('foto')
   const [potL, setPotL] = useState(11)
@@ -59,25 +66,37 @@ export default function ConfigScreen() {
   const [lightOn, setLightOn] = useState(6)
   const [ctrl, setCtrl] = useState(false)
   const [weeksAgo, setWeeksAgo] = useState(4)
-  const [flowerWeeks, setFlowerWeeks] = useState<number | null>(null) // null = aún en veg
+  const [flipAgo, setFlipAgo] = useState<number | null>(null) // semanas desde el 12/12; null = aún en veg
+  const [strain, setStrain] = useState('')
+  const [breeder, setBreeder] = useState('')
+  const [flowerWeeks, setFlowerWeeks] = useState<number | null>(null) // genética: semanas de flor (foto)
+  const [autoWeeks, setAutoWeeks] = useState<number | null>(null)     // genética: semilla a cosecha (auto)
 
   const existing = mode === 'planta'
   const last = step === PASOS.length - 1
   // vista previa honesta de dónde aterrizará la carpa al registrar
   const prevDay = weeksAgo * 7
   const prevGerm = Date.now() - prevDay * 86400000
-  const prevStage = stageAt(
-    { seedType, germTs: prevGerm, flowerTs: seedType === 'foto' && flowerWeeks != null ? Date.now() - flowerWeeks * 7 * 86400000 : null },
-    prevDay,
-  )
+  const prevFlower = seedType === 'foto' && flipAgo != null ? Date.now() - flipAgo * 7 * 86400000 : null
+  const prevStage = stageAt({ seedType, germTs: prevGerm, flowerTs: prevFlower, flowerWeeks, autoWeeks }, prevDay)
+  // cosecha estimada: auto desde su germinación (semilla nueva: tras ~2 días de remojo, como
+  // asume registerExisting) o desde su edad; foto solo con el 12/12 hecho
+  const auto = seedType === 'auto'
+  const weeks = auto ? autoWeeks : flowerWeeks
+  const setWeeks = auto ? setAutoWeeks : setFlowerWeeks
+  const eta = harvestEta({ seedType, germTs: existing ? prevGerm : Date.now() + 2 * 86400000, flowerTs: existing ? prevFlower : null, flowerWeeks, autoWeeks })
   // el 12/12 no puede ser anterior a la germinación
   const flowerOptions = FLOWER_AGES.filter((f) => f.w < weeksAgo)
   const linea = lineaPorId(nut)
 
   function submit() {
-    const base = { grow: name, plants, substrate: sub, potL, potType, seedType, nutrientesId: nut, lightOnHour: lightOn, hasController: ctrl }
+    const base = {
+      grow: name, plants, substrate: sub, potL, potType, seedType, nutrientesId: nut, lightOnHour: lightOn, hasController: ctrl, tentCm,
+      strain: strain.trim() || null, breeder: breeder.trim() || null,
+      flowerWeeks: auto ? null : flowerWeeks, autoWeeks: auto ? autoWeeks : null,
+    }
     if (!existing) { createGrow(base); return }
-    registerExisting({ ...base, weeksAgo, flowerWeeksAgo: seedType === 'foto' ? flowerWeeks : null })
+    registerExisting({ ...base, weeksAgo, flowerWeeksAgo: seedType === 'foto' ? flipAgo : null })
   }
   // ayuda de cada paso: una línea de texto normal debajo del título, nunca dentro de la etiqueta
   const help = (t: string) => <p className="text-[.78rem] mb-3" style={{ color: 'var(--muted)' }}>{t}</p>
@@ -114,7 +133,7 @@ export default function ConfigScreen() {
             {help('Define cuántas plantas caben.')}
             <div className="space-y-[7px]">
               {SIZES.map((s) => (
-                <button key={s.plants} onClick={() => setPlants(s.plants)} className={`size ${plants === s.plants ? 'on' : ''}`}>
+                <button key={s.side} onClick={() => { setPlants(s.plants); setTentCm(s.side) }} className={`size ${tentCm === s.side ? 'on' : ''}`}>
                   <span>{s.cm}</span><span className="cap">{s.cap}</span>
                 </button>
               ))}
@@ -183,7 +202,7 @@ export default function ConfigScreen() {
             {help('Define cuándo florece.')}
             <div className="flex gap-[7px]">
               <button onClick={() => setSeedType('foto')} className={`sub ${seedType === 'foto' ? 'on' : ''}`}>Fotoperiódica</button>
-              <button onClick={() => { setSeedType('auto'); setFlowerWeeks(null) }} className={`sub ${seedType === 'auto' ? 'on' : ''}`}>Autofloreciente</button>
+              <button onClick={() => { setSeedType('auto'); setFlipAgo(null) }} className={`sub ${seedType === 'auto' ? 'on' : ''}`}>Autofloreciente</button>
             </div>
             <p className="text-[.78rem] mt-2" style={{ color: 'var(--muted)' }}>
               {seedType === 'foto'
@@ -191,13 +210,26 @@ export default function ConfigScreen() {
                 : 'Florece sola hacia el día 32, sin cambiar la luz. Ciclo corto, unos 75 días en total.'}
             </p>
 
+            <label className="lbl mt-4 block" htmlFor="cfg-strain">Variedad</label>
+            <input id="cfg-strain" className="inp mb-3" value={strain} maxLength={40} placeholder="Ej. Northern Lights" onChange={(e) => setStrain(e.target.value)} />
+            <label className="lbl block" htmlFor="cfg-breeder">Banco de semillas</label>
+            <input id="cfg-breeder" className="inp mb-4" value={breeder} maxLength={40} onChange={(e) => setBreeder(e.target.value)} />
+            <label className="lbl block">{auto ? 'Semanas de ciclo' : 'Semanas de floración'}</label>
+            {help(auto ? 'De semilla a cosecha. Viene en el paquete o en la web del banco.' : 'Viene en el paquete o en la web del banco.')}
+            <div className="grid grid-cols-4 gap-[7px]">
+              <button onClick={() => setWeeks(null)} className={`sub ${weeks === null ? 'on' : ''}`}>No sé</button>
+              {(auto ? AUTO_WEEKS : FLOWER_WEEKS).map((w) => (
+                <button key={w} onClick={() => setWeeks(w)} className={`sub ${weeks === w ? 'on' : ''}`}>{w}</button>
+              ))}
+            </div>
+
             {existing && (
               <>
                 <label className="lbl mt-4 block">¿Hace cuánto germinó?</label>
                 {help('Aproximado está bien.')}
                 <div className="grid grid-cols-3 gap-[7px]">
                   {AGES.map((a) => (
-                    <button key={a.w} onClick={() => { setWeeksAgo(a.w); if (flowerWeeks != null && flowerWeeks >= a.w) setFlowerWeeks(null) }}
+                    <button key={a.w} onClick={() => { setWeeksAgo(a.w); if (flipAgo != null && flipAgo >= a.w) setFlipAgo(null) }}
                       className={`sub ${weeksAgo === a.w ? 'on' : ''}`}>{a.label}</button>
                   ))}
                 </div>
@@ -205,9 +237,9 @@ export default function ConfigScreen() {
                   <>
                     <label className="lbl mt-4 mb-2 block">¿Ya está en floración (12/12)?</label>
                     <div className="grid grid-cols-3 gap-[7px]">
-                      <button onClick={() => setFlowerWeeks(null)} className={`sub ${flowerWeeks === null ? 'on' : ''}`}>Aún no</button>
+                      <button onClick={() => setFlipAgo(null)} className={`sub ${flipAgo === null ? 'on' : ''}`}>Aún no</button>
                       {flowerOptions.map((f) => (
-                        <button key={f.w} onClick={() => setFlowerWeeks(f.w)} className={`sub ${flowerWeeks === f.w ? 'on' : ''}`}>{f.label}</button>
+                        <button key={f.w} onClick={() => setFlipAgo(f.w)} className={`sub ${flipAgo === f.w ? 'on' : ''}`}>{f.label}</button>
                       ))}
                     </div>
                   </>
@@ -215,10 +247,33 @@ export default function ConfigScreen() {
               </>
             )}
 
+            <div className="mt-5 px-3.5 py-3" style={{ border: '1px solid rgba(255,255,255,.14)', borderRadius: 5, background: 'var(--panel)' }}>
+              <div className="label mb-1">Cosecha estimada</div>
+              {eta != null ? (
+                <>
+                  <div className="display font-semibold text-[1.05rem]">{fmtFecha(eta)}</div>
+                  <p className="text-[.78rem] mt-1" style={{ color: 'var(--muted)' }}>
+                    {eta < Date.now()
+                      ? 'Por fecha ya estaría lista: revisa los tricomas antes de cortar.'
+                      : auto
+                        ? (autoWeeks ? `${autoWeeks} semanas de semilla a cosecha.` : 'Con un ciclo típico de unos 75 días. Elige las semanas de tu variedad para afinarla.')
+                        : (flowerWeeks ? `${flowerWeeks} semanas desde el 12/12.` : 'Con una floración típica de unos 60 días desde el 12/12. Elige las semanas de tu variedad para afinarla.')}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="display font-semibold text-[1.05rem]">Unas {flowerWeeks ?? '8 o 9'} semanas después de pasar a 12/12</div>
+                  <p className="text-[.78rem] mt-1" style={{ color: 'var(--muted)' }}>
+                    {flowerWeeks ? 'Te damos la fecha cuando pases a 12/12.' : 'Es lo habitual. Elige las semanas de tu variedad para afinarla.'}
+                  </p>
+                </>
+              )}
+            </div>
+
             <div className="mt-6 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,.12)' }}>
               <div className="label mb-2">Resumen</div>
               <div className="text-[.8rem] leading-relaxed" style={{ color: 'var(--muted)' }}>
-                {name || 'Carpa'} · {plants} {plants === 1 ? 'planta' : 'plantas'} · maceta de {POT_TYPES.find((t) => t.id === potType)!.label.toLowerCase()} de {potL} L · {SUBS.find((s) => s.id === sub)!.label.toLowerCase()} · {linea ? linea.marca : 'solo agua'} · luz {fmtHour(lightOn)}{ctrl ? ' con controlador' : ''}.
+                {name || 'Carpa'}{strain.trim() ? ` · ${strain.trim()}` : ''} · {plants} {plants === 1 ? 'planta' : 'plantas'} · maceta de {POT_TYPES.find((t) => t.id === potType)!.label.toLowerCase()} de {potL} L · {SUBS.find((s) => s.id === sub)!.label.toLowerCase()} · {linea ? linea.marca : 'solo agua'} · luz {fmtHour(lightOn)}{ctrl ? ' con controlador' : ''}.
                 {existing ? ` Tu carpa abrirá en el día ${prevDay} aproximadamente, en ${stageLabel[prevStage].toLowerCase()}.` : ` Pondremos ${plants} ${plants === 1 ? 'semilla' : 'semillas'} a germinar en agua.`}
               </div>
             </div>
@@ -242,7 +297,7 @@ export default function ConfigScreen() {
         .size.on{border-color:#fff;background:rgba(255,255,255,.06)}
         .size .cap{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
         .size.on .cap{color:#fff}
-        .sub{flex:1;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.65rem .3rem;cursor:pointer;color:var(--muted);font-weight:500;font-size:.82rem;font-family:'Instrument Sans',system-ui,sans-serif;transition:.15s}
+        .sub{flex:1;min-height:44px;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.65rem .3rem;cursor:pointer;color:var(--muted);font-weight:500;font-size:.82rem;font-family:'Instrument Sans',system-ui,sans-serif;transition:.15s}
         .sub.on{border-color:#fff;color:#fff;background:rgba(255,255,255,.06)}
         .cbtn{border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}
         .cbtn:disabled{opacity:.4}

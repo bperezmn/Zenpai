@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore, selectActive } from '../store'
 import BrandMark from './BrandMark'
 import NutrientesInfo from './NutrientesInfo'
+import Premium from './Premium'
 import { stageLabel } from '../lib'
 import { wateringGuide, targetFor, fmtRange, overwaterGuard, litrosRiego, semanaFlor } from '../mentor'
 import { lineaPorId, faseActual, dosisRiego } from '../data/nutrientes'
@@ -23,6 +24,9 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
   const litros = litrosRiego(c)
   const dosis = linea && fase ? dosisRiego(linea, fase, litros) : []
   const [showInfo, setShowInfo] = useState(false)
+  // la dosis de la marca es Premium; agua, pH y EC siguen siendo gratis
+  const premium = useStore((s) => s.premium)
+  const [showPremium, setShowPremium] = useState(false)
 
   return (
     <div className="absolute inset-0 z-50" onClick={onClose}>
@@ -41,7 +45,16 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
           <Row label="EC · fuerza del abono" value={ec ?`${fmtRange(ec, 1)} mS`: 'solo agua'} />
         </div>
 
-        {linea && fase && (
+        {linea && fase && !premium && (
+          <div className="mt-3 flex items-center gap-3 rounded-2xl pl-3.5 pr-2 py-2" style={{ border: '1px solid rgba(255,255,255,.14)', background: 'var(--panel)' }}>
+            <span className="flex-1 min-w-0 text-[.82rem] leading-snug">
+              Dosis de {linea.marca} en cada riego <span style={{ color: 'var(--muted)' }}>· Premium</span>
+            </span>
+            <button onClick={() => setShowPremium(true)} className="rbtn-ver">Ver</button>
+          </div>
+        )}
+
+        {linea && fase && premium && (
           <div className="mt-3 rounded-2xl px-3.5 py-3" style={{ border: '1px solid rgba(255,255,255,.14)', background: 'var(--panel)' }}>
             <div className="flex items-center gap-3">
               <BrandMark linea={linea} size={36} wide />
@@ -107,9 +120,11 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
           @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
           .rbtn{border:none;border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}
           .rbtn-ghost{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.88rem;cursor:pointer;background:transparent;color:var(--text);white-space:nowrap;padding:0 8px}
+          .rbtn-ver{flex:none;height:44px;padding:0 16px;border:1px solid rgba(255,255,255,.4);border-radius:5px;background:transparent;color:#fff;font-family:'Instrument Sans',system-ui,sans-serif;font-weight:600;font-size:.84rem;cursor:pointer}
           .rtabla{flex:none;height:32px;padding:0 10px;border:1px solid rgba(255,255,255,.28);border-radius:5px;background:transparent;color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
         `}</style>
       </div>
+      {showPremium && <Premium onClose={() => setShowPremium(false)} />}
     </div>
   )
 }

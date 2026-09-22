@@ -30,6 +30,11 @@ import WaterRecipe from './WaterRecipe'
 import FinishGrow from './FinishGrow'
 import EditGrow from './EditGrow'
 import { HOWTOS } from '../howtos'
+import Diagnostico from './Diagnostico'
+import Premium from './Premium'
+import TimelapseCamera from './TimelapseCamera'
+import PhotoScrub from './PhotoScrub'
+import { hasPhotoFrames } from '../timelapse'
 
 export default function TentView() {
   const c = useStore(selectActive)
@@ -60,6 +65,16 @@ export default function TentView() {
   const [showJournal, setShowJournal] = useState(false)
   const [showToday, setShowToday] = useState(false)
   const [showLight, setShowLight] = useState(false)
+  const [showDiag, setShowDiag] = useState(false)
+  // Premium y la cámara gestionan su propio "atrás" (se abren también encima de otras hojas)
+  const [showPremium, setShowPremium] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
+  // "Mis fotos": la carpa muestra las fotos reales del usuario (su timelapse) en vez de la guía
+  const [photoMode, setPhotoMode] = useState(false)
+  const hasPhotos = useStore((s) => hasPhotoFrames(s.events))
+  // plan gratis: una carpa en marcha (los cultivos de ejemplo no cuentan)
+  const premium = useStore((s) => s.premium)
+  const enMarcha = useStore((s) => s.grows.filter((g) => g.stage !== 'secando' && !g.grow.startsWith('Demo · ')).length)
   const [wateringHow, setWateringHow] = useState(false)
   const [showRecipe, setShowRecipe] = useState(false)
   const [measureKey, setMeasureKey] = useState<MetricKey | null>(null)
@@ -87,13 +102,17 @@ export default function TentView() {
     v.currentTime = Math.min(1, Math.max(0, previewDay! / TIMELAPSE_DAYS)) * d
   }, [preview, previewDay])
   const done = c.stage === 'secando'
-  const overlayOpen = showJournal || showToday || wateringHow || showRecipe || showFinish || showEdit || measureKey !== null || showLight
+  const overlayOpen = showJournal || showToday || wateringHow || showRecipe || showFinish || showEdit || measureKey !== null || showLight || showDiag
+  const anySheet = overlayOpen || showPremium || showCamera
+  // sin fotos no hay modo fotos (p. ej. al borrar la última desde la bitácora)
+  useEffect(() => { if (!hasPhotos && photoMode) setPhotoMode(false) }, [hasPhotos, photoMode])
 
   // gesto atrás del sistema: cierra la capa superior (una a la vez), nunca mata la app.
   // El booleano compuesto mantiene UNA entrada de historial mientras haya alguna abierta
   // (las transiciones how-to → ficha no la alternan → sin carreras de history).
   useBackClose(overlayOpen, () => {
-    if (measureKey !== null) setMeasureKey(null)
+    if (showDiag) setShowDiag(false)
+    else if (measureKey !== null) setMeasureKey(null)
     else if (showEdit) setShowEdit(false)
     else if (showFinish) setShowFinish(false)
     else if (showRecipe) setShowRecipe(false)
@@ -112,10 +131,10 @@ export default function TentView() {
   // coach mark de primera visita: cómo regar + qué es el dock (una sola vez,
   // nunca debajo/encima de otro overlay ni en preview)
   useEffect(() => {
-    if (coachDone || intro || done || preview || overlayOpen) return
+    if (coachDone || intro || done || preview || anySheet) return
     const t = setTimeout(() => setShowCoach(true), 700)
     return () => clearTimeout(t)
-  }, [coachDone, intro, done, preview, overlayOpen])
+  }, [coachDone, intro, done, preview, anySheet])
   function dismissCoach() { setShowCoach(false); markCoachDone() }
 
   // la previsualización sale sola tras unos segundos sin tocar (no es un modo para quedarse);
@@ -173,6 +192,7 @@ export default function TentView() {
     setShowRecipe(true)
   }
 
+  const onNew = () => (!premium && enMarcha >= 1 ? setShowPremium(true) : startNew())
   const isVeg = !preview && c.stage === 'veg'
   const plantable = !preview && !done && view === 'front' && effStage !== 'vacia'
   const names = Array.from({ length: Math.min(c.pots, 3) }, (_, i) => `${c.grow} · #${i + 1}`)
@@ -202,6 +222,8 @@ export default function TentView() {
           {/* efectos apagados (2026-09-21): el halo y el vapor dibujados encima de las fotos
               reales les metían neblina; la foto ya trae su propio bloom de la LED */}
           <SceneFx active={false} fan={c.fan} exhaust={c.exhaust} light={c.light} state={scene} humidity={c.readings.hr ?? null} />
+          {/* tu timelapse: la foto real del día que señalas (o la última, en el presente) */}
+          {photoMode && view === 'front' && <PhotoScrub day={effDay} className="[--scrub-meta-bottom:196px]" />}
         </div>
         <div className="absolute top-0 left-0 right-0 h-28 pointer-events-none" style={{ background: 'linear-gradient(180deg,rgba(4,7,10,.7),transparent)' }} />
         <div className="absolute bottom-0 left-0 right-0 h-36 pointer-events-none" style={{ background: 'linear-gradient(0deg,rgba(4,7,10,.82),rgba(4,7,10,.28) 60%,transparent)' }} />
@@ -240,6 +262,12 @@ export default function TentView() {
           {view === 'cenital' ? 'Frente' : 'Arriba'}
         </button>
         <button onClick={() => setShowJournal(true)} className="tbtn">Bitácora</button>
+        {hasPhotos && view === 'front' && (
+          <button onClick={() => setPhotoMode(!photoMode)} aria-pressed={photoMode} className="tbtn"
+            style={photoMode ? { color: '#8ad2ff', borderColor: '#8ad2ff' } : undefined}>
+            {photoMode ? 'Guía' : 'Fotos'}
+          </button>
+        )}
         {!done && <button onClick={() => setShowEdit(true)} className="tbtn">Editar</button>}
         {!done && !preview && (
           <button onClick={() => setShowLight(true)} className="tbtn" style={!c.light ? { color: 'var(--water)', borderColor: 'var(--water)' } : undefined}>
@@ -304,11 +332,11 @@ export default function TentView() {
           ) : done && !c.finishedTs ? (
             // secando: el ciclo aún no cierra — Terminar es la acción principal
             <div className="flex gap-2 self-center pointer-events-auto">
-              <button onClick={startNew} className="abtn ghost">Nuevo cultivo</button>
+              <button onClick={onNew} className="abtn ghost">Nuevo cultivo</button>
               <button onClick={() => setShowFinish(true)} className="abtn">Terminar cultivo</button>
             </div>
           ) : done ? (
-            <button onClick={startNew} className="abtn self-center pointer-events-auto">Nuevo cultivo</button>
+            <button onClick={onNew} className="abtn self-center pointer-events-auto">Nuevo cultivo</button>
           ) : (
             <button onClick={() => setConfirmHarvest(true)} className="abtn self-center pointer-events-auto">Cosechar</button>
           )
@@ -356,7 +384,7 @@ export default function TentView() {
       </div>
 
       {/* coach de primera visita: los dos controles que nada delata (regar + dock) */}
-      {showCoach && !overlayOpen && (
+      {showCoach && !anySheet && (
         <div className="absolute inset-0 z-50 select-none" onClick={dismissCoach}
           style={{ background: 'rgba(3,6,9,.5)', backdropFilter: 'blur(2px)' }}>
           <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ top: '70%' }}>
@@ -386,7 +414,16 @@ export default function TentView() {
       {showFinish && <FinishGrow onClose={() => setShowFinish(false)} />}
       {showEdit && <EditGrow onClose={() => setShowEdit(false)} />}
       {showJournal && <Journal onClose={() => setShowJournal(false)} />}
-      {showToday && <Today onClose={() => setShowToday(false)} />}
+      {showToday && (
+        <Today onClose={() => setShowToday(false)}
+          onWater={() => { setShowToday(false); onWater() }}
+          onMeasure={(key) => { setShowToday(false); setMeasureKey(key) }}
+          onPhoto={() => { setShowToday(false); setShowCamera(true) }}
+          onDiagnose={() => { setShowToday(false); setShowDiag(true) }} />
+      )}
+      {showDiag && <Diagnostico onClose={() => setShowDiag(false)} onPremium={() => setShowPremium(true)} />}
+      {showCamera && <TimelapseCamera onClose={() => setShowCamera(false)} />}
+      {showPremium && <Premium onClose={() => setShowPremium(false)} />}
       {showLight && <LightSheet onClose={() => setShowLight(false)} />}
       {measureKey && <Measure metric={measureKey} onClose={() => setMeasureKey(null)} />}
       {intro && <Intro onDone={() => setIntro(false)} />}

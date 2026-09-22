@@ -1,6 +1,6 @@
 // ===== motor del mentor: rangos agronómicos + guía contextual =====
 // Rangos de referencia general (sin CO₂), verificados en investigación. NO son consejo absoluto.
-import { GUARD_HOURS, WATER_ALERT_DAYS, stageAt, type Stage, type Substrate, type MetricKey, type Cultivo, type Guide, type SceneState } from './lib'
+import { GUARD_HOURS, WATER_ALERT_DAYS, stageAt, type Stage, type Substrate, type MetricKey, type Cultivo, type Guide, type SceneState, autoDaysOf } from './lib'
 
 // nivel de experiencia (creciente): novato → medio → avanzado
 export const LEVELS: Guide[] = ['novato', 'medio', 'avanzado']
@@ -55,7 +55,7 @@ export function litrosRiego(c: Cultivo): number {
 // Autoflorecientes: la floración empieza en el día 32 (stageAt).
 export function semanaFlor(c: Cultivo): number | null {
   if (c.stage !== 'flor') return null
-  const inicio = c.seedType === 'auto' ? 32 : c.flowerTs && c.germTs ? Math.max(0, Math.floor((c.flowerTs - c.germTs) / 86400000)) : 46
+  const inicio = c.seedType === 'auto' ? Math.round(32 * autoDaysOf(c) / 75) : c.flowerTs && c.germTs ? Math.max(0, Math.floor((c.flowerTs - c.germTs) / 86400000)) : 46
   return Math.max(1, Math.floor((c.day - inicio) / 7) + 1)
 }
 

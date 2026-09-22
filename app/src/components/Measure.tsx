@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useStore, selectActive } from '../store'
 import type { MetricKey } from '../lib'
 import { metricDef, targetFor, evalMetric, metricTip, fmtRange, STATUS_COLOR } from '../mentor'
+import { readingSeries } from '../readings'
+import MiniChart from './MiniChart'
+import Ambiente from './Ambiente'
 
 // Hoja para registrar TU medición de una métrica → semáforo + consejo + queda en la bitácora.
 // Honesto: no inventamos lecturas de sensores; el dato lo pones tú.
@@ -11,6 +14,9 @@ const METRIC_NAME: Record<MetricKey, string> = { temp: 'Temperatura', hr: 'Humed
 export default function Measure({ metric, onClose }: { metric: MetricKey; onClose: () => void }) {
   const c = useStore(selectActive)
   const measure = useStore((s) => s.measure)
+  const events = useStore((s) => s.events)
+  const premium = useStore((s) => s.premium)
+  const [showAmbiente, setShowAmbiente] = useState(false)
   const def = metricDef(metric)
   const range = targetFor(metric, c.stage, c.substrate)
   const mid = range ? +(((range.lo + range.hi) / 2).toFixed(def.dec)) : 0
@@ -24,6 +30,7 @@ export default function Measure({ metric, onClose }: { metric: MetricKey; onClos
   const bump = (d: number) => setVal((v) => round(Math.max(0, v + d * step)))
 
   return (
+    <>
     <div className="absolute inset-0 z-50" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: 'rgba(3,6,9,.55)', backdropFilter: 'blur(2px)' }} />
       <div className="absolute left-0 right-0 bottom-0 glass rounded-t-3xl px-5 pt-3 pb-7"
@@ -54,6 +61,23 @@ export default function Measure({ metric, onClose }: { metric: MetricKey; onClos
 
         <button className="anota" onClick={() => { measure(metric, round(val)); onClose() }}>Anotar en la bitácora</button>
 
+        {/* historial de esta métrica (7 días); el ambiente completo se abre encima */}
+        <div className="mt-4 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,.12)' }}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="label">Últimas lecturas</span>
+            <button onClick={() => setShowAmbiente(true)} className="h-11 text-[.8rem] font-medium"
+              style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+              Ver todo el ambiente
+            </button>
+          </div>
+          {premium ? (
+            <MiniChart points={readingSeries(events, metric, Date.now() - 7 * 86400000)} band={range ? [range.lo, range.hi] : undefined}
+              width={340} height={64} unit={def.unit} />
+          ) : (
+            <p className="text-[.78rem]" style={{ color: 'var(--faint)' }}>Historial con Premium</p>
+          )}
+        </div>
+
         <style>{`
           @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
           .step{width:46px;height:46px;border-radius:5px;border:1px solid var(--glass-bd);background:rgba(255,255,255,.05);color:var(--text);font-size:1.5rem;font-weight:300;display:flex;align-items:center;justify-content:center;cursor:pointer}
@@ -62,5 +86,7 @@ export default function Measure({ metric, onClose }: { metric: MetricKey; onClos
         `}</style>
       </div>
     </div>
+    {showAmbiente && <Ambiente onClose={() => setShowAmbiente(false)} />}
+    </>
   )
 }

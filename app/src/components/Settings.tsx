@@ -4,8 +4,9 @@ import { CONSENT_VERSION } from '../lib'
 import { cloudAvailable } from '../sync'
 import { GUIDES } from './Onboarding'
 import { useBackClose } from '../useBackClose'
+import Premium from './Premium'
 
-// Ajustes: experiencia, recordatorios, datos y privacidad (respaldo/borrado) y aviso legal.
+// Ajustes: plan, experiencia, recordatorios, datos y privacidad (respaldo/borrado) y aviso legal.
 export default function Settings({ onClose }: { onClose: () => void }) {
   const guide = useStore((s) => s.guide)
   const setGuide = useStore((s) => s.setGuide)
@@ -22,6 +23,8 @@ export default function Settings({ onClose }: { onClose: () => void }) {
   const enableCloud = useStore((s) => s.enableCloud)
   const disableCloud = useStore((s) => s.disableCloud)
   const syncCloudNow = useStore((s) => s.syncCloudNow)
+  const premium = useStore((s) => s.premium)
+  const [showPremium, setShowPremium] = useState(false)
   const [denied, setDenied] = useState(false)
   const [busy, setBusy] = useState<'export' | 'import' | null>(null)
   const [dataMsg, setDataMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -116,12 +119,33 @@ export default function Settings({ onClose }: { onClose: () => void }) {
     ? { background: 'var(--blue)', color: '#fff' }
     : { background: 'rgba(255,255,255,.08)', color: 'var(--muted)' })
 
+  // Premium vive FUERA del contenedor con scroll: dentro, su inset-0 se desplazaría con él
   return (
+    <>
     <div className="absolute inset-0 z-50 overflow-y-auto px-6 py-10" style={{ background: '#000' }}>
       <button onClick={onClose} className="h-9 px-3.5 rounded-[5px] glass text-white/85"
         style={{ fontFamily: "'Instrument Sans', system-ui, sans-serif", fontWeight: 600, fontSize: '.82rem' }}>Volver</button>
 
       <h2 className="display text-[1.4rem] font-bold mt-5">Ajustes</h2>
+
+      <div className="label mt-6 mb-2">Premium</div>
+      <div className={`olevel ${premium ? 'on' : ''}`} style={{ cursor: 'default' }}>
+        <span className="oname flex items-center justify-between w-full">
+          zenpai Premium
+          <span className="text-[.72rem] font-semibold px-2 py-1 rounded-[5px]" style={pill(premium)}>
+            {premium ? 'Activo' : 'Plan gratis'}
+          </span>
+        </span>
+        <span className="odesc">
+          Diagnóstico de hojas por foto, dosis de tu marca en cada riego, gráficas del ambiente,
+          respaldo en la nube y carpas sin límite.
+        </span>
+        <div className="flex gap-2 mt-2.5">
+          <button onClick={() => setShowPremium(true)} className={premium ? 'dbtn-ghost flex-1' : 'dbtn flex-1'}>
+            {premium ? 'Ver mi plan' : 'Ver Premium'}
+          </button>
+        </div>
+      </div>
 
       <div className="label mt-6 mb-2">Tu experiencia</div>
       <div className="space-y-[9px]">
@@ -174,6 +198,9 @@ export default function Settings({ onClose }: { onClose: () => void }) {
                 <> Última sincronización: {new Date(lastCloudSyncTs).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}.</>
               )}
             </span>
+            {!cloudOn && !premium && (
+              <span className="odesc" style={{ color: 'var(--text)' }}>Disponible con Premium.</span>
+            )}
             <div className="flex gap-2 mt-2.5">
               {cloudOn ? (
                 <>
@@ -182,10 +209,12 @@ export default function Settings({ onClose }: { onClose: () => void }) {
                   </button>
                   <button onClick={disableCloud} disabled={cloudBusy} className="dbtn-ghost flex-1">Pausar</button>
                 </>
-              ) : (
+              ) : premium ? (
                 <button onClick={() => enableCloud()} disabled={cloudBusy} className="dbtn flex-1" style={{ opacity: cloudBusy ? 0.6 : 1 }}>
                   {cloudBusy ? 'Conectando…' : 'Activar respaldo'}
                 </button>
+              ) : (
+                <button onClick={() => setShowPremium(true)} className="dbtn flex-1">Ver Premium</button>
               )}
             </div>
             {cloudError && (
@@ -283,5 +312,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
         .dbtn-danger{height:42px;padding:0 .5rem;border:none;border-radius:5px;font-family:'Instrument Sans',system-ui,sans-serif;font-weight:600;font-size:.82rem;cursor:pointer;background:var(--danger);color:#fff}
       `}</style>
     </div>
+    {showPremium && <Premium onClose={() => setShowPremium(false)} />}
+    </>
   )
 }

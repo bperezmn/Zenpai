@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore, selectActive } from '../store'
 import { EVENT_META, fmtWhen, type EventType, type GrowEvent } from '../lib'
 import { getPhoto } from '../db'
-import { compressImage } from '../img'
+import TimelapseCamera from './TimelapseCamera'
 
 // Solo se pueden borrar registros "de diario". Los estructurales (sembrado, trasplante,
 // floración, cosecha, terminado) definen el estado del cultivo: borrarlos dejaría la
 // bitácora mintiendo (p.ej. un cultivo "secando" sin ninguna cosecha registrada).
-const DELETABLE = new Set<EventType>(['riego', 'nota', 'medicion', 'sed', 'foto'])
+const DELETABLE = new Set<EventType>(['riego', 'nota', 'medicion', 'sed', 'foto', 'diagnostico'])
+const hasPhoto = (e: GrowEvent): e is GrowEvent & { photoId: number } => (e.type === 'foto' || e.type === 'diagnostico') && e.photoId != null
 
 const TrashIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -20,15 +21,12 @@ export default function Journal({ onClose }: { onClose: () => void }) {
   const events = useStore((s) => s.events)
   const grow = useStore((s) => selectActive(s).grow)
   const addNote = useStore((s) => s.addNote)
-  const addPhoto = useStore((s) => s.addPhoto)
   const removeEvent = useStore((s) => s.removeEvent)
   const [writing, setWriting] = useState(false)
   const [text, setText] = useState('')
   const [delId, setDelId] = useState<number | null>(null)
   const [viewing, setViewing] = useState<number | null>(null) // photoId a pantalla completa
-  const [busyPhoto, setBusyPhoto] = useState(false)
-  const [photoError, setPhotoError] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const [camera, setCamera] = useState(false) // "+ Foto": la cámara del timelapse (con galería)
   const rows = [...events].reverse() // más reciente primero
 
   // miniaturas: cargar los blobs de los eventos con foto → object URLs (revocados al cerrar)
@@ -36,7 +34,7 @@ export default function Journal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     let dead = false
     const created: string[] = []
-    const ids = events.filter((e): e is GrowEvent & { photoId: number } => e.type === 'foto' && e.photoId != null).map((e) => e.photoId)
+    const ids = events.filter(hasPhoto).map((e) => e.photoId)
     Promise.all(ids.map(async (pid) => {
       const p = await getPhoto(pid).catch(() => undefined)
       return p ? ([pid, URL.createObjectURL(p.blob)] as const) : null
@@ -55,21 +53,6 @@ export default function Journal({ onClose }: { onClose: () => void }) {
     setWriting(false)
   }
 
-  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    e.target.value = '' // permitir elegir la misma foto otra vez
-    if (!f) return
-    setBusyPhoto(true)
-    setPhotoError(false)
-    try {
-      const blob = await compressImage(f) // re-encode = fuera EXIF/GPS
-      addPhoto(blob)
-    } catch {
-      setPhotoError(true) // el toast global queda detrás de esta hoja: el aviso va aquí
-    }
-    setBusyPhoto(false)
-  }
-
   return (
     <div className="absolute inset-0 z-50" onClick={onClose}>
       <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(2px)' }} />
@@ -84,19 +67,10 @@ export default function Journal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-none">
-            <button onClick={() => fileRef.current?.click()} className="jbtn-note" disabled={busyPhoto} style={{ opacity: busyPhoto ? 0.5 : 1 }}>
-              {busyPhoto ? '…' : '+ Foto'}
-            </button>
+            <button onClick={() => setCamera(true)} className="jbtn-note">+ Foto</button>
             {!writing && <button onClick={() => setWriting(true)} className="jbtn-note">+ Nota</button>}
           </div>
         </div>
-        {/* sin `capture`: el selector nativo ya ofrece cámara O galería */}
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onPickPhoto} />
-        {photoError && (
-          <p className="text-[.74rem] mb-2" style={{ color: 'var(--warn)' }}>
-            No pudimos leer esa imagen. Prueba con otra foto.
-          </p>
-        )}
 
         {writing && (
           <div className="mb-3 rounded-[5px] p-3" style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--glass-bd)' }}>
@@ -120,18 +94,18 @@ export default function Journal({ onClose }: { onClose: () => void }) {
             {rows.map((ev) => {
               const m = EVENT_META[ev.type]
               const confirming = delId != null && delId === ev.id
-              const thumb = ev.type === 'foto' && ev.photoId != null ? urls[ev.photoId] : undefined
+              const thumb = hasPhoto(ev) ? urls[ev.photoId] : undefined
               return (
                 <div key={ev.id} className="flex items-center gap-3 rounded-[5px] px-3 py-2.5"
                   style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--glass-bd)' }}>
                   {thumb && (
                     <button onClick={() => setViewing(ev.photoId!)} className="flex-none">
-                      <img src={thumb} alt="foto del cultivo" className="w-12 h-12 rounded-[5px] object-cover" style={{ border: '1px solid var(--glass-bd)' }} />
+                      <img src={thumb} alt={ev.type === 'diagnostico' ? 'foto del diagnóstico' : 'foto del cultivo'} className="w-12 h-12 rounded-[5px] object-cover" style={{ border: '1px solid var(--glass-bd)' }} />
                     </button>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="text-[.85rem] font-semibold leading-tight">{ev.note || m.label}</div>
-                    <div className="text-[.74rem] mt-0.5" style={{ color: 'var(--faint)' }}>{fmtWhen(ev.ts)} · {ev.type === 'sembrado' ? 'en remojo' : `día ${ev.day}`}</div>
+                    <div className="text-[.74rem] mt-0.5" style={{ color: 'var(--faint)' }}>{ev.type === 'diagnostico' && ev.note ? `${m.label} · ` : ''}{fmtWhen(ev.ts)} · {ev.type === 'sembrado' ? 'en remojo' : `día ${ev.day}`}</div>
                   </div>
                   {confirming ? (
                     <div className="flex items-center gap-1.5 flex-none">
@@ -162,6 +136,8 @@ export default function Journal({ onClose }: { onClose: () => void }) {
             style={{ fontFamily: "'Instrument Sans', system-ui, sans-serif", fontWeight: 600, fontSize: '.82rem' }}>Cerrar</button>
         </div>
       )}
+
+      {camera && <TimelapseCamera onClose={() => setCamera(false)} />}
 
       <style>{`
         @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}

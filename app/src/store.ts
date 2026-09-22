@@ -12,6 +12,7 @@ import {
   type Cultivo, type Substrate, type SeedType, type GrowEvent, type EventType, type MetricKey, type Training, type Guide, type PotType, type Equipment,
 } from './lib'
 import { overwaterGuard, needsAttention, metricDef, evalMetric } from './mentor'
+import { equipoPorId } from './data/equipos'
 
 type View = 'front' | 'cenital'
 
@@ -553,7 +554,7 @@ export const useStore = create<AppState>()(
             equipment: clean,
             tentCm: tentCm === undefined ? g.tentCm : tentCm,
             // un controlador que gobierna la luz sustituye a los avisos de encendido/apagado
-            hasController: clean.ctrl ? true : g.hasController,
+            hasController: equipoPorId(clean.ctrl)?.controlaLuz ? true : g.hasController,
           }), { toast: 'Equipo guardado', pendingUndo: null })
         },
 
@@ -569,7 +570,13 @@ export const useStore = create<AppState>()(
             .catch(() => set({ toast: 'No se pudo guardar el diagnóstico', pendingUndo: null }))
         },
 
-        setPremium: (v) => set({ premium: v, toast: v ? 'Premium de prueba activado' : 'Premium desactivado', pendingUndo: null }),
+        // sin Premium no hay respaldo en la nube; el toast solo se ve dentro de una carpa
+        setPremium: (v) => set({
+          premium: v,
+          ...(v ? {} : { cloudOn: false }),
+          toast: get().activeId ? (v ? 'Premium de prueba activado' : 'Premium desactivado') : null,
+          pendingUndo: null,
+        }),
 
         setGuide: (g) => set({ guide: g }),
         completeOnboarding: (g) => set({ guide: g, onboarded: true }),

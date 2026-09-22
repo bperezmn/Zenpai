@@ -29,3 +29,6 @@ blender/plantas/*.png
 # fotos 4K originales del set fotorrealista (GPT Image 2.5): ~2 GB, fuera del repo
 fotos_4k/raw/
 fotos_4k/color/
+
+# supabase CLI (link)
+supabase/.temp/

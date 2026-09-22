@@ -4,6 +4,7 @@ import { Logo } from '../App'
 import { frontImg, stageLabel, type Cultivo } from '../lib'
 import { needsAttention, wateringGuide } from '../mentor'
 import Settings from './Settings'
+import Premium from './Premium'
 
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const DIA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
@@ -16,6 +17,8 @@ export default function Home() {
   const seedDemo = useStore((s) => s.seedDemo)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const premium = useStore((s) => s.premium)
+  const [showPremium, setShowPremium] = useState(false)
 
   // los chips "Riega hoy / Al día" dependen del reloj: un tick por minuto los mantiene al día
   const [, setClock] = useState(0)
@@ -36,6 +39,10 @@ export default function Home() {
   const now = new Date()
   const fecha = `${DIA[now.getDay()]} ${now.getDate()} ${MES[now.getMonth()]}`
   const activos = grows.filter((g) => g.stage !== 'secando').length
+  // plan gratis: una carpa en marcha; la segunda (con otra aún creciendo) es Premium.
+  // Los cultivos de ejemplo no cuentan: si no, explorarlos bloquearía el primero de verdad
+  const enMarcha = grows.filter((g) => g.stage !== 'secando' && !g.grow.startsWith('Demo · ')).length
+  const onNew = () => (!premium && enMarcha >= 1 ? setShowPremium(true) : startNew())
 
   // la lista hace scroll en su propia capa; el botón "Nuevo cultivo" vive FUERA de ella, en una
   // banda negra fija abajo, para que ninguna fila pase por debajo ni se mueva con el scroll
@@ -64,7 +71,7 @@ export default function Home() {
           <p className="text-[.85rem] mt-2 mb-7" style={{ color: 'var(--muted)' }}>
             Crea tu carpa virtual y zenpai te guía de la germinación a la cosecha.
           </p>
-          <button className="cbtn" onClick={startNew}>Crear mi primer cultivo</button>
+          <button className="cbtn" onClick={onNew}>Crear mi primer cultivo</button>
           <button onClick={seedDemo} className="mt-5 text-[.85rem] underline underline-offset-4" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', minHeight: 44 }}>
             Ver cultivos de ejemplo
           </button>
@@ -94,11 +101,12 @@ export default function Home() {
 
       {grows.length > 0 && (
         <div className="absolute left-0 right-0 bottom-0 px-6 pt-3 pb-[22px]" style={{ background: '#000' }}>
-          <button className="cbtn-fixed" onClick={startNew}>Nuevo cultivo</button>
+          <button className="cbtn-fixed" onClick={onNew}>Nuevo cultivo</button>
         </div>
       )}
 
       {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+      {showPremium && <Premium onClose={() => setShowPremium(false)} />}
 
       <style>{`
         .cbtn{width:100%;max-width:320px;border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.95rem;letter-spacing:.02em;cursor:pointer;background:#fff;color:#000}

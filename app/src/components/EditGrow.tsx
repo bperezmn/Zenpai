@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useStore, selectActive } from '../store'
 import type { Substrate, SeedType, PotType } from '../lib'
 import NutrientesPicker from './NutrientesPicker'
+import EquipoSheet from './EquipoSheet'
+import { CATEGORIAS, nombreEquipo } from '../data/equipos'
 
 const SUBS: { id: Substrate; label: string }[] = [
   { id: 'tierra', label: 'Tierra'},
@@ -9,6 +11,9 @@ const SUBS: { id: Substrate; label: string }[] = [
   { id: 'hidro', label: 'Hidro'},
 ]
 const POTS = [4, 7, 11, 19, 25]
+// semanas de la variedad (vienen en el paquete o en la web del banco); null = no sé
+const FLOWER_WEEKS = [7, 8, 9, 10, 11, 12]
+const AUTO_WEEKS = [8, 9, 10, 11, 12, 13, 14]
 
 // Editar los datos del cultivo tras crearlo: lo que se apuntó mal el día uno
 // no debería perseguirte todo el ciclo.
@@ -25,9 +30,20 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
   // con la floración en marcha (12/12 anotado o auto ya en flor) el tipo ya no se toca:
   // cambiarlo reescribiría la historia del cultivo
   const seedEditable = !c.flowerTs && !c.harvestedTs && (c.stage === 'plantula' || c.stage === 'veg' || c.stage === 'remojo')
+  const setGenetics = useStore((s) => s.setGenetics)
+  const [strain, setStrain] = useState(c.strain ?? '')
+  const [breeder, setBreeder] = useState(c.breeder ?? '')
+  const [flowerWeeks, setFlowerWeeks] = useState<number | null>(c.flowerWeeks)
+  const [autoWeeks, setAutoWeeks] = useState<number | null>(c.autoWeeks)
+  const [showEquipo, setShowEquipo] = useState(false)
+  const auto = seedType === 'auto'
+  const weeks = auto ? autoWeeks : flowerWeeks
+  const setWeeks = auto ? setAutoWeeks : setFlowerWeeks
+  const equipo = CATEGORIAS.map((k) => nombreEquipo(c.equipment[k.id])).filter(Boolean).join(' · ')
 
   function save() {
     updateGrow({ grow: name, potL, potType, substrate: sub, seedType })
+    setGenetics({ strain: strain.trim() || null, breeder: breeder.trim() || null, flowerWeeks, autoWeeks })
     setNutrientes(nut)
     onClose()
   }
@@ -83,6 +99,30 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
               Cambiar el tipo recalcula la etapa según su ciclo real.
             </p>
           )}
+
+          <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,.12)' }}>
+            <h4 className="display font-semibold text-[.92rem] mb-3">Genética</h4>
+            <label className="elbl" htmlFor="eg-strain">Variedad</label>
+            <input id="eg-strain" className="einp mb-4" value={strain} maxLength={40} placeholder="Ej. Northern Lights" onChange={(e) => setStrain(e.target.value)} />
+            <label className="elbl" htmlFor="eg-breeder">Banco de semillas</label>
+            <input id="eg-breeder" className="einp mb-4" value={breeder} maxLength={40} onChange={(e) => setBreeder(e.target.value)} />
+            <label className="elbl">{auto ? 'Semanas de ciclo' : 'Semanas de floración'}</label>
+            <p className="text-[.76rem] mb-2" style={{ color: 'var(--muted)' }}>{auto ? 'De semilla a cosecha. ' : ''}Viene en el paquete o en la web del banco.</p>
+            <div className="grid grid-cols-4 gap-[7px] mb-4">
+              <button onClick={() => setWeeks(null)} className={`echip ${weeks === null ? 'on' : ''}`}>No sé</button>
+              {(auto ? AUTO_WEEKS : FLOWER_WEEKS).map((w) => (
+                <button key={w} onClick={() => setWeeks(w)} className={`echip ${weeks === w ? 'on' : ''}`}>{w}</button>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-4" style={{ borderTop: '1px solid rgba(255,255,255,.12)' }}>
+            <label className="elbl">Equipo</label>
+            <div className="flex items-center gap-3">
+              <p className="min-w-0 flex-1 truncate text-[.78rem]" style={{ color: equipo ? 'var(--muted)' : 'var(--faint)' }}>{equipo || 'Sin equipo'}</p>
+              <button onClick={() => setShowEquipo(true)} className="ebtn-ghost flex-none" style={{ height: 44, padding: '0 .9rem', fontSize: '.84rem' }}>Editar equipo</button>
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-2 mt-4 flex-none">
@@ -95,12 +135,13 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
           .elbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);display:block;margin-bottom:6px}
           .einp{background:transparent;border:1px solid rgba(255,255,255,.28);border-radius:5px;padding:.65rem .8rem;color:var(--text);width:100%;font-size:1rem;font-family:'Instrument Sans',system-ui,sans-serif}
           .einp:focus{outline:none;border-color:#fff}
-          .echip{flex:1;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.6rem .3rem;cursor:pointer;color:var(--muted);font-weight:500;font-size:.82rem;font-family:'Instrument Sans',system-ui,sans-serif;transition:.15s}
+          .echip{flex:1;min-height:44px;text-align:center;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;padding:.6rem .3rem;cursor:pointer;color:var(--muted);font-weight:500;font-size:.82rem;font-family:'Instrument Sans',system-ui,sans-serif;transition:.15s}
           .echip.on{border-color:#fff;color:#fff;background:rgba(255,255,255,.06)}
           .ebtn{border:none;border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}
           .ebtn-ghost{border:1px solid rgba(255,255,255,.4);border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:transparent;color:var(--text)}
         `}</style>
       </div>
+      {showEquipo && <EquipoSheet onClose={() => setShowEquipo(false)} />}
     </div>
   )
 }
