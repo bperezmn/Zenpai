@@ -43,13 +43,9 @@ function nextName(n: number): string {
   return n < 26 ? 'Carpa ' + String.fromCharCode(65 + n) : 'Carpa ' + (n + 1)
 }
 
-// las fotos de la puerta se descargan mientras el usuario rellena el alta
-function usePreloadIntro() { useEffect(() => { preloadIntro() }, []) }
-
 // Alta de un cultivo en pasos (uno por pantalla, sin amontonar): modo → carpa → maceta y
 // sustrato → nutrientes → luz → semilla, con resumen y el botón final.
 export default function ConfigScreen() {
-  usePreloadIntro()
   const createGrow = useStore((s) => s.createGrow)
   const registerExisting = useStore((s) => s.registerExisting)
   const cancelNew = useStore((s) => s.cancelNew)
@@ -59,6 +55,8 @@ export default function ConfigScreen() {
   const [plants, setPlants] = useState(3)
   const [tentCm, setTentCm] = useState(80)
   const [sub, setSub] = useState<Substrate>('tierra')
+  // las fotos de la puerta (según macetas y sustrato) se descargan mientras rellena el alta
+  useEffect(() => { preloadIntro(plants, sub) }, [plants, sub])
   const [seedType, setSeedType] = useState<SeedType>('foto')
   const [potL, setPotL] = useState(11)
   const [potType, setPotType] = useState<PotType>('tela')

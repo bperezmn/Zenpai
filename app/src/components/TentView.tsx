@@ -3,11 +3,11 @@ import SceneFx from './SceneFx'
 import LightSheet from './LightSheet'
 import { useShallow } from 'zustand/react/shallow'
 import { useStore, selectActive } from '../store'
-import { frontImg, cenitalTops, statusText, stageLabel, stageAt, previewStage, MAX_DAY, TIMELAPSE_URL, TIMELAPSE_DAYS, HAS_TIMELAPSE, type Cultivo, type MetricKey, type SceneState } from '../lib'
+import { frontImg, cenitalLabels, preloadPreview, statusText, stageLabel, stageAt, previewStage, MAX_DAY, TIMELAPSE_URL, TIMELAPSE_DAYS, HAS_TIMELAPSE, type Cultivo, type MetricKey, type SceneState } from '../lib'
+import Lienzo from './Lienzo'
 
-// La escena cambia de render (luz, tinte, vista, preview) con un fundido: la imagen anterior
-// queda debajo y la nueva aparece encima. Ambas viven dentro del mismo contenedor que
-// "respira" (zoom lentísimo), así el fundido no salta de escala.
+// La escena cambia de foto (luz, tinte, vista, día de la previsualización) con un fundido: la
+// anterior queda debajo y la nueva aparece encima, las dos dentro del mismo lienzo.
 function SceneImg({ src }: { src: string }) {
   const last = useRef(src)
   const prev = useRef<string | null>(null)
@@ -195,8 +195,8 @@ export default function TentView() {
   const onNew = () => (!premium && enMarcha >= 1 ? setShowPremium(true) : startNew())
   const isVeg = !preview && c.stage === 'veg'
   const plantable = !preview && !done && view === 'front' && effStage !== 'vacia'
-  const names = Array.from({ length: Math.min(c.pots, 3) }, (_, i) => `${c.grow} · #${i + 1}`)
-  const tops = cenitalTops(dc)
+  // etiquetas de la vista desde arriba: con una maceta, el nombre de la carpa; con varias, el nº
+  const labels = cenitalLabels(c).map((pos, i, all) => ({ ...pos, text: all.length === 1 ? c.grow : `Planta ${i + 1}` }))
   const pct = Math.min(100, (effDay / MAX_DAY) * 100)
 
   const tiles = metricsFor(guide)
@@ -208,16 +208,32 @@ export default function TentView() {
       {/* escena: la escena 3D reacciona a tus datos (luz, temperatura); en preview siempre "día" */}
       <div ref={sceneRef} className="absolute inset-0 overflow-hidden">
         <div className={`absolute inset-0 escena-viva ${preview ? 'quieta' : ''}`}>
-          <SceneImg src={frontImg(dc, view, scene)} />
-          {/* timelapse: mientras arrastras la línea de tiempo, el vídeo va al día que señalas */}
-          {HAS_TIMELAPSE && view === 'front' && (
-            <video ref={videoRef} src={TIMELAPSE_URL} muted playsInline preload="auto"
-              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-              style={{ opacity: preview ? 1 : 0, pointerEvents: 'none' }} />
-          )}
-          {/* tinte por temperatura dentro de la abertura de la puerta (frío azul / calor rojo) */}
-          <div className={`tinte ${scene === 'calor' ? 'tinte-calor' : 'tinte-frio'}`}
-            style={{ opacity: view === 'front' && (scene === 'frio' || scene === 'calor') ? 1 : 0 }} />
+          {/* la foto y lo que va encima comparten lienzo: de frente llena la pantalla; desde
+              arriba cabe entera (con 3 macetas en fila, recortar cortaría las de los lados) */}
+          {/* key: al cambiar de vista el lienzo nace de nuevo y la foto nueva se funde sin heredar
+              la anterior con otro encaje (si no, la de frente saltaría de tamaño al pasar a arriba) */}
+          <Lienzo key={view} fit={view === 'cenital' ? 'contain' : 'cover'}>
+            <SceneImg src={frontImg(dc, view, scene)} />
+            {/* timelapse: mientras arrastras la línea de tiempo, el vídeo va al día que señalas */}
+            {HAS_TIMELAPSE && view === 'front' && (
+              <video ref={videoRef} src={TIMELAPSE_URL} muted playsInline preload="auto"
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                style={{ opacity: preview ? 1 : 0, pointerEvents: 'none' }} />
+            )}
+            {/* tinte por temperatura dentro de la abertura de la puerta (frío azul / calor rojo) */}
+            <div className={`tinte ${scene === 'calor' ? 'tinte-calor' : 'tinte-frio'}`}
+              style={{ opacity: view === 'front' && (scene === 'frio' || scene === 'calor') ? 1 : 0 }} />
+            {/* zona de riego: el interior de la carpa, de la copa más alta al platito */}
+            {plantable && (
+              <button aria-label="Regar las plantas" onPointerDown={onWater}
+                onClick={(e) => { if (e.detail === 0) onWater() }} /* Enter/Espacio: click sin pointerdown */
+                className="absolute bg-transparent border-0 p-0 cursor-pointer"
+                style={{ left: '23%', top: '40%', width: '52%', height: '57%' }} />
+            )}
+            {view === 'cenital' && labels.map((l, i) => (
+              <div key={i} className="cenname" style={{ left: l.x, top: l.y }}>{l.text}</div>
+            ))}
+          </Lienzo>
           {/* vida en la carpa: vapor hacia el filtro, aspas del ventilador y halo de la LED */}
           {/* efectos apagados (2026-09-21): el halo y el vapor dibujados encima de las fotos
               reales les metían neblina; la foto ya trae su propio bloom de la LED */}
@@ -227,15 +243,6 @@ export default function TentView() {
         </div>
         <div className="absolute top-0 left-0 right-0 h-28 pointer-events-none" style={{ background: 'linear-gradient(180deg,rgba(4,7,10,.7),transparent)' }} />
         <div className="absolute bottom-0 left-0 right-0 h-36 pointer-events-none" style={{ background: 'linear-gradient(0deg,rgba(4,7,10,.82),rgba(4,7,10,.28) 60%,transparent)' }} />
-        {plantable && (
-          <button aria-label="Regar las plantas" onPointerDown={onWater}
-            onClick={(e) => { if (e.detail === 0) onWater() }} /* Enter/Espacio: click sin pointerdown */
-            className="absolute bg-transparent border-0 p-0 cursor-pointer"
-            style={{ left: '12%', top: '42%', width: '64%', height: '46%' }} />
-        )}
-        {view === 'cenital' && names.map((n, i) => (
-          <div key={i} className="cenname" style={{ top: tops[i] }}>{n}</div>
-        ))}
       </div>
 
       {/* arriba-izquierda: volver + día/etapa (ámbar al previsualizar, toca para volver a hoy) */}
@@ -256,33 +263,35 @@ export default function TentView() {
       </button>
 
       {/* borde derecho (vertical): vista superior + bitácora + (sed en veg) — solo texto */}
-      <div className="absolute right-3.5 top-[42%] z-30 flex flex-col items-end gap-2">
+      {/* pointer-events-none en la columna: sus huecos no roban toques a la zona de riego */}
+      <div className={`absolute right-3.5 ${view === 'cenital' ? 'top-[32%]' : 'top-[42%]'} z-30 flex flex-col items-end gap-2 pointer-events-none [&>button]:pointer-events-auto`}>
         <button onClick={() => setView(view === 'cenital' ? 'front' : 'cenital')}
           className="tbtn" style={view === 'cenital' ? { color: '#8ad2ff', borderColor: '#8ad2ff' } : undefined}>
           {view === 'cenital' ? 'Frente' : 'Arriba'}
         </button>
-        <button onClick={() => setShowJournal(true)} className="tbtn">Bitácora</button>
+        {/* desde arriba solo queda "Frente": las macetas van en fila y la columna las taparía */}
+        {view === 'front' && <button onClick={() => setShowJournal(true)} className="tbtn">Bitácora</button>}
         {hasPhotos && view === 'front' && (
           <button onClick={() => setPhotoMode(!photoMode)} aria-pressed={photoMode} className="tbtn"
             style={photoMode ? { color: '#8ad2ff', borderColor: '#8ad2ff' } : undefined}>
             {photoMode ? 'Guía' : 'Fotos'}
           </button>
         )}
-        {!done && <button onClick={() => setShowEdit(true)} className="tbtn">Editar</button>}
-        {!done && !preview && (
+        {!done && view === 'front' && <button onClick={() => setShowEdit(true)} className="tbtn">Editar</button>}
+        {!done && !preview && view === 'front' && (
           <button onClick={() => setShowLight(true)} className="tbtn" style={!c.light ? { color: 'var(--water)', borderColor: 'var(--water)' } : undefined}>
             {c.light ? 'Luz' : 'Noche'}
           </button>
         )}
         {/* demo de sed: solo en desarrollo — en producción la sed llega sola con el tiempo */}
-        {import.meta.env.DEV && isVeg && <button onClick={wilt} className="tbtn">Sed</button>}
+        {import.meta.env.DEV && isVeg && view === 'front' && <button onClick={wilt} className="tbtn">Sed</button>}
       </div>
 
       {/* línea de tiempo HORIZONTAL (arriba) = previsualización del ciclo */}
       {!done && (
         <div className="absolute left-4 right-4 top-[58px] z-20">
           <div ref={trackRef} className="relative h-6 flex items-center cursor-pointer touch-none"
-            onPointerDown={(e) => { dragging.current = true; try { (e.target as HTMLElement).setPointerCapture(e.pointerId) } catch {}; setPreview(dayFromX(e)) }}
+            onPointerDown={(e) => { dragging.current = true; try { (e.target as HTMLElement).setPointerCapture(e.pointerId) } catch {}; if (!preview) preloadPreview(c); setPreview(dayFromX(e)) }}
             onPointerMove={(e) => { if (dragging.current) setPreview(dayFromX(e)) }}
             onPointerUp={() => { dragging.current = false; setLastTouch(Date.now()) }}
             onPointerCancel={() => { dragging.current = false; setLastTouch(Date.now()) }}
@@ -387,7 +396,7 @@ export default function TentView() {
       {showCoach && !anySheet && (
         <div className="absolute inset-0 z-50 select-none" onClick={dismissCoach}
           style={{ background: 'rgba(3,6,9,.5)', backdropFilter: 'blur(2px)' }}>
-          <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ top: '70%' }}>
+          <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" style={{ top: '76%' }}>
             <span className="coach-ring" />
           </div>
           <div className="absolute left-8 right-8 text-center pointer-events-none" style={{ top: '38%' }}>
@@ -431,14 +440,14 @@ export default function TentView() {
       <style>{`
         .escena-viva{transform:none}
         .escena-viva.quieta{animation-play-state:paused}
-        .tinte{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;transition:opacity .8s ease;clip-path:polygon(5% 5.5%,69% 5.5%,76% 7.5%,80.5% 12%,80.5% 93.5%,5% 93.5%)}
+        .tinte{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply;transition:opacity .8s ease;clip-path:polygon(23.5% 9%,60% 8.5%,66% 9.5%,70% 12%,72.5% 16%,73.5% 20%,73.5% 80%,72.5% 84%,70% 87.5%,66% 90.5%,60% 91.5%,23.5% 91.5%)}
         .tinte-frio{background:radial-gradient(ellipse at 50% 38%,rgba(150,195,255,.95),rgba(90,140,255,.85) 75%)}
         .tinte-calor{background:radial-gradient(ellipse at 50% 38%,rgba(255,170,110,.95),rgba(255,110,60,.85) 75%)}
         @keyframes respira{from{transform:scale(1)}to{transform:scale(1.012)}}
         .aparece{animation:aparece .7s ease-out both}
         @keyframes aparece{from{opacity:0}to{opacity:1}}
         @media (prefers-reduced-motion:reduce){.escena-viva,.aparece{animation:none}}
-        .cenname{position:absolute;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;padding:.3rem .7rem;border-radius:5px;white-space:nowrap}
+        .cenname{position:absolute;transform:translateX(-50%);background:rgba(0,0,0,.6);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;padding:.3rem .7rem;border-radius:5px;white-space:nowrap}
         .tbtn{height:36px;padding:0 .75rem;border-radius:5px;background:rgba(0,0,0,.5);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.3);color:#fff;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
         .tbtn-ico{width:36px;padding:0}
         .abtn{height:40px;padding:0 1.25rem;border-radius:5px;border:1px solid #fff;background:#fff;color:#000;font-family:'Sora',system-ui,sans-serif;font-weight:600;font-size:.85rem;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;cursor:pointer}

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore, selectActive } from '../store'
 import { closedImg, ajarImg } from '../lib'
+import Lienzo from './Lienzo'
 
-// Apertura de la carpa: negro → cerrada → entreabierta → tu carpa (las fotos originales).
+// Apertura de la carpa: negro → cerrada → entreabierta → tu carpa. Las tres fotos comparten
+// cámara y encuadre, y el lienzo es el mismo que el de la escena: la puerta cae justo encima.
 // Arranca solo cuando las dos fotos de la puerta ya están descargadas: antes, en un teléfono
 // sin caché se veía la carpa abierta, luego la cerrada y otra vez abierta ("se abre dos veces").
 // El fondo es negro hasta la última fase para que la escena nunca se cuele por debajo.
@@ -19,7 +21,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
     let alive = true
     const load = (src: string) => new Promise<void>((res) => { const i = new Image(); i.onload = () => res(); i.onerror = () => res(); i.src = src })
     // tope de 1.5 s: sin red la apertura no se queda en negro
-    Promise.race([Promise.all([load(closedImg), load(ajar)]), new Promise<void>((r) => setTimeout(r, 1500))])
+    Promise.race([Promise.all([load(closedImg), ...(ajar ? [load(ajar)] : [])]), new Promise<void>((r) => setTimeout(r, 1500))])
       .then(() => { if (alive) setReady(true) })
     return () => { alive = false }
   }, [ajar])
@@ -35,10 +37,11 @@ export default function Intro({ onDone }: { onDone: () => void }) {
   return (
     <div className="absolute inset-0 z-50 cursor-pointer" onClick={() => done.current()} style={{ background: phase >= 2 ? 'transparent' : '#000' }}>
       {ready && (
-        <>
-          <img src={ajar} alt="" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700" style={{ opacity: phase >= 2 ? 0 : 1 }} />
-          <img src={closedImg} alt="" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700" style={{ opacity: phase >= 1 ? 0 : 1 }} />
-        </>
+        <Lienzo>
+          {ajar && <img src={ajar} alt="" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700" style={{ opacity: phase >= 2 ? 0 : 1 }} />}
+          {/* sin entreabierta (coco, hidro) la puerta cerrada se funde directo con la carpa */}
+          <img src={closedImg} alt="" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700" style={{ opacity: phase >= (ajar ? 1 : 2) ? 0 : 1 }} />
+        </Lienzo>
       )}
       <div className="label absolute bottom-16 left-0 right-0 text-center" style={{ color: 'rgba(255,255,255,.85)', textShadow: '0 2px 10px rgba(0,0,0,.9)' }}>
         {phase < 2 ? 'Abriendo tu carpa' : 'Bienvenido'}

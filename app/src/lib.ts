@@ -117,8 +117,13 @@ export function harvestEta(c: StageInput, flipTs?: number | null): number | null
 
 // Etapa para la PREVISUALIZACIÓN (arrastrar la línea de tiempo): usa las reglas reales,
 // y para una foto que aún no pasó a 12/12 proyecta la curva típica (es hipotética a propósito).
+// La flor proyectada dura lo que dice su genética (semanas de floración), igual que la foto que
+// se elige para ese día: así la etiqueta y la imagen de la preview cuentan lo mismo.
 export function previewStage(c: Cultivo, d: number): Stage {
-  if (c.seedType === 'foto' && !c.flowerTs) return stageForDay(d)
+  if (c.seedType === 'foto' && !c.flowerTs) {
+    if (d < 46) return stageForDay(d)
+    return d < 46 + flowerDaysOf(c) ? 'flor' : 'cosecha'
+  }
   return stageAt(c, d)
 }
 export const stageLabel: Record<Stage, string> = {
@@ -236,28 +241,25 @@ export const EVENT_META: Record<EventType, { icon: string; label: string }> = {
 // ===== legal: control de edad + consentimiento (versionado para re-consentir si cambian términos) =====
 export const CONSENT_VERSION = 1
 
-// ===== imágenes de la carpa: el arte IA original (la escena 3D de blender/ quedó apartada,
-// junto con su set en app/_assets_v2_3d/, por decisión de Bruno: se veía peor que las fotos) =====
-const HAVE = new Set([
-  'carpa-vacia', 'carpa-plantula', 'carpa-dia', 'carpa-dia-1p', 'carpa-dia-2p', 'carpa-sedienta',
-  'floracion', 'carpa-cenital', 'carpa-cerrada', 'carpa-entreabierta', 'ajar-vacia', 'ajar-flor',
-  'coco-plantula', 'coco-veg', 'coco-sed', 'coco-flor', 'hidro-plantula', 'hidro-veg', 'hidro-sed', 'hidro-flor',
-  'germinacion', 'cosecha', 'secando', 'carpa-apagada', 'carpa-noche-aire',
-  'agua-1', 'agua-2', 'agua-3', 'agua-1-brote', 'agua-2-brote', 'agua-3-brote',
-  'veg-temprano', 'veg-lst', 'veg-lollipop', 'veg-apical', 'veg-defoliada', 'flor-lst', 'flor-defoliada',
-])
-// rutas relativas a la base del deploy (BASE_URL termina en '/'): así la app
-// funciona igual en raíz (localhost, Vercel) que bajo subcarpeta (GitHub Pages)
-// ?v=N obliga al teléfono a pedir la foto de nuevo cuando cambia un archivo con el mismo nombre.
-// v=5: vuelta a las fotos originales de Bruno (2026-09-21).
-const IMG_V = '?v=5'
+// ===== imágenes de la carpa: el set fotorrealista de Bruno (2026-09-23) =====
+// Todas las fotos comparten cámara, encuadre, luz y carpa (1493×2000, 3:4) y viven en assets/carpa/:
+//   ciclo/ciclo-dNNN  19 fotos de UNA maceta en tierra: la planta crece foto a foto (día de referencia NNN)
+//   frente/           puertas, vacía, sed, coco, hidro, entrenamiento y 2–3 macetas por etapa
+//   noche/            luz apagada por etapa y nº de macetas
+//   top/              vista desde arriba por etapa, luz (día/noche/frío/calor) y macetas
+// El arte anterior quedó archivado en app/_assets_arte_ia/.
+// Rutas relativas a la base del deploy (BASE_URL termina en '/'): así la app funciona igual en raíz
+// (localhost) que bajo subcarpeta (GitHub Pages). ?v=N obliga al teléfono a pedir la foto de nuevo.
+const IMG_V = '?v=6'
 const A = (name: string) => `${import.meta.env.BASE_URL}assets/${name}.webp${IMG_V}`
+const C = (path: string) => `${import.meta.env.BASE_URL}assets/carpa/${path}.webp${IMG_V}`
+export const FOTO_W = 1493
+export const FOTO_H = 2000
 
 // imagen de las semillas en remojo (vaso de agua), según nº de semillas y si ya brotaron
 export function waterImg(seeds: number, brote: boolean): string {
   const n = Math.min(Math.max(seeds, 1), 3)
-  const name = `agua-${n}${brote ? '-brote' : ''}`
-  return A(HAVE.has(name) ? name : `agua-${n}`)
+  return A(`agua-${n}${brote ? '-brote' : ''}`)
 }
 
 // Estado visual del interior: la luz (día/noche) y el tinte por temperatura (frío/calor).
@@ -290,67 +292,143 @@ export function isDefoliated(c: Cultivo): boolean {
   return c.defoliatedTs != null && Date.now() - c.defoliatedTs < DEFOLIATION_DAYS * 86400000
 }
 
-// vista desde arriba: tu foto cenital con las plantas de la etapa compuestas encima (assets/top/)
-const T = (name: string) => `${import.meta.env.BASE_URL}assets/top/${name}.webp${IMG_V}`
-export function topImg(c: Cultivo, state: SceneState = 'dia'): string {
-  const p = Math.min(Math.max(c.pots, 1), 3)
-  if (c.stage === 'remojo' || c.stage === 'vacia' || c.stage === 'secando') return T(`top-vacia-${state}`)
-  const stage = c.stage === 'veg' && c.thirst > 0.55 ? 'sed' : c.stage
-  return T(`top-${stage}-${state}-${p}p`)
+const potsOf = (c: Pick<Cultivo, 'pots'>) => Math.min(Math.max(c.pots, 1), 3)
+
+// ----- el ciclo foto a foto (una maceta en tierra) -----
+// Día de la curva de referencia en que se tomó cada foto (plántula 0–17, vegetativo desde el 18,
+// 12/12 en el 42, 60 días de flor). Para colocar a TU planta se usa su propio calendario:
+// dentro de plántula, la fracción de la etapa; en vegetativo, los días desde que empezó (su
+// duración la decide el usuario); en flor, la fracción de SU floración (semanas de la variedad).
+const CICLO_PLANTULA = [3, 6, 9, 13]                    // fracción de 18 días
+const CICLO_VEG = [[0, 18], [4, 22], [7, 25], [12, 30], [17, 35], [23, 41]] as const   // [días en veg, foto]
+const CICLO_FLOR = [48, 56, 63, 70, 77, 84, 91]           // fracción de 60 días desde el 12/12 del día 42
+export const CICLO_DIAS = [...CICLO_PLANTULA, ...CICLO_VEG.map(([, f]) => f), ...CICLO_FLOR, 98, 103]
+const cicloImg = (d: number) => C(`ciclo/ciclo-d${String(d).padStart(3, '0')}`)
+type CicloInput = Pick<Cultivo, 'day' | 'stage' | 'seedType' | 'flowerTs' | 'germTs' | 'flowerWeeks' | 'autoWeeks'>
+// día del cultivo en que empieza el vegetativo / la floración, y cuántos días dura la flor
+function vegStartOf(c: CicloInput): number {
+  return c.seedType === 'auto' ? Math.round((14 * autoDaysOf(c)) / 75) : 18
+}
+function flipDayOf(c: CicloInput): number {
+  if (c.seedType === 'auto') return Math.round((32 * autoDaysOf(c)) / 75)
+  if (c.flowerTs && c.germTs) return Math.max(0, Math.floor((c.flowerTs - c.germTs) / 86400000))
+  return 46 // fotoperiódica sin 12/12: solo la previsualización llega a flor, con la curva típica
+}
+function flowerLenOf(c: CicloInput): number {
+  return c.seedType === 'auto' ? Math.max(1, autoDaysOf(c) - flipDayOf(c)) : flowerDaysOf(c)
+}
+export function cicloDia(c: CicloInput): number {
+  const pick = (xs: readonly number[], v: number) => xs.reduce((best, x) => (x <= v ? x : best), xs[0])
+  const vegFoto = (vd: number) => CICLO_VEG.reduce((best, [d, f]) => (d <= vd ? f : best), CICLO_VEG[0][1] as number)
+  if (c.stage === 'secando') return 103
+  if (c.stage === 'cosecha') return 98
+  if (c.stage === 'flor') {
+    const flip = flipDayOf(c)
+    const frac = (c.day - flip) / flowerLenOf(c)
+    const refs = CICLO_FLOR.map((d) => (d - 42) / 60)
+    // primeros días del 12/12: sigue siendo la planta que había al pasar a flor
+    if (frac < refs[0]) return vegFoto(flip - vegStartOf(c))
+    return CICLO_FLOR[refs.reduce((best, r, i) => (r <= frac ? i : best), 0)]
+  }
+  if (c.stage === 'veg') return vegFoto(c.day - vegStartOf(c))
+  // plántula (y germinación de datos viejos): fracción de su etapa
+  const len = c.seedType === 'auto' ? vegStartOf(c) : 18
+  return pick(CICLO_PLANTULA, (c.day / len) * 18)
 }
 
-// imagen frontal según etapa / sustrato / sed / nº de macetas (respaldo a tierra)
+// vista desde arriba: la etapa con la luz del momento (frío/calor/noche son tintes de la foto de día)
+export function topImg(c: Cultivo, state: SceneState = 'dia'): string {
+  const s = c.stage
+  const key = s === 'remojo' || s === 'vacia' || s === 'secando' ? 'vacia'
+    : s === 'germinacion' || (s === 'plantula' && c.day < 5) ? 'germinacion'
+    : s === 'veg' && c.thirst > THIRST_THRESHOLD ? 'sed'
+    : s
+  return C(`top/top-${key}-${state}-${potsOf(c)}p`)
+}
+
+// foto de día según etapa, día, macetas, sustrato, sed y entrenamiento
+function dayImg(c: Cultivo): string {
+  const s = c.stage
+  const p = potsOf(c)
+  const thirsty = c.thirst > THIRST_THRESHOLD
+  if (s === 'secando') return cicloImg(103)
+  if (s === 'vacia' || s === 'germinacion' || s === 'remojo') return C(p === 1 ? 'frente/carpa-vacia' : `frente/vacia-${p}p`)
+  const growing = s === 'plantula' || s === 'veg' || s === 'flor'
+  // 2–3 macetas: el mismo orden de prioridades con sus propias fotos (la sed solo se ve en vegetativo)
+  if (p > 1) {
+    if (c.substrate !== 'tierra') {
+      const sub = c.substrate
+      if (thirsty && s === 'veg') return C(`frente/${sub}-sed-${p}p`)
+      if (growing) return C(`frente/${sub}-${s}-${p}p`)
+      return C(sub === 'hidro' ? `frente/hidro-flor-${p}p` : `frente/cosecha-${p}p`)
+    }
+    if (thirsty && s === 'veg') return C(`frente/sed-${p}p`)
+    if (s === 'veg') {
+      if (isDefoliated(c)) return C(`frente/veg-defoliada-${p}p`)
+      if (c.training !== 'none') return C(`frente/veg-${c.training}-${p}p`)
+    }
+    if (s === 'flor') {
+      if (isDefoliated(c)) return C(`frente/flor-defoliada-${p}p`)
+      if (c.training === 'lst') return C(`frente/flor-lst-${p}p`)
+    }
+    return C(`frente/${s}-${p}p`)
+  }
+  if (c.substrate !== 'tierra') {
+    const sub = c.substrate
+    if (thirsty && s === 'veg') return C(`frente/${sub}-sed-1p`)
+    if (growing) return C(`frente/${sub}-${s}-1p`)
+    // cosecha: el cubo de hidro se queda (con la planta en flor); en coco manda la planta madura
+    return sub === 'hidro' ? C('frente/hidro-flor-1p') : cicloImg(98)
+  }
+  if (thirsty && growing) return C(`frente/sed-${s}-1p`)
+  if (s === 'veg') {
+    if (isDefoliated(c)) return C('frente/veg-defoliada')
+    if (c.training !== 'none') return C(`frente/veg-${c.training}`)
+  }
+  if (s === 'flor') {
+    if (isDefoliated(c)) return C('frente/flor-defoliada')
+    if (c.training === 'lst') return C('frente/flor-lst')
+  }
+  return cicloImg(cicloDia(c))
+}
+
+// imagen frontal: remojo = el vaso de agua; noche = luz apagada; si no, la foto de día
 export function frontImg(c: Cultivo, view: 'front' | 'cenital', state: SceneState = 'dia'): string {
   if (view === 'cenital') return topImg(c, state)
   if (c.stage === 'remojo') return waterImg(c.plants, hasSprouted(c))
   if (state === 'noche') return nightImg(c)
-  if (c.stage === 'vacia') return A('carpa-vacia')
-  if (c.stage === 'secando') return A('secando')
-  // vegetativo: arte de entrenamiento / temprano SOLO existe en tierra; coco/hidro conservan su imagen
-  if (c.stage === 'veg' && c.thirst <= 0.55 && c.substrate === 'tierra') {
-    if (isDefoliated(c)) return A('veg-defoliada')
-    if (c.training === 'lst' && HAVE.has('veg-lst')) return A('veg-lst')
-    if (c.training === 'lollipop' && HAVE.has('veg-lollipop')) return A('veg-lollipop')
-    if (c.training === 'apical' && HAVE.has('veg-apical')) return A('veg-apical')
-    if (c.training === 'none' && c.day < 30 && HAVE.has('veg-temprano')) return A('veg-temprano')
-  }
-  // floración (tierra): la defoliación reciente y el LST también se ven
-  if (c.stage === 'flor' && c.thirst <= 0.55 && c.substrate === 'tierra') {
-    if (isDefoliated(c)) return A('flor-defoliada')
-    if (c.training === 'lst') return A('flor-lst')
-  }
-  let key: string, tierra: string
-  if (c.stage === 'germinacion') { key = 'germinacion'; tierra = 'germinacion' }
-  else if (c.stage === 'plantula') { key = 'plantula'; tierra = 'carpa-plantula' }
-  else if (c.stage === 'cosecha') { key = 'cosecha'; tierra = 'cosecha' }
-  else if (c.stage === 'flor') { key = 'flor'; tierra = 'floracion' }
-  else if (c.thirst > 0.55) { key = 'sed'; tierra = 'carpa-sedienta' }
-  else { key = 'veg'; tierra = 'carpa-dia' }
-  let base = c.substrate !== 'tierra' && HAVE.has(`${c.substrate}-${key}`) ? `${c.substrate}-${key}` : tierra
-  const p = Math.min(c.pots, 3)
-  if (p < 3 && HAVE.has(`${base}-${p}p`)) base = `${base}-${p}p`
-  return A(base)
+  return dayImg(c)
 }
 
-// imagen de noche (luz apagada), con/ sin ventilador
+// imagen de noche (luz apagada) por etapa y macetas; el secado ya es una foto con la luz apagada.
+// Si de día se ve una foto del ciclo (una maceta en tierra), de noche va SU versión apagada:
+// la planta no puede cambiar de tamaño al apagar la luz.
 export function nightImg(c: Cultivo): string {
-  return c.fan ? A('carpa-noche-aire') : A('carpa-apagada')
+  const s = c.stage
+  if (s === 'secando') return cicloImg(103)
+  const ciclo = dayImg(c).match(/ciclo\/ciclo-d(\d{3})/)
+  if (ciclo) return C(`noche/noche-ciclo-d${ciclo[1]}`)
+  const key = s === 'vacia' || s === 'germinacion' || s === 'remojo' ? 'vacia' : s
+  return C(`noche/noche-${key}-${potsOf(c)}p`)
 }
 
-// cuadro "entreabierta" para la animación de apertura, según etapa
-export function ajarImg(c: Cultivo): string {
-  if (c.stage === 'flor' || c.stage === 'cosecha') return HAVE.has('ajar-flor') ? A('ajar-flor') : A('carpa-entreabierta')
-  if (c.stage === 'veg') return A('carpa-entreabierta')
-  return HAVE.has('ajar-vacia') ? A('ajar-vacia') : A('carpa-entreabierta')
+// cuadro "entreabierta" para la animación de apertura, según etapa y macetas. Por la rendija se
+// ve la maceta: en coco e hidro (otro sustrato, otro recipiente) no hay foto entreabierta que
+// case con la escena, así que la apertura va directa de cerrada a la carpa (null).
+export function ajarImg(c: Pick<Cultivo, 'stage' | 'pots' | 'substrate'>): string | null {
+  if (c.substrate !== 'tierra') return null
+  const key = c.stage === 'flor' || c.stage === 'cosecha' || c.stage === 'secando' ? 'flor' : c.stage === 'veg' ? 'veg' : 'vacia'
+  const p = potsOf(c)
+  return C(p === 1 ? `frente/ajar-${key}` : `frente/ajar-${key}-${p}p`)
 }
 
-export const closedImg = A('carpa-cerrada')
+export const closedImg = C('frente/carpa-cerrada')
 
 // las fotos de la puerta se piden mientras el usuario rellena el alta o espera la germinación,
 // así la apertura de la carpa ya las tiene en caché cuando toca reproducirla
-export function preloadIntro() {
-  const names = ['carpa-cerrada', 'carpa-entreabierta', ...['ajar-vacia', 'ajar-flor'].filter((n) => HAVE.has(n))]
-  names.forEach((n) => { const i = new Image(); i.src = A(n) })
+export function preloadIntro(pots: number, substrate: Substrate, stages: Stage[] = ['plantula', 'veg', 'flor']) {
+  const urls = [closedImg, ...stages.map((stage) => ajarImg({ stage, pots, substrate }))]
+  urls.forEach((u) => { if (u) { const i = new Image(); i.src = u } })
 }
 
 // timelapse del ciclo (Seedance, 10 s): plántula → cosecha. La línea de tiempo lo arrastra:
@@ -363,15 +441,13 @@ export const TIMELAPSE_DAYS = 105
 // app/_assets_v2_3d/ por si se regenera con encuadre fijo.
 export const HAS_TIMELAPSE = false
 
-// etiquetas de la vista cenital: donde están las macetas en carpa-cenital
-// (cámara a 3.5 m con 24 mm de sensor y 50 mm de lente; macetas a ±0.345 m (3) / ±0.24 m (2);
-// cuanto más alta la copa, más cerca de la cámara y más separadas se ven)
-export function cenitalTops(c: Cultivo): string[] {
-  const s = c.stage
-  const z = s === 'plantula' || s === 'germinacion' ? 0.24 : s === 'flor' || s === 'cosecha' ? 0.62 : c.thirst > 0.55 ? 0.45 : 0.55
-  const pct = (x: number) => `${Math.round(50 + (x / (2 * (3.5 - z) * 0.24)) * 100)}%`
-  const p = Math.min(Math.max(c.pots, 1), 3)
-  return p === 1 ? [pct(0)] : p === 2 ? [pct(-0.24), pct(0.24)] : [pct(-0.345), pct(0), pct(0.345)]
+// etiquetas de la vista desde arriba: debajo de cada maceta, en % de la foto (medido en top/*:
+// macetas en fila de izquierda a derecha, centros a media altura)
+export function cenitalLabels(c: Pick<Cultivo, 'pots'>): { x: string; y: string }[] {
+  const p = potsOf(c)
+  const xs = p === 1 ? [50] : p === 2 ? [33, 67] : [23, 50, 76]
+  const y = p === 1 ? 68 : p === 2 ? 65 : 61
+  return xs.map((x) => ({ x: `${x}%`, y: `${y}%` }))
 }
 
 // caption de la carpa: estado honesto + la acción disponible (nada de datos inventados)
@@ -397,8 +473,20 @@ export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
   return 'En vegetativo · toca las plantas para regar'
 }
 
-// preload selectivo: solo lo que se va a ver ahora (no las 31 imágenes)
+// preload selectivo: solo lo que se va a ver ahora (no las 152 imágenes)
 export function preloadFor(c: Cultivo, state: SceneState = 'dia') {
-  const urls = new Set<string>([closedImg, ajarImg(c), frontImg(c, 'front', 'dia'), nightImg(c), frontImg(c, 'front', state), A('carpa-cenital')])
+  const urls = new Set<string | null>([closedImg, ajarImg(c), frontImg(c, 'front', 'dia'), nightImg(c), frontImg(c, 'front', state), topImg(c, state)])
+  urls.forEach((u) => { if (u) { const i = new Image(); i.src = u } })
+}
+
+// al tocar la línea de tiempo: todas las fotos que la previsualización puede mostrar para ESTE
+// cultivo (misma regla que TentView: etapa proyectada, sin sed salvo el veg de referencia), así el
+// recorrido de días no espera a la red foto por foto
+export function preloadPreview(c: Cultivo) {
+  const urls = new Set<string>()
+  for (let d = 0; d <= MAX_DAY; d++) {
+    const stage = previewStage(c, d)
+    urls.add(frontImg({ ...c, day: d, stage, thirst: stage === 'veg' ? 0.2 : 0 }, 'front', 'dia'))
+  }
   urls.forEach((u) => { const i = new Image(); i.src = u })
 }

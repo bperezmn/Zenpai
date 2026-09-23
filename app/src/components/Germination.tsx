@@ -31,10 +31,11 @@ export default function Germination() {
   // el brote sigue el TIEMPO REAL de remojo (nada de simularlo): re-evaluar cada minuto
   const [, setTick] = useState(0)
   useEffect(() => {
-    preloadIntro() // la apertura de la carpa (tras trasplantar) ya tendrá sus fotos en caché
     const t = setInterval(() => setTick((n) => n + 1), 60000)
     return () => clearInterval(t)
   }, [])
+  // la apertura de la carpa (tras trasplantar, en plántula) ya tendrá sus fotos en caché
+  useEffect(() => { preloadIntro(count, c.substrate, ['plantula']) }, [count, c.substrate])
   const brote = hasSprouted(c)
   const sd = soakDays(c)
 

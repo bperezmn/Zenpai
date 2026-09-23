@@ -32,3 +32,7 @@ fotos_4k/color/
 
 # supabase CLI (link)
 supabase/.temp/
+
+# originales del set de fotos (webp 90): la app sirve la copia comprimida de public/assets/carpa/
+app/_assets_set/
+app/_assets_ciclo/

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { Logo } from '../App'
 import { frontImg, stageLabel, type Cultivo } from '../lib'
+import type { CSSProperties } from 'react'
 import { needsAttention, wateringGuide } from '../mentor'
 import Settings from './Settings'
 import Premium from './Premium'
@@ -137,6 +138,28 @@ function meta(g: Cultivo, withDay = true): string {
   return withDay ? `Día ${g.day} · ${rest}` : rest
 }
 // '~2 L (unos 8 vasos)' → '~2 L, unos 8 vasos' para leerlo como frase
+// La foto de la carpa encuadrada en la planta: se amplía y se ancla abajo, así la maceta y la
+// planta llenan el recuadro (la foto entera es 3:4 con mucho mylar arriba). zoom = cuántas veces
+// el alto del recuadro mide la foto. El remojo (el vaso de agua) y el secado (las ramas cuelgan
+// arriba) van enteros y centrados. Sin unidades de contenedor: funciona en cualquier navegador.
+function FotoCarpa({ g, zoom, className, style }: { g: Cultivo; zoom: number; className?: string; style?: CSSProperties }) {
+  const src = frontImg(g, 'front')
+  const entera = g.stage === 'remojo' || g.stage === 'secando'
+  return (
+    <div className={`${className ?? ''} overflow-hidden`} style={style}>
+      {entera ? (
+        <img src={src} alt="" className="absolute inset-0 w-full h-full object-cover"
+          style={{ objectPosition: g.stage === 'secando' ? '50% 30%' : '50% 42%' }} />
+      ) : (
+        <img src={src} alt="" className="absolute max-w-none" style={{
+          height: `${zoom * 100}%`, width: 'auto', minWidth: '100%', left: '50%', bottom: 0,
+          transform: 'translateX(-50%)', objectFit: 'cover', objectPosition: '50% 100%',
+        }} />
+      )}
+    </div>
+  )
+}
+
 function amountText(amount: string): string {
   return amount.replace(/\s*\(([^)]+)\)/, ', $1')
 }
@@ -151,7 +174,7 @@ function Hero({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDel
   return (
     <div className="mt-5">
       <button onClick={onOpen} className="relative block w-full text-left overflow-hidden" style={{ height: 400, background: '#000' }}>
-        <img src={frontImg(g, 'front')} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: '50% 42%' }} />
+        <FotoCarpa g={g} zoom={1.54} className="absolute inset-0" />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,.35) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 55%, rgba(0,0,0,.94) 100%)' }} />
         <div className="absolute left-6 top-5 flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: g.light && gauged ? 'var(--blue)' : 'var(--faint)' }} />
@@ -208,7 +231,7 @@ function Row({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDele
   return (
     <div className="flex items-center" style={{ opacity: g.stage === 'secando' ? 0.8 : 1 }}>
       <button onClick={onOpen} className="hrow min-w-0">
-        <img src={frontImg(g, 'front')} alt="" className="w-[54px] h-[54px] object-cover flex-none" style={{ borderRadius: 5, objectPosition: '50% 45%' }} />
+        <FotoCarpa g={g} zoom={1.75} className="relative w-[54px] h-[54px] flex-none" style={{ borderRadius: 5 }} />
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="display font-semibold text-[1rem] truncate">{g.grow}</div>

@@ -34,9 +34,10 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         runtimeCaching: [
           {
-            urlPattern: /\/assets\/.*\.(?:jpg|jpeg|png|webp)$/,
+            // las fotos llevan ?v=N (cache busting): el patrón tiene que aceptar la query
+            urlPattern: /\/assets\/.*\.(?:jpg|jpeg|png|webp)(?:\?.*)?$/,
             handler: 'CacheFirst',
-            options: { cacheName: 'zenpai-imagenes', expiration: { maxEntries: 80 } },
+            options: { cacheName: 'zenpai-imagenes', expiration: { maxEntries: 240 } },
           },
           {
             urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/,
