@@ -336,11 +336,20 @@ export function cicloDia(c: CicloInput): number {
   return pick(CICLO_PLANTULA, (c.day / len) * 18)
 }
 
+// primeros días de plántula (el primer tercio: días 0–5 en una fotoperiódica): todavía son brotes
+// con cotiledones, no plántulas con hojas. Con una maceta en tierra ya lo cubre el ciclo; el resto
+// (2–3 macetas, coco, hidro, la vista desde arriba y la noche) tiene sus propias fotos de brote.
+function esBrote(c: CicloInput): boolean {
+  if (c.stage !== 'plantula') return false
+  const len = c.seedType === 'auto' ? vegStartOf(c) : 18
+  return c.day / len < 1 / 3
+}
+
 // vista desde arriba: la etapa con la luz del momento (frío/calor/noche son tintes de la foto de día)
 export function topImg(c: Cultivo, state: SceneState = 'dia'): string {
   const s = c.stage
   const key = s === 'remojo' || s === 'vacia' || s === 'secando' ? 'vacia'
-    : s === 'germinacion' || (s === 'plantula' && c.day < 5) ? 'germinacion'
+    : s === 'germinacion' || esBrote(c) ? 'germinacion'
     : s === 'veg' && c.thirst > THIRST_THRESHOLD ? 'sed'
     : s
   return C(`top/top-${key}-${state}-${potsOf(c)}p`)
@@ -358,10 +367,12 @@ function dayImg(c: Cultivo): string {
   if (p > 1) {
     if (c.substrate !== 'tierra') {
       const sub = c.substrate
+      if (esBrote(c)) return C(`frente/${sub}-brote-${p}p`)
       if (thirsty && s === 'veg') return C(`frente/${sub}-sed-${p}p`)
       if (growing) return C(`frente/${sub}-${s}-${p}p`)
       return C(sub === 'hidro' ? `frente/hidro-flor-${p}p` : `frente/cosecha-${p}p`)
     }
+    if (esBrote(c)) return C(`frente/brote-${p}p`)
     if (thirsty && s === 'veg') return C(`frente/sed-${p}p`)
     if (s === 'veg') {
       if (isDefoliated(c)) return C(`frente/veg-defoliada-${p}p`)
@@ -375,12 +386,14 @@ function dayImg(c: Cultivo): string {
   }
   if (c.substrate !== 'tierra') {
     const sub = c.substrate
+    if (esBrote(c)) return C(`frente/${sub}-brote-1p`)
     if (thirsty && s === 'veg') return C(`frente/${sub}-sed-1p`)
     if (growing) return C(`frente/${sub}-${s}-1p`)
     // cosecha: el cubo de hidro se queda (con la planta en flor); en coco manda la planta madura
     return sub === 'hidro' ? C('frente/hidro-flor-1p') : cicloImg(98)
   }
-  if (thirsty && growing) return C(`frente/sed-${s}-1p`)
+  // un brote con sed no se ve distinto: la foto del ciclo sirve igual
+  if (thirsty && growing && !esBrote(c)) return C(`frente/sed-${s}-1p`)
   if (s === 'veg') {
     if (isDefoliated(c)) return C('frente/veg-defoliada')
     if (c.training !== 'none') return C(`frente/veg-${c.training}`)
@@ -408,6 +421,11 @@ export function nightImg(c: Cultivo): string {
   if (s === 'secando') return cicloImg(103)
   const ciclo = dayImg(c).match(/ciclo\/ciclo-d(\d{3})/)
   if (ciclo) return C(`noche/noche-ciclo-d${ciclo[1]}`)
+  // brotes: con una maceta, la noche del brote del ciclo; con 2–3, la suya
+  if (esBrote(c)) {
+    const p = potsOf(c)
+    return p === 1 ? C(`noche/noche-ciclo-d${String(cicloDia(c)).padStart(3, '0')}`) : C(`noche/noche-brote-${p}p`)
+  }
   const key = s === 'vacia' || s === 'germinacion' || s === 'remojo' ? 'vacia' : s
   return C(`noche/noche-${key}-${potsOf(c)}p`)
 }
