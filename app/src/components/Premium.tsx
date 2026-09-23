@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { useStore } from '../store'
 import { useBackClose } from '../useBackClose'
 
@@ -23,6 +23,10 @@ export default function Premium({ onClose }: { onClose: () => void }) {
   const setPremium = useStore((s) => s.setPremium)
   const [periodo, setPeriodo] = useState<'mensual' | 'anual'>('anual')
   const precio = periodo === 'mensual' ? PRECIO_MENSUAL : PRECIO_ANUAL
+  // los dos planes se eligen como opciones; el botón de abajo hace lo que corresponde a la elección
+  const [elegido, setElegido] = useState<'premium' | 'gratis'>('premium')
+  const teclas = (p: 'premium' | 'gratis') => (e: KeyboardEvent) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setElegido(p) } }
+  const cardStyle = (on: boolean) => ({ border: `1px solid ${on ? '#fff' : 'rgba(255,255,255,.14)'}`, borderRadius: 5, background: on ? 'rgba(255,255,255,.04)' : 'transparent' })
 
   return (
     // los clics no suben a la hoja de debajo (que se cerraría al tocar fuera de su panel)
@@ -42,9 +46,14 @@ export default function Premium({ onClose }: { onClose: () => void }) {
           <button onClick={() => setPeriodo('anual')} aria-pressed={periodo === 'anual'} className={`pchip ${periodo === 'anual' ? 'on' : ''}`}>Anual</button>
         </div>
 
-        <div className="flex flex-col gap-3.5 px-4 py-[18px]" style={{ border: '1px solid #fff', borderRadius: 5 }}>
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="display text-[1.25rem] font-semibold">Premium</span>
+        <div role="radiogroup" aria-label="Plan" className="flex flex-col gap-[18px]">
+        <div role="radio" tabIndex={0} aria-checked={elegido === 'premium'} onClick={() => setElegido('premium')} onKeyDown={teclas('premium')}
+          className="plan flex flex-col gap-3.5 px-4 py-[18px] text-left" style={cardStyle(elegido === 'premium')}>
+          <div className="flex items-baseline justify-between gap-3 w-full">
+            <span className="flex items-center gap-2.5">
+              <span className={`radio ${elegido === 'premium' ? 'on' : ''}`} aria-hidden="true" />
+              <span className="display text-[1.25rem] font-semibold" style={{ color: elegido === 'premium' ? '#fff' : 'var(--muted)' }}>Premium</span>
+            </span>
             {precio
               ? <span className="mono text-[1rem]">{precio} / {periodo === 'mensual' ? 'mes' : 'año'}</span>
               : <span className="text-[.82rem]" style={{ color: 'var(--muted)' }}>Precio por definir</span>}
@@ -57,27 +66,41 @@ export default function Premium({ onClose }: { onClose: () => void }) {
               </li>
             ))}
           </ul>
+          {premium && <span className="label" style={{ color: 'var(--muted)' }}>Tu plan</span>}
         </div>
 
-        <div className="flex flex-col gap-2.5 p-4" style={{ border: '1px solid rgba(255,255,255,.14)', borderRadius: 5 }}>
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="display text-[1.125rem] font-semibold" style={{ color: 'var(--muted)' }}>Gratis</span>
+        <div role="radio" tabIndex={0} aria-checked={elegido === 'gratis'} onClick={() => setElegido('gratis')} onKeyDown={teclas('gratis')}
+          className="plan flex flex-col gap-2.5 p-4 text-left" style={cardStyle(elegido === 'gratis')}>
+          <div className="flex items-baseline justify-between gap-3 w-full">
+            <span className="flex items-center gap-2.5">
+              <span className={`radio ${elegido === 'gratis' ? 'on' : ''}`} aria-hidden="true" />
+              <span className="display text-[1.125rem] font-semibold" style={{ color: elegido === 'gratis' ? '#fff' : 'var(--muted)' }}>Gratis</span>
+            </span>
             {!premium && <span className="label" style={{ color: 'var(--muted)' }}>Tu plan</span>}
           </div>
           <p className="text-[.875rem]" style={{ color: 'var(--muted)', lineHeight: 1.5 }}>
             Una carpa, riego y luz con avisos, técnicas paso a paso y tu timelapse.
           </p>
         </div>
+        </div>
 
         <div className="flex-1" />
 
-        {premium ? (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-center gap-2 text-[.92rem] font-medium">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
-              Premium activo
+        {elegido === 'gratis' ? (
+          premium ? (
+            <div className="flex flex-col gap-2.5">
+              <button onClick={() => { setPremium(false); onClose() }} className="pbtn">Volver al plan gratis</button>
+              <p className="text-[.76rem] text-center leading-snug" style={{ color: 'var(--faint)' }}>
+                Tus cultivos y tu bitácora se quedan como están.
+              </p>
             </div>
-            <button onClick={() => setPremium(false)} className="pbtn-ghost">Desactivar prueba</button>
+          ) : (
+            <button onClick={onClose} className="pbtn">Seguir con el plan gratis</button>
+          )
+        ) : premium ? (
+          <div className="flex items-center justify-center gap-2 h-[52px] text-[.92rem] font-medium">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
+            Premium activo
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -93,7 +116,11 @@ export default function Premium({ onClose }: { onClose: () => void }) {
         .pchip{height:44px;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;color:var(--muted);font-family:'Instrument Sans',system-ui,sans-serif;font-size:.875rem;cursor:pointer}
         .pchip.on{background:rgba(255,255,255,.06);border-color:#fff;color:#fff}
         .pbtn{width:100%;height:52px;border:none;border-radius:5px;background:#fff;color:#000;font-family:'Instrument Sans',system-ui,sans-serif;font-weight:600;font-size:.94rem;cursor:pointer}
-        .pbtn-ghost{width:100%;height:52px;border:1px solid rgba(255,255,255,.4);border-radius:5px;background:transparent;color:#fff;font-family:'Instrument Sans',system-ui,sans-serif;font-weight:600;font-size:.94rem;cursor:pointer}
+        .plan{width:100%;color:#fff;cursor:pointer;transition:border-color .2s ease,background .2s ease;outline:none}
+        .plan:focus-visible{box-shadow:0 0 0 2px var(--blue)}
+        .radio{width:18px;height:18px;border-radius:50%;border:1px solid rgba(255,255,255,.4);flex:none;display:inline-block;position:relative}
+        .radio.on{border-color:#fff}
+        .radio.on::after{content:'';position:absolute;inset:4px;border-radius:50%;background:#fff}
       `}</style>
     </div>
   )
