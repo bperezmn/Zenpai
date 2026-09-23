@@ -17,9 +17,13 @@ const BENEFICIOS = [
 
 // Plan Premium: qué incluye y la prueba gratis mientras no haya pagos (llegan con la versión
 // de tienda). Se abre encima de otras hojas (riego, diagnóstico, ajustes): gestiona su "atrás".
-export default function Premium({ onClose }: { onClose: () => void }) {
+// motivo 'carpas' = se abrió al tocar "Nuevo cultivo" con el plan gratis ya ocupado: la hoja lo
+// dice, "Gratis" explica cómo empezar otra y "Premium" sigue directo al alta (onPremium).
+export default function Premium({ onClose, motivo, onPremium }: { onClose: () => void; motivo?: 'carpas'; onPremium?: () => void }) {
   useBackClose(true, onClose)
   const premium = useStore((s) => s.premium)
+  const actual = useStore((s) => s.grows.find((g) => g.stage !== 'secando' && !g.grow.startsWith('Demo · ')))
+  const porCarpas = motivo === 'carpas' && !premium
   const setPremium = useStore((s) => s.setPremium)
   const [periodo, setPeriodo] = useState<'mensual' | 'anual'>('anual')
   const precio = periodo === 'mensual' ? PRECIO_MENSUAL : PRECIO_ANUAL
@@ -39,7 +43,15 @@ export default function Premium({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <h1 className="display text-[1.85rem] font-semibold" style={{ lineHeight: 1.15 }}>Un mentor que también ve tus plantas</h1>
+        <h1 className="display text-[1.85rem] font-semibold" style={{ lineHeight: 1.15 }}>
+          {porCarpas ? 'Una carpa a la vez con el plan gratis' : 'Un mentor que también ve tus plantas'}
+        </h1>
+        {porCarpas && (
+          <p className="text-[.875rem] -mt-1.5" style={{ color: 'var(--muted)', lineHeight: 1.5 }}>
+            {actual ? <><span style={{ color: '#fff', fontWeight: 600 }}>{actual.grow}</span> sigue en marcha. </> : null}
+            Para empezar otra, prueba Premium o termina la que tienes.
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-1.5">
           <button onClick={() => setPeriodo('mensual')} aria-pressed={periodo === 'mensual'} className={`pchip ${periodo === 'mensual' ? 'on' : ''}`}>Mensual</button>
@@ -94,6 +106,13 @@ export default function Premium({ onClose }: { onClose: () => void }) {
                 Tus cultivos y tu bitácora se quedan como están.
               </p>
             </div>
+          ) : porCarpas ? (
+            <div className="flex flex-col gap-2.5">
+              <button onClick={onClose} className="pbtn">Seguir con mi carpa</button>
+              <p className="text-[.76rem] text-center leading-snug" style={{ color: 'var(--faint)' }}>
+                Con el plan gratis, para empezar otra termina o borra {actual ? `"${actual.grow}"` : 'la que tienes'}.
+              </p>
+            </div>
           ) : (
             <button onClick={onClose} className="pbtn">Seguir con el plan gratis</button>
           )
@@ -104,7 +123,9 @@ export default function Premium({ onClose }: { onClose: () => void }) {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            <button onClick={() => { setPremium(true); onClose() }} className="pbtn">Probar Premium</button>
+            <button onClick={() => { setPremium(true); onClose(); onPremium?.() }} className="pbtn">
+              {porCarpas ? 'Probar Premium y crear la carpa' : 'Probar Premium'}
+            </button>
             <p className="text-[.76rem] text-center leading-snug" style={{ color: 'var(--faint)' }}>
               Los pagos llegan con la versión de tienda. Mientras, puedes probarlo gratis.
             </p>

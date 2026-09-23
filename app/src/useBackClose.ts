@@ -28,6 +28,15 @@ export function consumeEntry() {
   pendingConsumes++
   pump()
 }
+// Ejecuta fn cuando no queda ningún atrás programático en vuelo. Sirve para abrir una pantalla
+// justo después de cerrar una hoja: si no, el history.back() del cierre (asíncrono) se comería la
+// entrada de historial de la pantalla nueva. Espera un poco a que el desmontaje de la hoja haya
+// encolado su consumo y, como mucho, ~1 s.
+export function whenHistorySettled(fn: () => void) {
+  let n = 0
+  const tick = () => { if ((consuming || pendingConsumes > 0) && n++ < 40) setTimeout(tick, 25); else fn() }
+  setTimeout(tick, 60)
+}
 // visor de depuración (solo dev): estado interno del sistema de atrás
 if (import.meta.env.DEV) {
   ;(window as any).__backDebug = () => ({ suppress, pendingConsumes, consuming, layers: layerStack.length })

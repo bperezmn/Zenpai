@@ -6,6 +6,7 @@ import type { CSSProperties } from 'react'
 import { needsAttention, wateringGuide } from '../mentor'
 import Settings from './Settings'
 import Premium from './Premium'
+import { whenHistorySettled } from '../useBackClose'
 
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 const DIA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
@@ -107,7 +108,7 @@ export default function Home() {
       )}
 
       {showSettings && <Settings onClose={() => setShowSettings(false)} />}
-      {showPremium && <Premium onClose={() => setShowPremium(false)} />}
+      {showPremium && <Premium motivo="carpas" onClose={() => setShowPremium(false)} onPremium={() => whenHistorySettled(startNew)} />}
 
       <style>{`
         .cbtn{width:100%;max-width:320px;border:none;border-radius:5px;font-weight:600;height:52px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.95rem;letter-spacing:.02em;cursor:pointer;background:#fff;color:#000}

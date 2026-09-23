@@ -20,7 +20,7 @@ function SceneImg({ src }: { src: string }) {
   )
 }
 import { metricsFor, targetFor, evalMetric, fmtRange, STATUS_COLOR, needsAttention, overwaterGuard, wateringGuide, sceneState } from '../mentor'
-import { useBackClose } from '../useBackClose'
+import { useBackClose, whenHistorySettled } from '../useBackClose'
 import Intro from './Intro'
 import Journal from './Journal'
 import Today from './Today'
@@ -68,6 +68,8 @@ export default function TentView() {
   const [showDiag, setShowDiag] = useState(false)
   // Premium y la cámara gestionan su propio "atrás" (se abren también encima de otras hojas)
   const [showPremium, setShowPremium] = useState(false)
+  const [premiumMotivo, setPremiumMotivo] = useState<'carpas' | undefined>(undefined)
+  const openPremium = (motivo?: 'carpas') => { setPremiumMotivo(motivo); setShowPremium(true) }
   const [showCamera, setShowCamera] = useState(false)
   // "Mis fotos": la carpa muestra las fotos reales del usuario (su timelapse) en vez de la guía
   const [photoMode, setPhotoMode] = useState(false)
@@ -192,7 +194,7 @@ export default function TentView() {
     setShowRecipe(true)
   }
 
-  const onNew = () => (!premium && enMarcha >= 1 ? setShowPremium(true) : startNew())
+  const onNew = () => (!premium && enMarcha >= 1 ? openPremium('carpas') : startNew())
   const isVeg = !preview && c.stage === 'veg'
   const plantable = !preview && !done && view === 'front' && effStage !== 'vacia'
   // etiquetas de la vista desde arriba: con una maceta, el nombre de la carpa; con varias, el nº
@@ -430,9 +432,10 @@ export default function TentView() {
           onPhoto={() => { setShowToday(false); setShowCamera(true) }}
           onDiagnose={() => { setShowToday(false); setShowDiag(true) }} />
       )}
-      {showDiag && <Diagnostico onClose={() => setShowDiag(false)} onPremium={() => setShowPremium(true)} />}
+      {showDiag && <Diagnostico onClose={() => setShowDiag(false)} onPremium={() => openPremium()} />}
       {showCamera && <TimelapseCamera onClose={() => setShowCamera(false)} />}
-      {showPremium && <Premium onClose={() => setShowPremium(false)} />}
+      {showPremium && <Premium motivo={premiumMotivo} onClose={() => setShowPremium(false)}
+        onPremium={premiumMotivo === 'carpas' ? () => whenHistorySettled(startNew) : undefined} />}
       {showLight && <LightSheet onClose={() => setShowLight(false)} />}
       {measureKey && <Measure metric={measureKey} onClose={() => setMeasureKey(null)} />}
       {intro && <Intro onDone={() => setIntro(false)} />}
