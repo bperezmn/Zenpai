@@ -19,7 +19,7 @@ function SceneImg({ src }: { src: string }) {
     </>
   )
 }
-import { metricsFor, targetFor, evalMetric, fmtRange, STATUS_COLOR, needsAttention, overwaterGuard, wateringGuide, sceneState } from '../mentor'
+import { metricsFor, targetFor, evalRange, fmtRange, STATUS_COLOR, needsAttention, overwaterGuard, wateringGuide, sceneState, ecHoy } from '../mentor'
 import { useBackClose, whenHistorySettled } from '../useBackClose'
 import Intro from './Intro'
 import Journal from './Journal'
@@ -27,9 +27,10 @@ import Today from './Today'
 import Measure from './Measure'
 import HowTo from './HowTo'
 import WaterRecipe from './WaterRecipe'
+import CheckPot from './CheckPot'
 import FinishGrow from './FinishGrow'
 import EditGrow from './EditGrow'
-import { HOWTOS } from '../howtos'
+import { riegoHowTo } from '../howtos'
 import Diagnostico from './Diagnostico'
 import Premium from './Premium'
 import TimelapseCamera from './TimelapseCamera'
@@ -79,6 +80,13 @@ export default function TentView() {
   const enMarcha = useStore((s) => s.grows.filter((g) => g.stage !== 'secando' && !g.grow.startsWith('Demo · ')).length)
   const [wateringHow, setWateringHow] = useState(false)
   const [showRecipe, setShowRecipe] = useState(false)
+  // revisión de la maceta (o del depósito): tocar las plantas abre esto, no el riego directo
+  const [showCheck, setShowCheck] = useState(false)
+  // la revisión dijo "pesa poco" / "está seca": el riego que siga cuenta para aprender el ritmo
+  const [dryOk, setDryOk] = useState(false)
+  // primer riego a fondo (con drenaje): que levante la maceta bien mojada (para comparar después)
+  const [wetTip, setWetTip] = useState(false)
+  const markWetTip = useStore((s) => s.markWetTip)
   const [measureKey, setMeasureKey] = useState<MetricKey | null>(null)
   const [confirmHarvest, setConfirmHarvest] = useState(false)
   const [showFinish, setShowFinish] = useState(false)
@@ -104,7 +112,7 @@ export default function TentView() {
     v.currentTime = Math.min(1, Math.max(0, previewDay! / TIMELAPSE_DAYS)) * d
   }, [preview, previewDay])
   const done = c.stage === 'secando'
-  const overlayOpen = showJournal || showToday || wateringHow || showRecipe || showFinish || showEdit || measureKey !== null || showLight || showDiag
+  const overlayOpen = showJournal || showToday || wateringHow || showRecipe || showCheck || showFinish || showEdit || measureKey !== null || showLight || showDiag
   const anySheet = overlayOpen || showPremium || showCamera
   // sin fotos no hay modo fotos (p. ej. al borrar la última desde la bitácora)
   useEffect(() => { if (!hasPhotos && photoMode) setPhotoMode(false) }, [hasPhotos, photoMode])
@@ -118,6 +126,7 @@ export default function TentView() {
     else if (showEdit) setShowEdit(false)
     else if (showFinish) setShowFinish(false)
     else if (showRecipe) setShowRecipe(false)
+    else if (showCheck) setShowCheck(false)
     else if (wateringHow) setWateringHow(false)
     else if (showToday) setShowToday(false)
     else if (showJournal) setShowJournal(false)
@@ -139,6 +148,15 @@ export default function TentView() {
   }, [coachDone, intro, done, preview, anySheet])
   function dismissCoach() { setShowCoach(false); markCoachDone() }
 
+  // desde el aviso de "Mis cultivos": la carpa se abre con la revisión de la maceta ya abierta.
+  // Cuando el historial se calma: su entrada de capa tiene que ir DESPUÉS de la de la pantalla
+  // (y de cualquier atrás programático en vuelo), o el atrás se comería la que no toca.
+  useEffect(() => {
+    if (!useStore.getState().pendingCheck) return
+    useStore.setState({ pendingCheck: false })
+    if (!intro && c.stage !== 'secando') whenHistorySettled(() => setShowCheck(true))
+  }, [])
+
   // la previsualización sale sola tras unos segundos sin tocar (no es un modo para quedarse);
   // lastTouch re-arma el timer cuando el dedo se suelta sin haber cambiado de día
   const [lastTouch, setLastTouch] = useState(0)
@@ -152,41 +170,58 @@ export default function TentView() {
   useEffect(() => { if (preview) setConfirmHarvest(false) }, [preview])
   const effDay = preview ? previewDay! : c.day
   const effStage = preview ? previewStage(c, previewDay!) : c.stage
+  // en la previsualización no hay hojas caídas: es la curva típica, no lo que anotaste
   const dc: Cultivo = preview
-    ? { ...c, day: effDay, stage: effStage, thirst: effStage === 'veg' ? 0.2 : 0 }
+    ? { ...c, day: effDay, stage: effStage, droopTs: null }
     : c
   const scene: SceneState = preview ? 'dia' : sceneState(c)
 
-  function doWater(e?: React.PointerEvent, toastOverride?: string, force?: boolean) {
-    if (e && sceneRef.current) {
+  // riega (el ripple sale sobre las macetas) y, la primera vez que ya riega hasta que drene, le pide
+  // que levante la maceta recién regada: así sabrá comparar cuánto pesa mojada y seca. Antes no: con
+  // la subida del agua (poca agua, sin drenaje) la maceta no está empapada y ese peso engañaría.
+  function doWater(opts: { toast?: string; force?: boolean; confirmed?: boolean } = {}) {
+    if (sceneRef.current) {
       const r = sceneRef.current.getBoundingClientRect()
       const rp = document.createElement('div')
       rp.className = 'ripple'
-      rp.style.left = e.clientX - r.left + 'px'
-      rp.style.top = e.clientY - r.top + 'px'
+      rp.style.left = r.width * 0.5 + 'px'
+      rp.style.top = r.height * 0.72 + 'px'
       sceneRef.current.appendChild(rp)
       setTimeout(() => rp.remove(), 800)
     }
-    water(toastOverride, force)
+    const tip = !c.wetTipDone && c.substrate !== 'hidro' && (c.stage === 'veg' || c.stage === 'flor' || c.stage === 'cosecha') && wateringGuide(c)?.drain === true && (opts.force || !overwaterGuard(c))
+    water(opts)
+    if (tip) { markWetTip(); setWetTip(true) }
   }
-  // "receta" de la etapa para el toast (avanzado riega directo pero ve los números)
+  // "receta" de la etapa para el toast (avanzado riega directo pero ve los números). Los días sin
+  // abono (tierra abonada, lavado) dice "solo agua" en vez de una EC que no toca buscar.
   function recipeText() {
     const w = wateringGuide(c)
     const ph = targetFor('ph', c.stage, c.substrate)
-    const ec = targetFor('ec', c.stage, c.substrate)
-    return [w ? w.amount : 'a fondo', 'pH ' + fmtRange(ph, 1), ec ? 'EC ' + fmtRange(ec, 1) : null].filter(Boolean).join(' · ')
+    const ec = ecHoy(c, guide)
+    return [w ? w.amount : null, 'pH ' + fmtRange(ph, 1), ec.range ? 'EC ' + fmtRange(ec.range, 1) : ec.soloAgua ? 'solo agua' : null].filter(Boolean).join(' · ')
   }
-  function onWater(e?: React.PointerEvent) {
+  // tocar las plantas (o el aviso de Hoy): primero se revisa la maceta; el reloj no sabe si está
+  // seca. mode 'solucion' (hidro): directo a la ficha de la solución nueva.
+  function openCheck(mode?: 'solucion') {
     // encontró el hotspot por su cuenta: el coach ya no tiene nada que enseñarle ahí
     if (showCoach) setShowCoach(false)
     if (!coachDone) markCoachDone()
+    setDryOk(false)
+    if (mode === 'solucion') { setShowRecipe(true); return }
+    setShowCheck(true)
+  }
+  // la revisión dijo "pesa poco" (plántula: "está seca") → toca regar
+  function onDry() {
+    setShowCheck(false)
+    setDryOk(true)
     if (guide === 'avanzado') {
       // guardarraíl activo → abrir la ficha (ahí vive el aviso y el "Regar igualmente":
       // si el sustrato está seco de verdad, siempre hay salida)
-      const guard = overwaterGuard(c)
-      if (guard) { setShowRecipe(true); return }
-      // la receta viaja como toast de water(): así el Deshacer se arma sobre SU propio toast
-      doWater(e, recipeText())
+      if (overwaterGuard(c)) { setShowRecipe(true); return }
+      // la receta viaja como toast de water(): así el Deshacer se arma sobre SU propio toast. Dice
+      // que el riego quedó anotado (la respuesta lo anota en el acto): el Deshacer lo quita
+      doWater({ toast: `Riego anotado · ${recipeText()}`, confirmed: true })
       return
     }
     // primer riego: enseñar cómo (una sola vez); después, la ficha de riego con la receta
@@ -225,10 +260,11 @@ export default function TentView() {
             {/* tinte por temperatura dentro de la abertura de la puerta (frío azul / calor rojo) */}
             <div className={`tinte ${scene === 'calor' ? 'tinte-calor' : 'tinte-frio'}`}
               style={{ opacity: view === 'front' && (scene === 'frio' || scene === 'calor') ? 1 : 0 }} />
-            {/* zona de riego: el interior de la carpa, de la copa más alta al platito */}
+            {/* zona de riego: el interior de la carpa, de la copa más alta al platito. Abre la
+                revisión de la maceta (o del depósito): el riego viene después, si hace falta */}
             {plantable && (
-              <button aria-label="Regar las plantas" onPointerDown={onWater}
-                onClick={(e) => { if (e.detail === 0) onWater() }} /* Enter/Espacio: click sin pointerdown */
+              <button aria-label={c.substrate === 'hidro' ? 'Revisar el depósito' : 'Revisar la maceta'} onPointerDown={() => openCheck()}
+                onClick={(e) => { if (e.detail === 0) openCheck() }} /* Enter/Espacio: click sin pointerdown */
                 className="absolute bg-transparent border-0 p-0 cursor-pointer"
                 style={{ left: '23%', top: '40%', width: '52%', height: '57%' }} />
             )}
@@ -285,8 +321,8 @@ export default function TentView() {
             {c.light ? 'Luz' : 'Noche'}
           </button>
         )}
-        {/* demo de sed: solo en desarrollo — en producción la sed llega sola con el tiempo */}
-        {import.meta.env.DEV && isVeg && view === 'front' && <button onClick={wilt} className="tbtn">Sed</button>}
+        {/* prueba de hojas caídas: solo en desarrollo (en la app las anota el usuario al revisar) */}
+        {import.meta.env.DEV && isVeg && c.substrate !== 'hidro' && view === 'front' && <button onClick={wilt} className="tbtn">Caídas</button>}
       </div>
 
       {/* línea de tiempo HORIZONTAL (arriba) = previsualización del ciclo */}
@@ -327,7 +363,8 @@ export default function TentView() {
       {/* panel inferior: cosechar · estado · dock de vitales
           (pointer-events-none en el contenedor: sus zonas transparentes no deben
           robarle taps al hotspot de riego; cada hijo interactivo re-activa los suyos) */}
-      <div className="absolute left-4 right-4 bottom-3 z-20 flex flex-col gap-2 pointer-events-none">
+      {/* con la tarjeta de "levántala ahora" a la vista, el panel pasa por encima de la columna derecha */}
+      <div className={`absolute left-4 right-4 bottom-3 ${wetTip && !preview && !anySheet ? 'z-40' : 'z-20'} flex flex-col gap-2 pointer-events-none`}>
         {!preview && (c.stage === 'cosecha' || done) && (
           confirmHarvest && c.stage === 'cosecha' ? (
             <div className="glass rounded-[5px] px-4 py-3 text-center self-center pointer-events-auto" style={{ maxWidth: 360 }}>
@@ -353,6 +390,17 @@ export default function TentView() {
           )
         )}
 
+        {/* primer riego a fondo: conocer el peso de la maceta bien mojada */}
+        {wetTip && !preview && !anySheet && (
+          <div className="glass rounded-[5px] px-4 py-3 self-center pointer-events-auto" style={{ maxWidth: 360 }}>
+            <div className="display font-semibold text-[.9rem] mb-1">Así pesa mojada</div>
+            <p className="text-[.8rem] mb-3 leading-snug" style={{ color: 'var(--muted)' }}>
+              Ya riegas hasta que drene: levanta la maceta ahora para saber cuánto pesa bien mojada. Cuando la revises, notarás la diferencia.
+            </p>
+            <button onClick={() => setWetTip(false)} className="abtn w-full">Entendido</button>
+          </div>
+        )}
+
         {/* caption de estado: qué pasa y qué se puede tocar (el texto vive en statusText) */}
         {!preview && (
           <div className="flex items-center justify-center gap-2 text-[.8rem] font-medium pointer-events-none"
@@ -365,29 +413,33 @@ export default function TentView() {
         {/* dock: objetivos por etapa (toca una métrica para registrar tu medición) */}
         <div className="dock-row flex gap-[7px] overflow-x-auto pointer-events-auto">
             {tiles.map((m) => {
-              const range = targetFor(m.key, effStage, c.substrate)
-              const noTarget = range === null
+              // la EC se juzga contra la de HOY (ecHoy): un día de solo agua (o con abono orgánico)
+              // no tiene objetivo, pero la casilla sigue abierta para anotar lo que marca el medidor
+              const hoy = m.key === 'ec' && !preview ? ecHoy(c, guide) : null
+              const range = hoy ? hoy.range : targetFor(m.key, effStage, c.substrate)
+              const noTarget = range === null && !hoy?.nota
               const reading = c.readings[m.key]
               const rDay = c.readingDays[m.key]
               // una lectura solo es "fresca" si se tomó en la etapa actual (el pH no depende de la etapa)
               const fresh = reading != null && (m.key === 'ph' || (rDay != null && stageAt(c, rDay) === effStage))
               const showReading = !preview && fresh && !noTarget
-              const ev = showReading ? evalMetric(m.key, reading!, effStage, c.substrate) : null
+              const ev = showReading && range ? evalRange(m.key, reading!, range) : null
               const color = ev ? STATUS_COLOR[ev.status] : 'var(--text)'
-                const markerPct = showReading && range ? Math.min(98, Math.max(2, 28 + (44 * (reading! - range.lo)) / (range.hi - range.lo || 1))) : 50
+                const markerPct = ev && range ? Math.min(98, Math.max(2, 28 + (44 * (reading! - range.lo)) / (range.hi - range.lo || 1))) : 50
                 return (
                 <button key={m.key} disabled={preview || noTarget} onClick={() => setMeasureKey(m.key)}
                   className="tile relative flex-1 min-w-[30%] text-left"
                   style={{ opacity: preview ? 0.45 : noTarget ? 0.5 : 1 }}>
                   <div className="label">{m.label}</div>
                   <div className="mono text-[1.2rem] font-medium leading-none mt-1.5" style={{ color: showReading ? color : 'var(--text)' }}>
-                    {noTarget ? '—' : showReading ? fmtVal(reading!, m.dec) : fmtRange(range, m.dec)}
+                    {showReading ? fmtVal(reading!, m.dec) : range ? fmtRange(range, m.dec) : '—'}
                   </div>
                   <div className="relative mt-2" style={{ height: 2, background: 'rgba(255,255,255,.14)' }}>
-                    {!noTarget && <div className="absolute" style={{ left: '28%', width: '44%', height: 2, background: 'rgba(255,255,255,.35)' }} />}
-                    {showReading && <div className="absolute" style={{ left: `calc(${markerPct}% - 2px)`, top: -2, width: 4, height: 6, background: color }} />}
+                    {range && <div className="absolute" style={{ left: '28%', width: '44%', height: 2, background: 'rgba(255,255,255,.35)' }} />}
+                    {ev && <div className="absolute" style={{ left: `calc(${markerPct}% - 2px)`, top: -2, width: 4, height: 6, background: color }} />}
                   </div>
-                  {showReading && <div className="label mt-1.5">meta {fmtRange(range, m.dec)}</div>}
+                  {showReading && range && <div className="label mt-1.5">meta {fmtRange(range, m.dec)}</div>}
+                  {!range && hoy?.nota && <div className="label mt-1.5">{hoy.soloAgua ? 'solo agua' : 'sin objetivo'}</div>}
                 </button>
               )
             })}
@@ -402,7 +454,7 @@ export default function TentView() {
             <span className="coach-ring" />
           </div>
           <div className="absolute left-8 right-8 text-center pointer-events-none" style={{ top: '38%' }}>
-            <div className="coach-tip"><b>Toca las plantas</b> para regar.</div>
+            <div className="coach-tip"><b>Toca las plantas</b> para revisar {c.substrate === 'hidro' ? 'el depósito' : 'la maceta y regar'}.</div>
           </div>
           <div className="absolute left-6 right-6 text-center pointer-events-none" style={{ bottom: '112px' }}>
             <div className="coach-tip">Abajo tienes los <b>objetivos de la etapa</b>. Toca una métrica para anotar tu lectura.</div>
@@ -411,23 +463,31 @@ export default function TentView() {
         </div>
       )}
 
+      {/* primer riego y "Ver cómo" de la ficha: en plántula, un vaso sin drenaje; después, a fondo */}
       {wateringHow && (
-        <HowTo def={HOWTOS.riego} actionLabel="Continuar →"
+        <HowTo def={riegoHowTo(c.stage)} actionLabel="Continuar →"
           onAction={() => { setWateringHow(false); setShowRecipe(true) }}
           onClose={() => setWateringHow(false)} />
       )}
+      {showCheck && (
+        <CheckPot onDry={onDry}
+          onSolution={() => { setShowCheck(false); setShowRecipe(true) }}
+          onClose={() => setShowCheck(false)} />
+      )}
       {showRecipe && (
         <WaterRecipe
-          onConfirm={(force) => { setShowRecipe(false); doWater(undefined, guide === 'avanzado' ? recipeText() : undefined, force) }}
+          // solo el riego que viene de "pesa poco" (y no forzado) enseña el ritmo
+          onConfirm={(force) => { setShowRecipe(false); doWater({ toast: guide === 'avanzado' ? `Riego anotado · ${recipeText()}` : undefined, force, confirmed: dryOk && !force }); setDryOk(false) }}
           onHow={() => { setShowRecipe(false); setWateringHow(true) }}
-          onClose={() => setShowRecipe(false)} />
+          onClose={() => { setShowRecipe(false); setDryOk(false) }} />
       )}
       {showFinish && <FinishGrow onClose={() => setShowFinish(false)} />}
       {showEdit && <EditGrow onClose={() => setShowEdit(false)} />}
       {showJournal && <Journal onClose={() => setShowJournal(false)} />}
       {showToday && (
         <Today onClose={() => setShowToday(false)}
-          onWater={() => { setShowToday(false); onWater() }}
+          onCheck={(mode) => { setShowToday(false); openCheck(mode) }}
+          onLight={() => { setShowToday(false); setShowLight(true) }}
           onMeasure={(key) => { setShowToday(false); setMeasureKey(key) }}
           onPhoto={() => { setShowToday(false); setShowCamera(true) }}
           onDiagnose={() => { setShowToday(false); setShowDiag(true) }} />

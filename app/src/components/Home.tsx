@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../store'
 import { Logo } from '../App'
-import { frontImg, stageLabel, type Cultivo } from '../lib'
+import { frontImg, stageLabel, droopPending, solutionLate, revisaConDedo, dedoCm, type Cultivo } from '../lib'
 import type { CSSProperties } from 'react'
-import { needsAttention, wateringGuide } from '../mentor'
+import { needsAttention, attentionText, wateringGuide } from '../mentor'
 import Settings from './Settings'
 import Premium from './Premium'
 import { whenHistorySettled } from '../useBackClose'
@@ -22,7 +22,7 @@ export default function Home() {
   const premium = useStore((s) => s.premium)
   const [showPremium, setShowPremium] = useState(false)
 
-  // los chips "Riega hoy / Al día" dependen del reloj: un tick por minuto los mantiene al día
+  // los chips "Revisa la maceta / Al día" dependen del reloj: un tick por minuto los mantiene al día
   const [, setClock] = useState(0)
   useEffect(() => {
     const t = setInterval(() => setClock((n) => n + 1), 60000)
@@ -80,7 +80,7 @@ export default function Home() {
         </div>
       ) : (
         <>
-          <Hero g={hero} onOpen={() => openGrow(hero.id)}
+          <Hero g={hero} onOpen={() => openGrow(hero.id)} onCheck={() => openGrow(hero.id, { check: true })}
             confirming={confirmId === hero.id}
             onAskDelete={() => setConfirmId(hero.id)}
             onCancelDelete={() => setConfirmId(null)}
@@ -88,7 +88,7 @@ export default function Home() {
           <div className="px-6">
             {rest.map((g) => (
               <Row key={g.id} g={g}
-                onOpen={() => openGrow(g.id)}
+                onOpen={() => openGrow(g.id)} onCheck={() => openGrow(g.id, { check: true })}
                 confirming={confirmId === g.id}
                 onAskDelete={() => setConfirmId(g.id)}
                 onCancelDelete={() => setConfirmId(null)}
@@ -124,12 +124,24 @@ export default function Home() {
   )
 }
 
-// estado de un cultivo en pocas palabras, con el mismo nombre en las filas y en la portada
+// estado de un cultivo en pocas palabras, con el mismo nombre en las filas y en la portada.
+// El reloj solo sabe que toca MIRAR la maceta, no que esté seca: "Revisa la maceta" en ámbar,
+// nunca "Riega hoy" en rojo.
 function estado(g: Cultivo): { text: string; color: string; alert: boolean } {
   if (g.stage === 'remojo') return { text: 'Germinando', color: 'var(--muted)', alert: false }
   if (g.finishedTs) return { text: 'Terminado', color: 'var(--faint)', alert: false }
   if (g.stage === 'secando') return { text: 'Secando', color: 'var(--muted)', alert: false }
-  return needsAttention(g) ? { text: 'Riega hoy', color: 'var(--danger)', alert: true } : { text: 'Al día', color: 'var(--blue)', alert: false }
+  return needsAttention(g) ? { text: attentionText(g), color: 'var(--warn)', alert: true } : { text: 'Al día', color: 'var(--blue)', alert: false }
+}
+// debajo del aviso: qué mirar y qué hacer según lo que veas (la cantidad sale de la ficha de riego;
+// con el dedo en plántula y mientras el agua sube por semanas, como la revisión)
+function checkHint(g: Cultivo): string | null {
+  if (g.substrate === 'hidro') return solutionLate(g) ? 'Vacía el depósito y prepara solución nueva' : 'Si el nivel bajó, rellénalo'
+  if (droopPending(g)) return 'Anotaste hojas caídas: ¿sed o exceso de agua?'
+  if (g.stage === 'plantula') return 'Si los primeros 2 cm están secos, 1 vaso'
+  const w = wateringGuide(g)
+  if (!w) return null
+  return revisaConDedo(g) ? `Si los ${dedoCm(g)} cm de arriba están secos, ${w.amount}` : `Si pesa poco, riega ${w.amount}`
 }
 // withDay=false cuando el día ya se muestra aparte (contador grande de la portada)
 function meta(g: Cultivo, withDay = true): string {
@@ -138,7 +150,6 @@ function meta(g: Cultivo, withDay = true): string {
   const rest = `${stageLabel[g.stage]} · ${g.plants} ${g.plants === 1 ? 'planta' : 'plantas'}`
   return withDay ? `Día ${g.day} · ${rest}` : rest
 }
-// '~2 L (unos 8 vasos)' → '~2 L, unos 8 vasos' para leerlo como frase
 // La foto de la carpa encuadrada en la planta: se amplía y se ancla abajo, así la maceta y la
 // planta llenan el recuadro (la foto entera es 3:4 con mucho mylar arriba). zoom = cuántas veces
 // el alto del recuadro mide la foto. El remojo (el vaso de agua) y el secado (las ramas cuelgan
@@ -161,17 +172,30 @@ function FotoCarpa({ g, zoom, className, style }: { g: Cultivo; zoom: number; cl
   )
 }
 
-function amountText(amount: string): string {
-  return amount.replace(/\s*\(([^)]+)\)/, ', $1')
-}
-
 type CardProps = { g: Cultivo; onOpen: () => void; confirming: boolean; onAskDelete: () => void; onCancelDelete: () => void; onConfirmDelete: () => void }
 
-function Hero({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDelete }: CardProps) {
+function Hero({ g, onOpen, onCheck, confirming, onAskDelete, onCancelDelete, onConfirmDelete }: CardProps & { onCheck: () => void }) {
   const st = estado(g)
   const gauged = g.stage !== 'remojo' && g.stage !== 'secando'
   const attention = gauged && needsAttention(g)
-  const w = gauged ? wateringGuide(g) : null
+  const hint = attention ? checkHint(g) : null
+  // con aviso, la línea entera (y su botón "Revisar", que la delata) abre la carpa con la revisión
+  // de la maceta ya abierta
+  const status = (
+    <>
+      {attention ? (
+        <svg className="flex-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" /></svg>
+      ) : (
+        <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: st.color }} />
+      )}
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-[.88rem] font-medium">{st.text}</span>
+        {hint && !confirming && (
+          <span className="text-[.78rem] truncate" style={{ color: 'var(--muted)' }}>{hint}</span>
+        )}
+      </div>
+    </>
+  )
   return (
     <div className="mt-5">
       <button onClick={onOpen} className="relative block w-full text-left overflow-hidden" style={{ height: 400, background: '#000' }}>
@@ -196,19 +220,14 @@ function Hero({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDel
       </button>
       <div className="px-6">
         <div className="flex items-center gap-2.5 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,.12)' }}>
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            {attention ? (
-              <svg className="flex-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" /></svg>
-            ) : (
-              <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: st.color }} />
-            )}
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="text-[.88rem] font-medium">{st.text}</span>
-              {attention && w && !confirming && (
-                <span className="text-[.78rem] truncate" style={{ color: 'var(--muted)' }}>{amountText(w.amount)}</span>
-              )}
-            </div>
-          </div>
+          {attention && !confirming ? (
+            <button onClick={onCheck} className="flex items-center gap-2.5 min-w-0 flex-1 text-left"
+              style={{ background: 'none', border: 0, padding: 0, color: 'inherit', cursor: 'pointer', minHeight: 44 }}>
+              {status}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">{status}</div>
+          )}
           <span className="flex items-center gap-1 flex-none">
             {confirming ? (
               <>
@@ -216,9 +235,12 @@ function Hero({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDel
                 <button onClick={onCancelDelete} className="dbtn link">Cancelar</button>
               </>
             ) : (
+              <>
+              {attention && <button onClick={onCheck} className="dbtn" style={{ height: 44, fontSize: '.88rem' }}>Revisar</button>}
               <button onClick={onAskDelete} aria-label="Eliminar cultivo" title="Eliminar" className="xbtn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
               </button>
+              </>
             )}
           </span>
         </div>
@@ -227,11 +249,12 @@ function Hero({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDel
   )
 }
 
-function Row({ g, onOpen, confirming, onAskDelete, onCancelDelete, onConfirmDelete }: CardProps) {
+// una fila con aviso abre la carpa con la revisión ya abierta, igual que la portada
+function Row({ g, onOpen, onCheck, confirming, onAskDelete, onCancelDelete, onConfirmDelete }: CardProps & { onCheck: () => void }) {
   const st = estado(g)
   return (
     <div className="flex items-center" style={{ opacity: g.stage === 'secando' ? 0.8 : 1 }}>
-      <button onClick={onOpen} className="hrow min-w-0">
+      <button onClick={st.alert ? onCheck : onOpen} className="hrow min-w-0">
         <FotoCarpa g={g} zoom={1.75} className="relative w-[54px] h-[54px] flex-none" style={{ borderRadius: 5 }} />
         <div className="min-w-0 flex-1 flex flex-col gap-1">
           <div className="flex items-center gap-2.5 min-w-0">

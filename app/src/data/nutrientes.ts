@@ -7,7 +7,7 @@
 // como las conocemos: hay que cotejarlas con la tabla vigente de cada marca antes de darlas
 // por buenas (la app lo avisa). Las líneas que no estén aquí llegarán por la lectura de la
 // tabla con IA, con esta misma estructura, y se revisan antes de publicarlas.
-import type { Substrate } from '../lib'
+import { flipDayOf, flowerLenOf, type Substrate, type CicloInput } from '../lib'
 
 export type EtapaDosis = 'esqueje' | 'trasplante' | 'veg' | 'flor'
 
@@ -23,6 +23,7 @@ export interface FaseDosis {
   nombre: string        // como lo llama el fabricante
   semanaFlor?: number   // solo en floración: semana 1..N desde el 12/12
   tardia?: boolean      // veg: temprana (false) o tardía (true)
+  lavado?: boolean      // flor: el lavado final del fabricante (solo agua o su producto de lavado)
   dosis: Record<string, number>  // producto id → ml por litro (los ausentes = no se usa)
 }
 
@@ -35,6 +36,8 @@ export interface LineaNutrientes {
   ph: [number, number]          // rango de pH de la solución ya mezclada
   aguaC?: [number, number]      // temperatura ideal del agua (°C)
   verificado: boolean
+  organico?: boolean     // abono orgánico: en tierra, el lavado final es opcional (y la EC no sirve para dosificarlo)
+  tierraMax?: number     // en tierra, como mucho esta fracción de la tabla (una tabla de hidro en tierra quema)
   fuente: string
   color: string          // color de marca para el monograma (mientras no haya logo oficial)
   logo?: string          // archivo en public/assets/marcas/ (logo oficial del kit de prensa; opcional)
@@ -47,6 +50,8 @@ export interface LineaNutrientes {
 
 const veg = (nombre: string, tardia: boolean, dosis: Record<string, number>): FaseDosis => ({ etapa: 'veg', nombre, tardia, dosis })
 const flor = (semanaFlor: number, nombre: string, dosis: Record<string, number>): FaseDosis => ({ etapa: 'flor', nombre, semanaFlor, dosis })
+// la última fila de la tabla: el lavado final (vacío = solo agua)
+const lavado = (semanaFlor: number, nombre: string, dosis: Record<string, number> = {}): FaseDosis => ({ etapa: 'flor', nombre, semanaFlor, dosis, lavado: true })
 
 export const EMERALD_HARVEST_2PART: LineaNutrientes = {
   id: 'emerald-harvest-2part',
@@ -84,7 +89,7 @@ export const EMERALD_HARVEST_2PART: LineaNutrientes = {
     flor(6, 'Floración tardía', { 'bloom-a': 1.5, 'bloom-b': 1.5, goddess: 2.5, kola: 2, honey: 2 }),
     flor(7, 'Floración tardía', { 'bloom-a': 1.5, 'bloom-b': 1.5, goddess: 2.5, kola: 2, honey: 2 }),
     flor(8, 'Maduración', { 'bloom-a': 1.5, 'bloom-b': 1.5, goddess: 1.25, kola: 1, honey: 1.5 }),
-    flor(9, 'Brote (lavado final)', { 'bloom-a': 0.25, 'bloom-b': 0.25, honey: 1.5 }),
+    lavado(9, 'Brote (lavado final)', { 'bloom-a': 0.25, 'bloom-b': 0.25, honey: 1.5 }),
   ],
   suplementos: [
     { id: 'cal-mag', nombre: 'Cal-Mag', rol: 'Suplemento de calcio-magnesio', dosis: [0.5, 1.25], cuando: 'Cuando haga falta, del primer vegetativo a la última floración, solo en días de riego.' },
@@ -111,6 +116,8 @@ export const GH_FLORA: LineaNutrientes = {
   unidad: 'ml/L',
   ph: [5.5, 6.5],
   verificado: false,
+  // su tabla es de hidro; en tierra la propia marca pide la mitad (la 3-2-1 entera da EC ~1.8–2.1)
+  tierraMax: 0.5,
   fuente: 'Receta de etiqueta (tsp/gal) convertida a ml/L',
   productos: [
     { id: 'gro', nombre: 'FloraGro', rol: 'Crecimiento estructural', base: true },
@@ -130,7 +137,7 @@ export const GH_FLORA: LineaNutrientes = {
     flor(6, 'Floración (1-2-3)', { gro: 1.3, micro: 2.6, bloom: 4 }),
     flor(7, 'Floración (1-2-3)', { gro: 1.3, micro: 2.6, bloom: 4 }),
     flor(8, 'Maduración (0-1-2)', { micro: 1.3, bloom: 2.6 }),
-    flor(9, 'Lavado final: solo agua', {}),
+    lavado(9, 'Lavado final: solo agua'),
   ],
   reglas: [
     'Agregar siempre FloraMicro al agua primero y mezclar bien antes del siguiente producto.',
@@ -172,7 +179,7 @@ export const CANNA_TERRA: LineaNutrientes = {
     flor(6, 'Floración plena', { flores: 4, boost: 4, zym: 2.5 }),
     flor(7, 'Floración plena', { flores: 4, boost: 4, zym: 2.5 }),
     flor(8, 'Final', { flores: 3, boost: 4, zym: 2.5 }),
-    flor(9, 'Lavado final: solo agua', {}),
+    lavado(9, 'Lavado final: solo agua'),
   ],
   reglas: [
     'El PK 13/14 se usa UNA semana (la 4ª–5ª de floración); no repetirlo.',
@@ -213,7 +220,7 @@ export const CANNA_COCO: LineaNutrientes = {
     flor(6, 'Floración plena', { a: 4, b: 4, boost: 4, zym: 2.5 }),
     flor(7, 'Floración plena', { a: 4, b: 4, boost: 4, zym: 2.5 }),
     flor(8, 'Final', { a: 3, b: 3, boost: 4, zym: 2.5 }),
-    flor(9, 'Lavado final: solo agua', {}),
+    lavado(9, 'Lavado final: solo agua'),
   ],
   reglas: [
     'A y B siempre en la misma cantidad y nunca mezclados concentrados.',
@@ -257,7 +264,7 @@ export const AN_SENSI: LineaNutrientes = {
     flor(5, 'Floración semana 5', { 'bloom-a': 4, 'bloom-b': 4, overdrive: 2, candy: 2 }),
     flor(6, 'Floración semana 6', { 'bloom-a': 4, 'bloom-b': 4, overdrive: 2, candy: 2 }),
     flor(7, 'Floración semana 7', { 'bloom-a': 4, 'bloom-b': 4, overdrive: 2, candy: 2 }),
-    flor(8, 'Lavado (Flawless Finish)', { finish: 2 }),
+    lavado(8, 'Lavado (Flawless Finish)', { finish: 2 }),
   ],
   reglas: [
     'Con pH Perfect no hace falta ajustar el pH si el agua de partida está entre 5.5 y 7.5.',
@@ -277,6 +284,7 @@ export const BIOBIZZ: LineaNutrientes = {
   unidad: 'ml/L',
   ph: [6.2, 6.8],
   verificado: false,
+  organico: true,
   fuente: 'Tabla de cultivo BioBizz (resumen)',
   productos: [
     { id: 'root', nombre: 'Root-Juice', rol: 'Raíces (primeras semanas)' },
@@ -297,7 +305,7 @@ export const BIOBIZZ: LineaNutrientes = {
     flor(6, 'Floración semana 6', { grow: 4, bloom: 4, topmax: 4, heaven: 4 }),
     flor(7, 'Floración semana 7', { grow: 4, bloom: 4, topmax: 4, heaven: 4 }),
     flor(8, 'Floración semana 8', { grow: 4, bloom: 4, topmax: 4 }),
-    flor(9, 'Lavado final: solo agua', {}),
+    lavado(9, 'Lavado final: solo agua'),
   ],
   reglas: [
     'Orgánico: no hace falta medir EC; agitar bien las botellas antes de usar.',
@@ -336,7 +344,7 @@ export const PLAGRON_TERRA: LineaNutrientes = {
     flor(6, 'Floración semana 6', { bloom: 5, green: 1 }),
     flor(7, 'Floración semana 7', { bloom: 5, green: 1 }),
     flor(8, 'Floración semana 8', { bloom: 4, green: 1 }),
-    flor(9, 'Lavado final: solo agua', {}),
+    lavado(9, 'Lavado final: solo agua'),
   ],
   reglas: ['Green Sensation solo en las últimas 4 semanas de floración.'],
 }
@@ -372,7 +380,7 @@ export const HESI_TIERRA: LineaNutrientes = {
     flor(5, 'Floración semana 5', { bloom: 5, pk: 1.5, boost: 2 }),
     flor(6, 'Floración semana 6', { bloom: 5, pk: 1.5, boost: 2 }),
     flor(7, 'Floración semana 7', { bloom: 5, pk: 1.5 }),
-    flor(8, 'Lavado final: solo agua', {}),
+    lavado(8, 'Lavado final: solo agua'),
   ],
   reglas: ['Hesi está pensado para no tener que medir EC; con macetas pequeñas, bajar a la mitad.'],
 }
@@ -410,7 +418,7 @@ export const TOP_CROP: LineaNutrientes = {
     flor(6, 'Floración semana 6', { bloom: 4, candy: 2, bigone: 4, bud: 2 }),
     flor(7, 'Floración semana 7', { bloom: 4, candy: 2, bigone: 4, bud: 2 }),
     flor(8, 'Floración semana 8', { bloom: 3, candy: 2 }),
-    flor(9, 'Lavado final: solo agua', {}),
+    lavado(9, 'Lavado final: solo agua'),
   ],
   reglas: ['Empezar por la dosis baja del rango y subir si la planta lo pide.'],
 }
@@ -418,21 +426,78 @@ export const TOP_CROP: LineaNutrientes = {
 export const LINEAS: LineaNutrientes[] = [EMERALD_HARVEST_2PART, GH_FLORA, CANNA_TERRA, CANNA_COCO, AN_SENSI, BIOBIZZ, PLAGRON_TERRA, HESI_TIERRA, TOP_CROP]
 export const lineaPorId = (id: string | null | undefined): LineaNutrientes | null => LINEAS.find((l) => l.id === id) ?? null
 
-// La fase que toca según la etapa del cultivo y, en floración, la semana desde el 12/12.
-// Vegetativo: 'temprana' hasta el día 30, 'tardía' después. Más allá de la última semana de
-// floración de la tabla, se repite la última.
-export function faseActual(linea: LineaNutrientes, etapa: 'plantula' | 'veg' | 'flor', dia: number, semanaFlor: number | null): FaseDosis | null {
-  if (etapa === 'plantula') return linea.fases.find((f) => f.etapa === 'trasplante') ?? linea.fases.find((f) => f.etapa === 'esqueje') ?? null
-  if (etapa === 'veg') return linea.fases.find((f) => f.etapa === 'veg' && f.tardia === dia > 30) ?? linea.fases.find((f) => f.etapa === 'veg') ?? null
-  const flores = linea.fases.filter((f) => f.etapa === 'flor')
-  if (!flores.length) return null
-  const w = Math.max(1, semanaFlor ?? 1)
-  return flores.find((f) => f.semanaFlor === w) ?? flores[flores.length - 1]
+// "Otra marca": abona con su propio producto, sin tabla; la app lo guía por la EC de la etapa.
+// (nutrientesId null = solo agua, que solo vale en tierra)
+export const OTRA_MARCA = 'otra'
+// La elección de abono que vale para ese sustrato: en coco e hidro no se cultiva solo con agua (el
+// sustrato no trae comida: la planta pasa hambre en 1–2 semanas) y una línea que no es para ese
+// sustrato (o que ya no está en el catálogo) pasa a "otra marca": sigue teniendo su botella.
+export function nutrientesPara(id: string | null | undefined, sub: Substrate): string | null {
+  if (id == null) return sub === 'tierra' ? null : OTRA_MARCA
+  if (id === OTRA_MARCA) return id
+  const l = lineaPorId(id)
+  return l && l.sustratos.includes(sub) ? id : OTRA_MARCA
 }
 
-// Dosis en ml de cada producto para un riego de `litros` (redondeo a 0.1 ml).
-export function dosisRiego(linea: LineaNutrientes, fase: FaseDosis, litros: number): { producto: ProductoNutriente; ml: number; mlPorL: number }[] {
+// ===== lavado final =====
+// Empieza 10 días antes de la cosecha estimada (harvestEta) y dura como mucho eso: nunca se alarga
+// con semanas de solo agua de más. Los días cuentan desde que empezó la flor (flipDayOf) sobre la
+// floración de SU variedad (flowerLenOf), la misma cuenta que la fecha de cosecha.
+export const LAVADO_DIAS = 10
+type FaseInput = CicloInput
+// días de floración con abono antes del lavado (al menos una semana, por si la flor es muy corta)
+const diasConAbono = (c: FaseInput) => Math.max(7, flowerLenOf(c) - LAVADO_DIAS)
+export function enLavado(c: FaseInput): boolean {
+  return c.stage === 'flor' && c.day - flipDayOf(c) >= diasConAbono(c)
+}
+// el lavado lo marca la tabla (su última fila); una tabla sin él (o una fila vacía) = solo agua
+const esLavado = (f: FaseDosis) => !!f.lavado || Object.keys(f.dosis).length === 0
+const LAVADO_SOLO_AGUA: FaseDosis = { etapa: 'flor', nombre: 'Lavado final: solo agua', dosis: {}, lavado: true }
+
+// una fila con PK 13/14 (Canna, Hesi) no se estira: la marca la quiere una semana, y más días de
+// fósforo-potasio pueden bloquear otros nutrientes
+const SEMANA_FIJA = 7
+const esSemanaFija = (f: FaseDosis) => f.dosis.pk != null
+
+// La fase de la tabla que toca hoy según la etapa del cultivo.
+// Plántula: la fase de trasplante (o de esqueje). Vegetativo: 'temprana' hasta el día 30,
+// 'tardía' después. Floración: las semanas con abono de la tabla se reparten en proporción sobre
+// las semanas REALES de la variedad (una de 7 semanas las recorre más rápido; una de 12, más
+// despacio), sin semanas de solo agua de más; los últimos 10 días, el lavado de la tabla. Si al
+// estirar una fila pasaría de 7 días, las de PK se quedan en 7 y el resto se reparte entre las demás.
+// Antes iba por semana absoluta: una variedad de 7 semanas nunca llegaba al lavado y una de 12
+// recibía 2–4 semanas de solo agua justo cuando engordan los cogollos.
+export function faseActual(linea: LineaNutrientes, c: FaseInput): FaseDosis | null {
+  if (c.stage === 'plantula' || c.stage === 'germinacion') return linea.fases.find((f) => f.etapa === 'trasplante') ?? linea.fases.find((f) => f.etapa === 'esqueje') ?? null
+  if (c.stage === 'veg') return linea.fases.find((f) => f.etapa === 'veg' && f.tardia === c.day > 30) ?? linea.fases.find((f) => f.etapa === 'veg') ?? null
+  if (c.stage !== 'flor') return null
+  const flores = linea.fases.filter((f) => f.etapa === 'flor')
+  if (!flores.length) return null
+  const conAbono = flores.filter((f) => !esLavado(f)).sort((a, b) => (a.semanaFlor ?? 0) - (b.semanaFlor ?? 0))
+  const final = flores.find(esLavado) ?? LAVADO_SOLO_AGUA
+  if (!conAbono.length || enLavado(c)) return final
+  const d = Math.max(0, c.day - flipDayOf(c))
+  const total = diasConAbono(c)
+  const n = conAbono.length
+  const fijas = conAbono.filter(esSemanaFija).length
+  const igual = total / n
+  const largo = (f: FaseDosis) => (igual <= SEMANA_FIJA || fijas === n ? igual
+    : esSemanaFija(f) ? SEMANA_FIJA : (total - SEMANA_FIJA * fijas) / (n - fijas))
+  let fin = 0
+  for (const f of conAbono) { fin += largo(f); if (d < fin) return f }
+  return conAbono[n - 1]
+}
+// semanas de floración de la variedad sobre las que se reparte la tabla (medias semanas: "8.5")
+export const semanasFlorDe = (c: FaseInput) => Math.round((flowerLenOf(c) / 7) * 2) / 2
+
+// Dosis en ml de cada producto para un riego de `litros` (redondeo a 0.1 ml). factor = la fuerza
+// del abono (abonoDe: el nivel y, en tierra, el tope de la marca; 0.5 = media dosis de la tabla);
+// por defecto, la tabla tal cual.
+export function dosisRiego(linea: LineaNutrientes, fase: FaseDosis, litros: number, factor = 1): { producto: ProductoNutriente; ml: number; mlPorL: number }[] {
   return linea.productos
     .filter((p) => fase.dosis[p.id] != null)
-    .map((p) => ({ producto: p, mlPorL: fase.dosis[p.id], ml: Math.round(fase.dosis[p.id] * litros * 10) / 10 }))
+    .map((p) => {
+      const mlPorL = fase.dosis[p.id] * factor
+      return { producto: p, mlPorL: Math.round(mlPorL * 100) / 100, ml: Math.round(mlPorL * litros * 10) / 10 }
+    })
 }

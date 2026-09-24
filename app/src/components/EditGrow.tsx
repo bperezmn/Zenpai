@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useStore, selectActive } from '../store'
-import type { Substrate, SeedType, PotType } from '../lib'
+import type { Substrate, SeedType, PotType, TierraAbonada } from '../lib'
 import NutrientesPicker from './NutrientesPicker'
 import EquipoSheet from './EquipoSheet'
 import { CATEGORIAS, nombreEquipo } from '../data/equipos'
+import { nutrientesPara } from '../data/nutrientes'
 
 const SUBS: { id: Substrate; label: string }[] = [
   { id: 'tierra', label: 'Tierra'},
@@ -11,6 +12,12 @@ const SUBS: { id: Substrate; label: string }[] = [
   { id: 'hidro', label: 'Hidro'},
 ]
 const POTS = [4, 7, 11, 19, 25]
+// ¿la tierra del saco ya trae abono? "No sé" se trata como abonada (lo seguro)
+const ABONADA: { id: TierraAbonada; label: string }[] = [
+  { id: 'si', label: 'Sí' },
+  { id: 'no', label: 'No' },
+  { id: 'nose', label: 'No sé' },
+]
 // semanas de la variedad (vienen en el paquete o en la web del banco); null = no sé
 const FLOWER_WEEKS = [7, 8, 9, 10, 11, 12]
 const AUTO_WEEKS = [8, 9, 10, 11, 12, 13, 14]
@@ -25,7 +32,7 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
   const [sub, setSub] = useState<Substrate>(c.substrate)
   const [potType, setPotType] = useState<PotType>(c.potType ?? 'tela')
   const [nut, setNut] = useState<string | null>(c.nutrientesId ?? null)
-  const setNutrientes = useStore((s) => s.setNutrientes)
+  const [abonada, setAbonada] = useState<TierraAbonada>(c.tierraAbonada ?? 'nose')
   const [seedType, setSeedType] = useState<SeedType>(c.seedType)
   // con la floración en marcha (12/12 anotado o auto ya en flor) el tipo ya no se toca:
   // cambiarlo reescribiría la historia del cultivo
@@ -42,9 +49,9 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
   const equipo = CATEGORIAS.map((k) => nombreEquipo(c.equipment[k.id])).filter(Boolean).join(' · ')
 
   function save() {
-    updateGrow({ grow: name, potL, potType, substrate: sub, seedType })
+    // el abono va con el resto de datos: un solo cambio (y una sola nota) aunque cambie el sustrato
+    updateGrow({ grow: name, potL, potType, substrate: sub, seedType, tierraAbonada: abonada, nutrientesId: nut })
     setGenetics({ strain: strain.trim() || null, breeder: breeder.trim() || null, flowerWeeks, autoWeeks })
-    setNutrientes(nut)
     onClose()
   }
 
@@ -77,9 +84,22 @@ export default function EditGrow({ onClose }: { onClose: () => void }) {
           <p className="text-[.76rem] mb-2" style={{ color: 'var(--muted)' }}>Cambia el pH objetivo y los avisos de riego.</p>
           <div className="flex gap-[7px] mb-4">
             {SUBS.map((s) => (
-              <button key={s.id} onClick={() => setSub(s.id)} className={`echip ${sub === s.id ? 'on' : ''}`}>{s.label}</button>
+              // en coco e hidro no hay "solo agua"; una línea que no es de ese sustrato pasa a "otra marca"
+              <button key={s.id} onClick={() => { setSub(s.id); setNut(nutrientesPara(nut, s.id)) }} className={`echip ${sub === s.id ? 'on' : ''}`}>{s.label}</button>
             ))}
           </div>
+
+          {sub === 'tierra' && (
+            <>
+              <label className="elbl">Tierra abonada</label>
+              <p className="text-[.76rem] mb-2" style={{ color: 'var(--muted)' }}>¿Tu tierra viene abonada? Mira el saco: si dice abonada, NPK o All-Mix, sí. Si trae abono, solo agua unas 3 semanas desde el trasplante.</p>
+              <div className="flex gap-[7px] mb-4">
+                {ABONADA.map((a) => (
+                  <button key={a.id} onClick={() => setAbonada(a.id)} className={`echip ${abonada === a.id ? 'on' : ''}`}>{a.label}</button>
+                ))}
+              </div>
+            </>
+          )}
 
           <label className="elbl">Nutrientes</label>
           <div className="mb-4"><NutrientesPicker value={nut} onChange={setNut} substrate={sub} chipClass="echip" /></div>

@@ -8,16 +8,75 @@ import {
 import { cloudSignIn, cloudSignOut, cloudHasData, cloudPush, cloudPull } from './sync'
 import {
   emptyCultivo, deriveLive, realDay, CONSENT_VERSION,
-  scheduledLight, nextLightChange,
+  scheduledLight, nextLightChange, checkIntervalH, nextCheckTs, whenText, vegStartOf, revisaConDedo,
   type Cultivo, type Substrate, type SeedType, type GrowEvent, type EventType, type MetricKey, type Training, type Guide, type PotType, type Equipment,
+  type Stage, type WaterSample, type TierraAbonada,
 } from './lib'
-import { overwaterGuard, needsAttention, metricDef, evalMetric } from './mentor'
+import { overwaterGuard, needsAttention, attentionText, metricDef, evalRange, targetHoy } from './mentor'
 import { equipoPorId } from './data/equipos'
+import { nutrientesPara, lineaPorId, OTRA_MARCA } from './data/nutrientes'
 
 type View = 'front' | 'cenital'
 
 function genId(): string {
   return 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+}
+
+const D = 86400000
+const H = 3600000
+const STAGES: Stage[] = ['remojo', 'germinacion', 'plantula', 'veg', 'flor', 'cosecha', 'secando', 'vacia']
+
+// Arranque neutro del reloj cuando no sabemos cuándo se regó (planta registrada, datos viejos, riego
+// borrado, cambio de sustrato) o se miró el depósito: la primera revisión cae dentro de un día, sea
+// cual sea el intervalo de la etapa. Ni aviso de atraso nada más empezar ni "regadas hace poco"
+// inventado: un riego así queda marcado como estimado (lastWaterEstimated).
+function neutralTs(c: Cultivo, now = Date.now()): number {
+  const iv = checkIntervalH({ ...c, ...deriveLive(c) }) ?? 48
+  return Math.max(c.germTs ?? 0, now - Math.max(0, iv - 24) * H)
+}
+// hidro sin fecha de la última solución: la damos por cambiada hace 3,5 días (a mitad de su
+// semana), para no pedir el cambio el primer día sin saberlo
+const neutralSolutionTs = (c: Pick<Cultivo, 'germTs'>, now = Date.now()) => Math.max(c.germTs ?? 0, now - 3.5 * D)
+
+// Campos del riego por revisión (2026-09-23) a partir de datos guardados, importados o de la nube:
+// valores seguros si faltan o vienen mal. Un cultivo viejo arranca sin ritmo aprendido ni base
+// (su primer riego nuevo la fija). Hidro sin fechas del depósito: arranque neutro de la solución
+// y de la revisión del nivel (las dos cuentas por separado: el depósito se revisa cada 1–3 días).
+function wateringFields(o: Record<string, unknown>, c: Cultivo): Pick<Cultivo, 'lastCheckTs' | 'droopTs' | 'waterSamples' | 'waterBaseTs' | 'lastSolutionTs' | 'wetTipDone' | 'lastWaterEstimated'> {
+  const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  const waterSamples = Array.isArray(o.waterSamples)
+    ? (o.waterSamples as unknown[]).filter((x): x is WaterSample => {
+        const w = x as Record<string, unknown> | null
+        return !!w && num(w.ts) != null && num(w.h) != null && (w.h as number) > 0 && STAGES.includes(w.stage as Stage)
+      }).slice(-8)
+    : []
+  const hidroViejo = c.substrate === 'hidro' && !!c.germTs && !c.harvestedTs
+  let lastSolutionTs = num(o.lastSolutionTs)
+  if (o.lastSolutionTs === undefined && hidroViejo) lastSolutionTs = neutralSolutionTs(c)
+  let lastCheckTs = num(o.lastCheckTs)
+  if (o.lastCheckTs === undefined && hidroViejo) lastCheckTs = neutralTs(c)
+  return { lastCheckTs, droopTs: num(o.droopTs), waterSamples, waterBaseTs: num(o.waterBaseTs), lastSolutionTs, wetTipDone: o.wetTipDone === true, lastWaterEstimated: o.lastWaterEstimated === true }
+}
+
+// Abono seguro (2026-09-23): ¿la tierra ya trae abono? Si falta o viene mal, "no sé", que se
+// trata como abonada (lo seguro: solo agua unas 3 semanas desde el trasplante; se cambia en Editar).
+const tierraAbonadaDe = (v: unknown): TierraAbonada => (v === 'si' || v === 'no' ? v : 'nose')
+// El abono de un cultivo guardado, importado o de la nube. Los de antes de la pregunta de la tierra
+// (sin el campo tierraAbonada) vienen de cuando null era «Solo agua / otra marca» y la app les
+// mostraba la EC objetivo: en tierra pasan a otra marca (guía por EC, lo más parecido a lo que
+// veían; null = «solo agua» queda para los que lo eligen con el selector nuevo). Y ya se abonaban:
+// con una línea del catálogo, o pasada la plántula, su tierra cuenta como sin abono (cortar el abono
+// a mitad de vegetativo los dejaría con hambre sin haber contestado nunca la pregunta).
+function abonoFields(o: Record<string, unknown>, c: Pick<Cultivo, 'substrate' | 'germTs' | 'seedType' | 'autoWeeks'>): Pick<Cultivo, 'nutrientesId' | 'tierraAbonada'> {
+  const raw = typeof o.nutrientesId === 'string' ? o.nutrientesId : null
+  if (o.tierraAbonada !== undefined) return { nutrientesId: nutrientesPara(raw, c.substrate), tierraAbonada: tierraAbonadaDe(o.tierraAbonada) }
+  const yaAbonaba = !!lineaPorId(raw) || (!!c.germTs && realDay(c.germTs) >= vegStartOf(c))
+  return { nutrientesId: nutrientesPara(raw ?? OTRA_MARCA, c.substrate), tierraAbonada: yaAbonaba ? 'no' : 'nose' }
+}
+// nombre legible de la elección de abono (bitácora y avisos)
+const nombreAbono = (id: string | null) => {
+  const l = lineaPorId(id)
+  return l ? `${l.marca} · ${l.linea}` : id === OTRA_MARCA ? 'otra marca' : 'solo agua'
 }
 
 // Saneo de cultivos venidos de FUERA (respaldo importado o copia de la nube):
@@ -46,7 +105,6 @@ function sanitizeGrows(raw: unknown[]): Cultivo[] {
       lastWaterTs: num(o.lastWaterTs),
       training: o.training === 'lst' || o.training === 'lollipop' || o.training === 'apical' ? o.training : 'none',
       defoliatedTs: num(o.defoliatedTs),
-      nutrientesId: typeof o.nutrientesId === 'string' ? o.nutrientesId : null,
       potType: o.potType === 'plastico' ? 'plastico' : 'tela',
       lightOnHour: typeof o.lightOnHour === 'number' ? Math.min(23, Math.max(0, Math.floor(o.lightOnHour))) : 6,
       lightHours: typeof o.lightHours === 'number' ? o.lightHours : null,
@@ -62,10 +120,14 @@ function sanitizeGrows(raw: unknown[]): Cultivo[] {
         : {},
       readings: o.readings && typeof o.readings === 'object' && !Array.isArray(o.readings) ? (o.readings as Cultivo['readings']) : {},
       readingDays: o.readingDays && typeof o.readingDays === 'object' && !Array.isArray(o.readingDays) ? (o.readingDays as Cultivo['readingDays']) : {},
-      day: 0, stage: 'remojo', thirst: 0.2,
+      day: 0, stage: 'remojo',
       health: num(o.health) ?? emptyCultivo.health,
       light: true, fan: true, exhaust: true,
     }
+    Object.assign(c, wateringFields(o, c))
+    // en coco e hidro no hay "solo agua"; una línea que no es de ese sustrato pasa a "otra marca";
+    // un respaldo de antes de la tierra abonada se migra como los datos guardados (ver abonoFields)
+    Object.assign(c, abonoFields(o, c))
     const live = deriveLive(c)
     grows.push({ ...c, ...live })
   }
@@ -90,6 +152,7 @@ interface AppState {
   firstGermTipDone: boolean   // ya vio el how-to de germinar en agua
   coachDone: boolean          // ya vio el coach mark de la carpa (regar + dock)
   pendingUndo: (() => void) | null // deshacer de la última acción (mientras dura el toast)
+  pendingCheck: boolean       // al abrir la carpa, abrir la revisión de la maceta (desde el aviso de Home)
   notifyEnabled: boolean      // recordatorios de riego (notificación local, opt-in en Ajustes)
   lastNotifiedDay: string | null // tope de 1 aviso/día
 
@@ -102,7 +165,7 @@ interface AppState {
   // navegación
   startNew: () => void
   cancelNew: () => void
-  openGrow: (id: string) => void
+  openGrow: (id: string, opts?: { check?: boolean }) => void
   goHome: () => void
   deleteGrow: (id: string) => void
 
@@ -119,24 +182,32 @@ interface AppState {
   removeEvent: (id: number) => void
 
   // acciones del cultivo activo
-  createGrow: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; potType?: PotType; seedType: SeedType; nutrientesId?: string | null; lightOnHour?: number; hasController?: boolean; strain?: string | null; breeder?: string | null; flowerWeeks?: number | null; autoWeeks?: number | null; tentCm?: number | null }) => void
+  createGrow: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; potType?: PotType; seedType: SeedType; nutrientesId?: string | null; tierraAbonada?: TierraAbonada; lightOnHour?: number; hasController?: boolean; strain?: string | null; breeder?: string | null; flowerWeeks?: number | null; autoWeeks?: number | null; tentCm?: number | null }) => void
   setLightSchedule: (cfg: { lightOnHour: number; lightHours: number | null; hasController: boolean }) => void
   checkLightReminder: () => void
   setNutrientes: (id: string | null) => void
-  registerExisting: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; potType?: PotType; seedType: SeedType; weeksAgo: number; flowerWeeksAgo: number | null; nutrientesId?: string | null; lightOnHour?: number; hasController?: boolean; strain?: string | null; breeder?: string | null; flowerWeeks?: number | null; autoWeeks?: number | null; tentCm?: number | null }) => void
+  registerExisting: (cfg: { grow: string; plants: number; substrate: Substrate; potL: number; potType?: PotType; seedType: SeedType; weeksAgo: number; flowerWeeksAgo: number | null; nutrientesId?: string | null; tierraAbonada?: TierraAbonada; lightOnHour?: number; hasController?: boolean; strain?: string | null; breeder?: string | null; flowerWeeks?: number | null; autoWeeks?: number | null; tentCm?: number | null }) => void
   transplant: (count: number) => void
   resoak: () => void
-  updateGrow: (cfg: { grow: string; potL: number; potType?: PotType; substrate: Substrate; seedType: SeedType }) => void
+  // nutrientesId: la elección de abono del formulario (sin él se conserva, ajustada al sustrato)
+  updateGrow: (cfg: { grow: string; potL: number; potType?: PotType; substrate: Substrate; seedType: SeedType; tierraAbonada?: TierraAbonada; nutrientesId?: string | null }) => void
   toggleLight: () => void
   applyTraining: (t: Training) => void
   defoliate: () => void
   startFlowering: () => void
   setPreview: (d: number | null) => void
-  water: (toastOverride?: string, force?: boolean) => void
+  // riego: confirmed = la maceta pesaba poco (o la tierra estaba seca) al revisarla; force = pese al
+  // guardarraíl; daysAgo = "Ya regué" hoy/ayer/anteayer (anotado después, con fecha aproximada)
+  water: (opts?: { toast?: string; force?: boolean; confirmed?: boolean; daysAgo?: number }) => void
+  checkPot: (afterDroop?: boolean) => void // revisó y aún pesa / sigue húmeda (hidro: el nivel está bien)
+  reportDroop: () => void       // el usuario ve las hojas caídas
+  refillReservoir: () => void   // hidro: rellenó el depósito
+  changeSolution: () => void    // hidro: cambió la solución entera
+  markWetTip: () => void
   wilt: () => void
   harvest: () => void
   finishGrow: (dryWeight: number | null, note?: string) => void
-  measure: (key: MetricKey, value: number) => void
+  measure: (values: Partial<Record<MetricKey, number>>) => void // una o varias lecturas (temp + HR van juntas)
   setGenetics: (g: { strain: string | null; breeder: string | null; flowerWeeks: number | null; autoWeeks: number | null }) => void
   setEquipment: (eq: Equipment, tentCm?: number | null) => void
   addDiagnosis: (blob: Blob, summary: string) => void   // foto + resultado a la bitácora
@@ -181,11 +252,13 @@ export const useStore = create<AppState>()(
         set({ grows: grows.map((g) => (g.id === activeId ? updater(g) : g)), ...(extra ?? {}) } as Partial<AppState>)
       }
       // registra un evento (append-only) para el cultivo activo; devuelve el evento creado
-      async function log(type: EventType, note?: string, photoId?: number, extra?: Pick<GrowEvent, 'metric' | 'value'>): Promise<GrowEvent | null> {
+      // extra.ts/day: un evento anotado después ("Ya regué ayer") va con su fecha, no con la de ahora
+      async function log(type: EventType, note?: string, photoId?: number, extra?: Partial<Pick<GrowEvent, 'metric' | 'value' | 'ts' | 'day'>>): Promise<GrowEvent | null> {
         const c = selectActive(get())
         if (!c.id) return null
         const ev = await addEvent({ growId: c.id, ts: Date.now(), day: c.day, type, note, photoId, ...(extra ?? {}) })
-        set((st) => ({ events: [...st.events, ev] }))
+        // la bitácora en memoria sigue en orden cronológico (y solo si seguimos en ese cultivo)
+        if (get().activeId === c.id) set((st) => ({ events: [...st.events, ev].sort((a, b) => a.ts - b.ts) }))
         return ev
       }
 
@@ -207,6 +280,7 @@ export const useStore = create<AppState>()(
         firstGermTipDone: false,
         coachDone: false,
         pendingUndo: null,
+        pendingCheck: false,
         notifyEnabled: false,
         lastNotifiedDay: null,
         premium: false,
@@ -218,12 +292,12 @@ export const useStore = create<AppState>()(
         // ---- navegación ----
         // OJO: toast y pendingUndo se limpian SIEMPRE al navegar — un "Deshacer" armado
         // en un cultivo no debe reaparecer (ni ejecutarse) sobre otro.
-        startNew: () => set({ creating: true, previewDay: null, toast: null, pendingUndo: null }),
+        startNew: () => set({ creating: true, previewDay: null, toast: null, pendingUndo: null, pendingCheck: false }),
         cancelNew: () => set({ creating: false }),
-        goHome: () => set({ activeId: null, creating: false, previewDay: null, events: [], toast: null, pendingUndo: null }),
+        goHome: () => set({ activeId: null, creating: false, previewDay: null, events: [], toast: null, pendingUndo: null, pendingCheck: false }),
 
-        openGrow: (id) => {
-          set({ activeId: id, creating: false, justCreated: false, previewDay: null, view: 'front', events: [], toast: null, pendingUndo: null })
+        openGrow: (id, opts) => {
+          set({ activeId: id, creating: false, justCreated: false, previewDay: null, view: 'front', events: [], toast: null, pendingUndo: null, pendingCheck: !!opts?.check })
           get().recomputeTime()
           listEvents(id).then((evs) => { if (get().activeId === id) set({ events: evs }) })
         },
@@ -241,7 +315,7 @@ export const useStore = create<AppState>()(
         },
 
         // ---- crear (arranca EN REMOJO: semillas en agua, germTs aún null) ----
-        createGrow: ({ grow, plants, substrate, potL, potType = 'tela', seedType, nutrientesId = null, lightOnHour = 6, hasController = false, strain = null, breeder = null, flowerWeeks = null, autoWeeks = null, tentCm = null }) => {
+        createGrow: ({ grow, plants, substrate, potL, potType = 'tela', seedType, nutrientesId = null, tierraAbonada = 'nose', lightOnHour = 6, hasController = false, strain = null, breeder = null, flowerWeeks = null, autoWeeks = null, tentCm = null }) => {
           const base: Cultivo = {
             ...emptyCultivo,
             id: genId(),
@@ -251,7 +325,8 @@ export const useStore = create<AppState>()(
             potL,
             substrate,
             seedType,
-            nutrientesId,
+            nutrientesId: nutrientesPara(nutrientesId, substrate),
+            tierraAbonada,
             potType, lightOnHour, hasController,
             strain: strain?.trim() || null, breeder: breeder?.trim() || null, flowerWeeks, autoWeeks, tentCm,
             soakTs: Date.now(),
@@ -272,7 +347,7 @@ export const useStore = create<AppState>()(
         },
 
         // ---- registrar una planta que YA está creciendo (sin pasar por el remojo) ----
-        registerExisting: ({ grow, plants, substrate, potL, potType = 'tela', seedType, weeksAgo, flowerWeeksAgo, nutrientesId = null, lightOnHour = 6, hasController = false, strain = null, breeder = null, flowerWeeks = null, autoWeeks = null, tentCm = null }) => {
+        registerExisting: ({ grow, plants, substrate, potL, potType = 'tela', seedType, weeksAgo, flowerWeeksAgo, nutrientesId = null, tierraAbonada = 'nose', lightOnHour = 6, hasController = false, strain = null, breeder = null, flowerWeeks = null, autoWeeks = null, tentCm = null }) => {
           const now = Date.now()
           const germTs = now - weeksAgo * 7 * 86400000
           const base: Cultivo = {
@@ -284,18 +359,27 @@ export const useStore = create<AppState>()(
             potL,
             substrate,
             seedType,
-            nutrientesId,
+            nutrientesId: nutrientesPara(nutrientesId, substrate),
+            tierraAbonada,
             potType, lightOnHour, hasController,
             strain: strain?.trim() || null, breeder: breeder?.trim() || null, flowerWeeks, autoWeeks, tentCm,
             soakTs: germTs - 2 * 86400000,
             germTs,
             flowerTs: seedType === 'foto' && flowerWeeksAgo != null ? now - flowerWeeksAgo * 7 * 86400000 : null,
-            // arranque neutro del reloj de riego: asumimos ~día y medio desde el último riego
-            // (sin falsa alarma de atraso; el primer riego real lo sincroniza)
-            lastWaterTs: now - 36 * 3600000,
           }
           const live = deriveLive(base)
-          const c = { ...base, ...live }
+          // arranque neutro del reloj de riego: no sabemos cuándo regó, así que la primera revisión
+          // cae dentro de un día (sin falsa alarma de atraso; el primer riego real lo sincroniza). Es
+          // una estimación: no se muestra como riego anotado ni sirve de base para aprender el ritmo
+          // (waterBaseTs queda null). Hidro: tampoco sabemos cuándo cambió la solución ni cuándo miró
+          // el nivel; cada cuenta con su arranque neutro.
+          const hidro = substrate === 'hidro'
+          const c: Cultivo = {
+            ...base, ...live,
+            lastWaterTs: neutralTs(base, now), lastWaterEstimated: true,
+            lastSolutionTs: hidro ? neutralSolutionTs(base, now) : null,
+            lastCheckTs: hidro ? neutralTs(base, now) : null,
+          }
           set((st) => ({
             grows: [...st.grows, c],
             activeId: c.id,
@@ -314,7 +398,9 @@ export const useStore = create<AppState>()(
           const n = Math.max(1, count)
           patchActive(
             (g) => {
-              const next = { ...g, plants: n, pots: Math.min(n, 3), germTs: Date.now(), lastWaterTs: Date.now() }
+              const now = Date.now()
+              // el vaso del trasplante es un riego con hora exacta: base del ritmo que se aprende
+              const next = { ...g, plants: n, pots: Math.min(n, 3), germTs: now, lastWaterTs: now, lastWaterEstimated: false, waterBaseTs: now, lastCheckTs: null, droopTs: null }
               const live = deriveLive(next)
               return { ...next, ...live }
             },
@@ -324,7 +410,7 @@ export const useStore = create<AppState>()(
         },
 
         // ---- editar los datos del cultivo tras crearlo ----
-        updateGrow: ({ grow, potL, potType, substrate, seedType }) => {
+        updateGrow: ({ grow, potL, potType, substrate, seedType, tierraAbonada, nutrientesId: nutPedido }) => {
           const c = selectActive(get())
           if (!c.id) return
           const changes: string[] = []
@@ -332,27 +418,54 @@ export const useStore = create<AppState>()(
           if (potL !== c.potL) changes.push(`maceta ${potL} L`)
           if (potType && potType !== c.potType) changes.push(potType === 'tela' ? 'maceta de tela' : 'maceta de plástico')
           if (substrate !== c.substrate) changes.push(`sustrato ${substrate}`)
+          if (tierraAbonada && tierraAbonada !== c.tierraAbonada) changes.push({ si: 'tierra abonada', no: 'tierra sin abono', nose: 'tierra abonada: no sé' }[tierraAbonada])
+          // al pasar a coco o hidro no queda "solo agua" (ni una línea que no es de ese sustrato)
+          const nutrientesId = nutrientesPara(nutPedido !== undefined ? nutPedido : c.nutrientesId, substrate)
+          if (nutrientesId !== c.nutrientesId) changes.push(`abono: ${nombreAbono(nutrientesId)}`)
           // el tipo de semilla solo se corrige mientras no haya floración en marcha
           const seedEditable = !c.flowerTs && !c.harvestedTs
           if (seedEditable && seedType !== c.seedType) changes.push(seedType === 'auto' ? 'autofloreciente' : 'fotoperiódica')
           if (!changes.length) return
+          // otra maceta u otro sustrato beben a otro ritmo: lo aprendido ya no vale
+          const newRhythm = potL !== c.potL || (!!potType && potType !== c.potType) || substrate !== c.substrate
+          // pasar a hidro o salir de hidro: las fechas del otro sistema no valen (en hidro no se riega;
+          // fuera de hidro, la revisión del nivel no es un "aún pesa"). Arranque neutro, como al registrar:
+          // sin avisos vencidos de algo que la app no sabe.
+          const aHidro = substrate === 'hidro' && c.substrate !== 'hidro'
+          const deHidro = substrate !== 'hidro' && c.substrate === 'hidro'
           patchActive(
             (g) => {
-              const next = { ...g, grow: grow.trim() || g.grow, potL, potType: potType ?? g.potType, substrate, seedType: seedEditable ? seedType : g.seedType }
+              const now = Date.now()
+              const next = { ...g, grow: grow.trim() || g.grow, potL, potType: potType ?? g.potType, substrate, seedType: seedEditable ? seedType : g.seedType,
+                nutrientesId, tierraAbonada: tierraAbonada ?? g.tierraAbonada, ...(newRhythm ? { waterSamples: [] } : {}) }
               const live = deriveLive(next) // cambiar el tipo puede recalcular la etapa
-              return { ...next, ...live }
+              const out = { ...next, ...live }
+              if (aHidro && out.germTs) {
+                out.lastSolutionTs = Math.max(g.lastSolutionTs ?? 0, neutralSolutionTs(out, now))
+                out.lastCheckTs = Math.max(g.lastCheckTs ?? 0, neutralTs(out, now))
+              }
+              if (deHidro && out.germTs) {
+                const n = neutralTs(out, now)
+                if ((g.lastWaterTs ?? 0) < n) { out.lastWaterTs = n; out.lastWaterEstimated = true; out.waterBaseTs = null }
+                out.lastCheckTs = null
+                out.droopTs = null
+              }
+              return out
             },
             { toast: 'Cultivo actualizado', pendingUndo: null },
           )
           log('nota', 'Editado: ' + changes.join(' · '))
         },
 
-        // ---- línea de nutrientes del cultivo (el plan de riego sale de su tabla) ----
-        setNutrientes: (id) => {
+        // ---- abono del cultivo: una línea del catálogo (el plan sale de su tabla), otra marca
+        // (guiada por la EC) o solo agua (solo en tierra: en coco e hidro pasa a otra marca) ----
+        setNutrientes: (raw) => {
           const c = selectActive(get())
+          const id = nutrientesPara(raw, c.substrate)
           if (!c.id || (c.nutrientesId ?? null) === id) return
-          patchActive((g) => ({ ...g, nutrientesId: id }), { toast: id ? 'Línea de nutrientes guardada' : 'Riego solo con agua', pendingUndo: null })
-          log('nota', id ? `Nutrientes: ${id}` : 'Sin línea de nutrientes')
+          const toast = lineaPorId(id) ? 'Línea de nutrientes guardada' : id === OTRA_MARCA ? 'Otra marca · te guiamos por la EC' : 'Riego solo con agua'
+          patchActive((g) => ({ ...g, nutrientesId: id }), { toast, pendingUndo: null })
+          log('nota', `Abono: ${nombreAbono(id)}`)
         },
 
         // ---- luz de la carpa (visual: la escena 3D pasa a noche) ----
@@ -370,7 +483,7 @@ export const useStore = create<AppState>()(
             const next = { ...g, lightOnHour, lightHours, hasController, lightOverrideUntil: null }
             return { ...next, light: scheduledLight(next) }
           }, { toast: 'Horario de luz guardado', pendingUndo: null })
-          log('nota', `Luz: enciende ${String(lightOnHour).padStart(2, '0')}:00 · ${lightHours ?? 'según etapa'} h${hasController ? ' · con controlador' : ''}`)
+          log('nota', `Luz: enciende ${String(lightOnHour).padStart(2, '0')}:00 · ${lightHours != null ? `${lightHours} h` : 'horas automáticas'}${hasController ? ' · con controlador' : ''}`)
         },
         // aviso de encender/apagar (solo sin controlador): toast si la app está a la vista,
         // notificación local si está en segundo plano (y el usuario activó los avisos)
@@ -415,18 +528,22 @@ export const useStore = create<AppState>()(
         },
 
         // ---- fotoperiódicas: el usuario cambió la luz a 12/12 → arranca la floración ----
+        // Un horario elegido a mano en vegetativo (18 h, 20 h…) no vale en floración: vuelve a
+        // automático, que ahora da 12 h. Si no, la app seguiría avisando de apagar horas tarde.
+        // El horario cambia, así que el encendido/apagado manual se descarta (como al guardar un horario).
         startFlowering: () => {
           const c = selectActive(get())
           if (c.seedType !== 'foto' || c.flowerTs || c.stage !== 'veg') return
+          const manual = c.lightHours != null && c.lightHours !== 12
           patchActive(
             (g) => {
-              const next = { ...g, flowerTs: Date.now() }
-              const live = deriveLive(next)
-              return { ...next, ...live }
+              const next = { ...g, flowerTs: Date.now(), lightHours: null, lightOverrideUntil: null }
+              const out = { ...next, ...deriveLive(next) }
+              return { ...out, light: scheduledLight(out) }
             },
-            { toast: 'A floración · luz 12/12 anotada', pendingUndo: null },
+            { toast: manual ? 'A floración · horario en automático: 12 h de luz' : 'A floración · luz 12/12 anotada', pendingUndo: null },
           )
-          log('floracion', 'Cambié la luz a 12/12')
+          log('floracion', manual ? `Cambié la luz a 12/12 · el horario de ${c.lightHours} h vuelve a automático (12 h)` : 'Cambié la luz a 12/12')
         },
 
         // ---- acciones del cultivo activo ----
@@ -434,21 +551,57 @@ export const useStore = create<AppState>()(
         // salir NO toca la vista (si estabas en cenital, te quedas en cenital)
         setPreview: (d) => set(d === null ? { previewDay: null } : { previewDay: d, view: 'front', toast: null, pendingUndo: null }),
 
-        water: (toastOverride, force) => {
+        // Riego. Lo normal llega desde la revisión ("pesa poco" / "está seca" → ficha → Regar).
+        // El ritmo aprendido solo sale de esos riegos confirmados, a su hora y desde un riego
+        // anterior con hora exacta: nunca de uno forzado (copiaría el exceso de riego) ni de uno
+        // anotado después (su hora es aproximada). Un hueco de más de 10 días no mide cuánto tarda
+        // la maceta en secarse (el cultivo quedó sin anotar): tampoco cuenta. Si "pesa poco" llega
+        // en la primera revisión tras el riego (sin un "aún pesa" entre medias), la maceta pudo
+        // secarse bastante antes: ese intervalo es un tope y se guarda acortado (×0.75). Si no, el
+        // ritmo solo podría alargarse (los riegos suelen llegar con el aviso, nunca antes).
+        // Un riego anotado después sustituye a un último riego estimado aunque sea de antes: la
+        // próxima revisión cuenta desde él, como promete "Ya regué".
+        water: (opts = {}) => {
+          const { toast: toastOverride, force = false, confirmed = false, daysAgo } = opts
           const c = selectActive(get())
-          const guard = force ? null : overwaterGuard(c)
+          if (!c.id || c.substrate === 'hidro') return // en hidro no se riega: se cuida el depósito
+          const past = daysAgo != null
+          const guard = force || past ? null : overwaterGuard(c)
           if (guard) { set({ toast: guard, pendingUndo: null }); return }
           const id = c.id
-          const myToast = toastOverride ?? 'Riego anotado en la bitácora'
-          const prev = { thirst: c.thirst, lastWaterTs: c.lastWaterTs, health: c.health }
+          const now = Date.now()
+          const ts = past ? now - daysAgo * D : now
+          // un riego anotado después no puede ser de antes del trasplante
+          if (past && c.germTs && ts < c.germTs) return
+          const day = c.germTs ? Math.max(0, Math.floor((ts - c.germTs) / D)) : c.day
+          const h = c.waterBaseTs != null ? (ts - c.waterBaseTs) / 3600000 : null
+          const primera = c.waterBaseTs != null && !(c.lastCheckTs != null && c.lastCheckTs > c.waterBaseTs)
+          const sample: WaterSample | null = confirmed && !force && !past && h != null && h > 0 && h <= 240 ? { ts, h: primera ? h * 0.75 : h, stage: c.stage } : null
+          const latest = ts >= (c.lastWaterTs ?? 0) || c.lastWaterEstimated
+          const myToast = toastOverride ?? (past ? `Riego de ${['hoy', 'ayer', 'anteayer'][daysAgo] ?? `hace ${daysAgo} días`} anotado` : 'Riego anotado en la bitácora')
+          const prev = { lastWaterTs: c.lastWaterTs, lastWaterEstimated: c.lastWaterEstimated, waterBaseTs: c.waterBaseTs, droopTs: c.droopTs, waterSamples: c.waterSamples, health: c.health }
           patchActive(
-            (g) => ({ ...g, thirst: 0, lastWaterTs: Date.now(), health: Math.min(99, g.health + 1) }),
+            (g) => ({
+              ...g,
+              lastWaterTs: latest ? ts : g.lastWaterTs,
+              lastWaterEstimated: latest ? false : g.lastWaterEstimated,
+              // base del ritmo = último riego con hora exacta; uno anotado después no la tiene
+              waterBaseTs: latest ? (past ? null : ts) : g.waterBaseTs,
+              // regar borra las hojas caídas anotadas antes de este riego (las fotos vuelven a sanas)
+              droopTs: g.droopTs != null && g.droopTs > ts ? g.droopTs : null,
+              waterSamples: sample ? [...g.waterSamples, sample].slice(-8) : g.waterSamples,
+              health: past ? g.health : Math.min(99, g.health + 1),
+            }),
             { toast: myToast, pendingUndo: null },
           )
+          const note = past ? 'Riego anotado después'
+            : force ? 'Riego · poco después del anterior'
+            : confirmed ? (revisaConDedo(c) ? 'Riego · la tierra estaba seca' : 'Riego · la maceta pesaba poco')
+            : undefined
           // el "Deshacer" del toast revierte el estado Y borra el evento de la bitácora.
           // Se arma solo si seguimos en el mismo cultivo Y el toast sigue siendo el de ESTA acción
           // (si otra acción ya puso el suyo, su toast no debe heredar este Deshacer).
-          log('riego').then((ev) => {
+          log('riego', note, undefined, { ts, day }).then((ev) => {
             if (get().activeId !== id || get().toast !== myToast) return
             set({
               pendingUndo: () => {
@@ -462,20 +615,63 @@ export const useStore = create<AppState>()(
           })
         },
 
-        // demo (solo DEV): simula sed retrasando el reloj de riego — consistente con la
-        // derivación real, así recomputeTime no la "cura" al minuto siguiente
+        // revisó la maceta y aún pesa (plántula: la tierra sigue húmeda; hidro: el nivel está bien).
+        // Queda en la bitácora y la siguiente revisión se aplaza: 24 h (hidro, 2–3 días).
+        // afterDroop: hojas caídas con la maceta aún pesada = exceso de agua → "no riegues aún"
+        checkPot: (afterDroop) => {
+          const c = selectActive(get())
+          if (!c.id) return
+          const ts = Date.now()
+          const next = nextCheckTs({ ...c, lastCheckTs: ts })
+          const when = next ? whenText(next) : 'mañana'
+          patchActive((g) => ({ ...g, lastCheckTs: ts }), { toast: afterDroop ? `No riegues aún · te avisamos ${when}` : `Anotado · te avisamos ${when}`, pendingUndo: null })
+          log('revision', c.substrate === 'hidro' ? 'Revisé el depósito: el nivel está bien'
+            : revisaConDedo(c) ? 'Revisé la tierra: aún está húmeda' : 'Revisé la maceta: aún pesa', undefined, { ts })
+        },
+
+        // hojas caídas: lo ve el usuario, no el reloj. Cambia la foto hasta el siguiente riego.
+        // Sin toast: la hoja de revisión sigue con la pregunta (¿sed o exceso de agua?).
+        reportDroop: () => {
+          const c = selectActive(get())
+          if (!c.id || c.substrate === 'hidro') return
+          const ts = Date.now()
+          patchActive((g) => ({ ...g, droopTs: ts }), { pendingUndo: null })
+          log('caida', 'Las hojas se ven caídas', undefined, { ts })
+        },
+
+        // hidro: el nivel había bajado y lo rellenó → la siguiente revisión en 2–3 días
+        refillReservoir: () => {
+          const c = selectActive(get())
+          if (!c.id || c.substrate !== 'hidro') return
+          const ts = Date.now()
+          const next = nextCheckTs({ ...c, lastCheckTs: ts })
+          patchActive((g) => ({ ...g, lastCheckTs: ts }), { toast: `Depósito rellenado · te avisamos ${next ? whenText(next) : 'en 2–3 días'}`, pendingUndo: null })
+          log('deposito', 'Rellené el depósito', undefined, { ts })
+        },
+
+        // hidro: solución nueva (cada 7–10 días); también reinicia la revisión del nivel
+        changeSolution: () => {
+          const c = selectActive(get())
+          if (!c.id || c.substrate !== 'hidro') return
+          const ts = Date.now()
+          patchActive((g) => ({ ...g, lastSolutionTs: ts }), { toast: 'Solución nueva anotada en la bitácora', pendingUndo: null })
+          log('solucion', 'Cambié la solución del depósito', undefined, { ts })
+        },
+
+        markWetTip: () => patchActive((g) => ({ ...g, wetTipDone: true })),
+
+        // demo (solo DEV): toca revisar y las hojas se ven caídas (anotado como si lo viera el
+        // usuario), para ver la foto de plantas caídas y la revisión sin esperar días
         wilt: () => {
           const c = selectActive(get())
-          if (c.stage !== 'veg') return
+          if (c.stage !== 'veg' || c.substrate === 'hidro') return
+          const ts = Date.now()
+          const iv = checkIntervalH(c) ?? 60
           patchActive(
-            (g) => {
-              const next = { ...g, lastWaterTs: Date.now() - 96 * 3600000 }
-              const live = deriveLive(next)
-              return { ...next, ...live }
-            },
-            { toast: 'Tienen sed · toca las plantas para regar', pendingUndo: null },
+            (g) => ({ ...g, lastWaterTs: ts - (iv + 1) * 3600000, lastWaterEstimated: true, waterBaseTs: null, lastCheckTs: null, droopTs: ts }),
+            { toast: 'Prueba: toca revisar y las hojas se ven caídas', pendingUndo: null },
           )
-          log('sed')
+          log('caida', 'Las hojas se ven caídas (prueba)', undefined, { ts })
         },
 
         harvest: () => {
@@ -516,18 +712,37 @@ export const useStore = create<AppState>()(
           log('terminado', parts.length ? parts.join(' · ') : undefined)
         },
 
-        measure: (key, value) => {
-          const def = metricDef(key)
+        // lecturas que escribió el usuario (nunca un número puesto por la app). La temperatura y
+        // la humedad salen del mismo medidor y pueden llegar juntas: cada valor deja su propio
+        // evento en la bitácora, con un solo aviso para todas.
+        measure: (values) => {
+          const keys = (Object.keys(values) as MetricKey[]).filter((k) => Number.isFinite(values[k]))
+          if (!keys.length) return
           const c = selectActive(get())
-          const { status } = evalMetric(key, value, c.stage, c.substrate)
-          const word = status === 'ok' ? 'en rango' : status === 'warn' ? 'al límite' : 'fuera de rango'
-          const u = def.unit ? ' ' + def.unit : ''
-          const shown = def.dec ? value.toFixed(def.dec) : Math.round(value).toString()
+          const toast = keys.length === 1 ? `${metricDef(keys[0]).label} anotado en la bitácora`
+            : keys.every((k) => k === 'temp' || k === 'hr') ? 'Temperatura y humedad anotadas en la bitácora'
+            : 'Lecturas anotadas en la bitácora'
           patchActive(
-            (g) => ({ ...g, readings: { ...g.readings, [key]: value }, readingDays: { ...g.readingDays, [key]: g.day } }),
-            { toast:`${def.label} anotado en la bitácora`, pendingUndo: null },
+            (g) => ({
+              ...g,
+              readings: { ...g.readings, ...Object.fromEntries(keys.map((k) => [k, values[k]])) },
+              readingDays: { ...g.readingDays, ...Object.fromEntries(keys.map((k) => [k, g.day])) },
+            }),
+            { toast, pendingUndo: null },
           )
-          log('medicion', `${def.label} ${shown}${u} · ${word}`, undefined, { metric: key, value })
+          // se juzga contra el objetivo de HOY (la EC de un día de solo agua no tiene objetivo:
+          // se anota sin veredicto)
+          const guide = get().guide
+          for (const key of keys) {
+            const value = values[key]!
+            const def = metricDef(key)
+            const range = targetHoy(key, c, guide)
+            const { status } = evalRange(key, value, range)
+            const word = !range ? null : status === 'ok' ? 'en rango' : status === 'warn' ? 'al límite' : 'fuera de rango'
+            const u = def.unit ? ' ' + def.unit : ''
+            const shown = def.dec ? value.toFixed(def.dec) : Math.round(value).toString()
+            log('medicion', `${def.label} ${shown}${u}${word ? ` · ${word}` : ''}`, undefined, { metric: key, value })
+          }
         },
 
         setGenetics: ({ strain, breeder, flowerWeeks, autoWeeks }) => {
@@ -585,8 +800,8 @@ export const useStore = create<AppState>()(
         markCoachDone: () => set({ coachDone: true }),
         setNotify: (v) => set({ notifyEnabled: v }),
 
-        // recordatorio local de riego: máx 1/día, solo con permiso concedido y la app
-        // fuera de pantalla (visible ya lo estás viendo). Sin push server (eso llega con F4):
+        // recordatorio local de revisar la maceta (o el depósito): máx 1/día, solo con permiso
+        // concedido y la app fuera de pantalla (visible ya lo estás viendo). Sin push server (F4):
         // funciona mientras zenpai esté abierta o en segundo plano.
         checkWaterReminder: () => {
           const { notifyEnabled, lastNotifiedDay, grows } = get()
@@ -599,7 +814,8 @@ export const useStore = create<AppState>()(
           if (!g) return
           set({ lastNotifiedDay: today })
           const title = 'zenpai'
-          const body = `${g.grow} · día ${g.day} · toca regar hoy`
+          const t = attentionText(g)
+          const body = `${g.grow} · día ${g.day} · ${t.charAt(0).toLowerCase()}${t.slice(1)}`
           try {
             navigator.serviceWorker?.getRegistration()
               .then((r) => { const icon = import.meta.env.BASE_URL + 'pwa-192.png'; if (r) r.showNotification(title, { body, icon, badge: icon }); else new Notification(title, { body, icon }) })
@@ -641,19 +857,36 @@ export const useStore = create<AppState>()(
           if ((ev.type === 'foto' || ev.type === 'diagnostico') && ev.photoId != null) deletePhoto(ev.photoId).catch(() => {})
           const rest = get().events.filter((e) => e.id !== evId)
           set({ events: rest })
-          // si borró el riego más reciente, retrocede lastWaterTs al anterior:
-          // así el guardarraíl de sobre-riego no queda armado por un registro erróneo.
-          // Sin riego anterior NO se deja null a secas (la sed derivada contaría desde
-          // germTs → sed 0.9 instantánea): piso neutro de ~36 h, como registerExisting.
-          if (ev.type === 'riego' && !rest.some((e) => e.type === 'riego' && e.ts > ev.ts)) {
-            const prevW = rest.reduce<number | null>((m, e) => (e.type === 'riego' && (m === null || e.ts > m) ? e.ts : m), null)
-            set((st) => ({
-              grows: st.grows.map((g) => {
-                if (g.id !== ev.growId) return g
-                const floor = g.germTs ? Math.max(g.germTs, Date.now() - 36 * 3600000) : null
-                return { ...g, lastWaterTs: prevW ?? floor }
-              }),
-            }))
+          // el estado del cultivo que salía de ese registro vuelve al anterior
+          const latestOf = (types: EventType[]) => rest.reduce<number | null>((m, e) => (types.includes(e.type) && (m === null || e.ts > m) ? e.ts : m), null)
+          let fix: ((g: Cultivo) => Partial<Cultivo>) | null = null
+          if (ev.type === 'riego') {
+            // los intervalos del ritmo que dependían de ese riego (el suyo y el del riego siguiente) ya no valen
+            const nextW = rest.filter((e) => e.type === 'riego' && e.ts > ev.ts).reduce<number | null>((m, e) => (m === null || e.ts < m ? e.ts : m), null)
+            const samplesFix = (g: Cultivo) => g.waterSamples.filter((w) => w.ts !== ev.ts && w.ts !== nextW)
+            // si borró el riego más reciente, retrocede lastWaterTs al anterior:
+            // así el guardarraíl de sobre-riego no queda armado por un registro erróneo.
+            // Sin riego anterior NO se deja null a secas (la revisión contaría desde germTs y
+            // avisaría de golpe): arranque neutro, como registerExisting, marcado como estimado.
+            // La base del ritmo se pierde (no sabemos si el anterior tenía hora exacta): el
+            // siguiente riego la fija.
+            if (nextW === null) {
+              const prevW = latestOf(['riego'])
+              fix = (g) => {
+                const floor = g.germTs ? neutralTs(g) : null
+                return { lastWaterTs: prevW ?? floor, lastWaterEstimated: prevW == null && floor != null, waterBaseTs: null, waterSamples: samplesFix(g) }
+              }
+            } else fix = (g) => ({ waterSamples: samplesFix(g) })
+          } else if (ev.type === 'revision' || ev.type === 'deposito') {
+            fix = (g) => (g.lastCheckTs === ev.ts ? { lastCheckTs: latestOf(['revision', 'deposito']) } : {})
+          } else if (ev.type === 'caida') {
+            fix = (g) => (g.droopTs === ev.ts ? { droopTs: latestOf(['caida']) } : {})
+          } else if (ev.type === 'solucion') {
+            fix = (g) => (g.lastSolutionTs === ev.ts ? { lastSolutionTs: latestOf(['solucion']) } : {})
+          }
+          if (fix) {
+            const f = fix
+            set((st) => ({ grows: st.grows.map((g) => (g.id === ev.growId ? { ...g, ...f(g) } : g)) }))
           }
         },
 
@@ -662,7 +895,8 @@ export const useStore = create<AppState>()(
         // (p.ej. el guardarraíl) nunca debe heredar el botón de una acción anterior
         setToast: (t) => set({ toast: t, pendingUndo: null }),
 
-        // mantiene day/stage/thirst de TODOS los cultivos sincronizados con el reloj real
+        // mantiene day/stage de TODOS los cultivos sincronizados con el reloj real
+        // (la revisión de la maceta se calcula al pintar: nextCheckTs no necesita caché)
         recomputeTime: () => {
           const grows = get().grows
           let changed = false
@@ -671,7 +905,7 @@ export const useStore = create<AppState>()(
             if (!g.germTs) return g
             const live = deriveLive(g)
             let out = g
-            if (live.day !== g.day || live.stage !== g.stage || Math.abs(live.thirst - g.thirst) > 0.02) { changed = true; out = { ...g, ...live } }
+            if (live.day !== g.day || live.stage !== g.stage) { changed = true; out = { ...g, ...live } }
             // luz según horario, salvo apagado/encendido manual vigente
             if (!g.harvestedTs) {
               const override = g.lightOverrideUntil != null && g.lightOverrideUntil > now
@@ -699,28 +933,42 @@ export const useStore = create<AppState>()(
             const c = { ...emptyCultivo, id: genId(), ...p }
             return { ...c, ...deriveLive(c) }
           }
-          const g1 = mk({ grow: 'Demo · Plántula', plants: 2, pots: 2, potL: 7, substrate: 'tierra', seedType: 'foto', soakTs: now - 5 * D, germTs: now - 3 * D, lastWaterTs: now - 1 * D })
-          const g2 = mk({ grow: 'Demo · Vegetativo', plants: 3, pots: 3, potL: 11, substrate: 'tierra', seedType: 'foto', training: 'lst', soakTs: now - 30 * D, germTs: now - 28 * D, lastWaterTs: now - 2 * D, readings: { temp: 25, hr: 62, ph: 6.5 }, readingDays: { temp: 27, hr: 27, ph: 27 } })
-          const g3 = mk({ grow: 'Demo · Floración', plants: 3, pots: 3, potL: 19, substrate: 'coco', seedType: 'foto', soakTs: now - 63 * D, germTs: now - 61 * D, flowerTs: now - 21 * D, lastWaterTs: now - 1 * D, readings: { ph: 5.9, hr: 48 }, readingDays: { ph: 55, hr: 58 } })
-          const g4 = mk({ grow: 'Demo · Terminado', plants: 2, pots: 2, potL: 11, substrate: 'tierra', seedType: 'auto', soakTs: now - 100 * D, germTs: now - 98 * D, harvestedTs: now - 20 * D, finishedTs: now - 6 * D, dryWeight: 85 })
+          // riego por revisión: los riegos confirmados con "pesa poco" dejan su intervalo (ts = el del
+          // evento de riego); con 3 en vegetativo, la demo ya muestra el ritmo aprendido (~3 días)
+          // abono: la plántula en tierra abonada (solo agua unas 3 semanas desde el trasplante), el
+          // vegetativo en tierra sin abono con su marca y la floración en coco con su tabla repartida
+          const g1 = mk({ grow: 'Demo · Plántula', plants: 2, pots: 2, potL: 7, substrate: 'tierra', seedType: 'foto', soakTs: now - 5 * D, germTs: now - 3 * D, lastWaterTs: now - 1 * D,
+            nutrientesId: 'biobizz', tierraAbonada: 'si',
+            waterBaseTs: now - 1 * D, waterSamples: [{ ts: now - 1 * D, h: 48, stage: 'plantula' }] })
+          const g2 = mk({ grow: 'Demo · Vegetativo', plants: 3, pots: 3, potL: 11, substrate: 'tierra', seedType: 'foto', training: 'lst', soakTs: now - 30 * D, germTs: now - 28 * D, lastWaterTs: now - 2 * D, readings: { temp: 25, hr: 62, ph: 6.5 }, readingDays: { temp: 27, hr: 27, ph: 27 },
+            nutrientesId: 'canna-terra', tierraAbonada: 'no',
+            waterBaseTs: now - 2 * D, lastCheckTs: now - 3 * D, wetTipDone: true,
+            waterSamples: [{ ts: now - 8 * D, h: 72, stage: 'veg' }, { ts: now - 5 * D, h: 72, stage: 'veg' }, { ts: now - 2 * D, h: 72, stage: 'veg' }] })
+          const g3 = mk({ grow: 'Demo · Floración', plants: 3, pots: 3, potL: 19, substrate: 'coco', seedType: 'foto', soakTs: now - 63 * D, germTs: now - 61 * D, flowerTs: now - 21 * D, lastWaterTs: now - 1 * D, readings: { ph: 5.9, hr: 48 }, readingDays: { ph: 55, hr: 58 },
+            nutrientesId: 'canna-coco' })
+          const g4 = mk({ grow: 'Demo · Terminado', plants: 2, pots: 2, potL: 11, substrate: 'tierra', seedType: 'auto', soakTs: now - 100 * D, germTs: now - 98 * D, harvestedTs: now - 20 * D, finishedTs: now - 6 * D, dryWeight: 85,
+            tierraAbonada: 'si' })
           const evs: GrowEvent[] = []
           const ev = (growId: string, daysAgo: number, day: number, type: EventType, note?: string) =>
             evs.push({ growId, ts: now - daysAgo * D, day, type, note })
           // plántula: recién arranca
           ev(g1.id, 5, 0, 'sembrado', '2 semillas en remojo')
           ev(g1.id, 3, 0, 'transplante', 'Trasplantadas 2 plantas')
-          ev(g1.id, 1, 2, 'riego')
-          // veg: rutina + LST + mediciones
+          ev(g1.id, 1, 2, 'riego', 'Riego · la tierra estaba seca')
+          // veg: rutina de revisar la maceta + LST + mediciones
           ev(g2.id, 30, 0, 'sembrado', '3 semillas en remojo')
           ev(g2.id, 28, 0, 'transplante', 'Trasplantadas 3 plantas')
           ev(g2.id, 24, 4, 'riego')
           ev(g2.id, 20, 8, 'riego')
           ev(g2.id, 16, 12, 'medicion', 'pH 6.5 · en rango')
-          ev(g2.id, 13, 15, 'riego')
+          ev(g2.id, 15, 13, 'riego')
+          ev(g2.id, 11, 17, 'riego')
           ev(g2.id, 10, 18, 'entrenamiento', 'Apliqué LST (low stress training)')
+          ev(g2.id, 8, 20, 'riego', 'Riego · la maceta pesaba poco')
           ev(g2.id, 8, 20, 'nota', 'Las cuatro ramas ya van en horizontal, la copa se abre bien')
-          ev(g2.id, 5, 23, 'riego')
-          ev(g2.id, 2, 26, 'riego')
+          ev(g2.id, 5, 23, 'riego', 'Riego · la maceta pesaba poco')
+          ev(g2.id, 3, 25, 'revision', 'Revisé la maceta: aún pesa')
+          ev(g2.id, 2, 26, 'riego', 'Riego · la maceta pesaba poco')
           ev(g2.id, 1, 27, 'medicion', 'Temp 25 °C · en rango')
           // flor: cambio de luz + rutina
           ev(g3.id, 63, 0, 'sembrado', '3 semillas en remojo')
@@ -896,15 +1144,20 @@ export const useStore = create<AppState>()(
           if (c.seedType === 'foto' && !c.flowerTs && c.germTs && realDay(c.germTs) >= 46) {
             c.flowerTs = c.germTs + 45 * 86400000
           }
+          // riego por revisión: campos nuevos con valores seguros; la vieja "sed" del reloj se va
+          Object.assign(c, wateringFields(g, c))
+          delete (c as Cultivo & { thirst?: number }).thirst
           // MIGRACIÓN sed derivada: un cultivo vivo sin lastWaterTs (pre-P2 el transplante no
-          // lo fijaba y quizá nunca usó el botón de regar) despertaría con sed 0.9 y avisos
-          // falsos contando desde germTs. Mismo arranque neutro que registerExisting (~36 h):
+          // lo fijaba y quizá nunca usó el botón de regar) despertaría con avisos falsos contando
+          // desde germTs. Mismo arranque neutro que registerExisting, marcado como estimado:
           // el primer riego real lo sincroniza.
           if (!c.harvestedTs && c.germTs && c.lastWaterTs == null) {
-            c.lastWaterTs = Date.now() - 36 * 3600000
+            c.lastWaterTs = neutralTs(c)
+            c.lastWaterEstimated = true
           }
-          // thirst ahora es derivada del reloj; 0.2 es solo el placeholder hasta recomputeTime
-          c.thirst = 0.2
+          // abono seguro: tierra abonada y, en coco e hidro, nada de "solo agua". Los datos de antes
+          // de la pregunta de la tierra se migran con lo que ya hacían (ver abonoFields)
+          Object.assign(c, abonoFields(g, c))
           if (!c.equipment || typeof c.equipment !== 'object') c.equipment = {}
           if (!c.readings) c.readings = {}
           if (!c.readingDays) c.readingDays = {}

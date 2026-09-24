@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore, selectActive } from '../store'
-import { stageLabel, type MetricKey, type Training } from '../lib'
+import { stageLabel, ventanaApicalAuto, type MetricKey, type Training } from '../lib'
 import { mentorAdvice, canTrain, STATUS_COLOR } from '../mentor'
 import { isDefoliated } from '../lib'
 import { HOWTOS } from '../howtos'
@@ -17,9 +17,10 @@ const TECHNIQUES: { id: Training; label: string }[] = [
 
 // Consejos del mentor: enseñan cómo hacer las cosas según la etapa y el nivel del usuario.
 // Pestaña "Semana": el plan de los próximos 7 días; cada tarea abre su acción.
-export default function Today({ onClose, onWater, onMeasure, onPhoto, onDiagnose }: {
+export default function Today({ onClose, onCheck, onLight, onMeasure, onPhoto, onDiagnose }: {
   onClose: () => void
-  onWater: () => void
+  onCheck: (mode?: 'solucion') => void   // revisar la maceta / el depósito (hidro: 'solucion' = cambiarla)
+  onLight: () => void                     // la hoja de Luz (horario anotado que no conviene)
   onMeasure: (key: MetricKey) => void
   onPhoto: () => void
   onDiagnose: () => void
@@ -37,6 +38,14 @@ export default function Today({ onClose, onWater, onMeasure, onPhoto, onDiagnose
   useEffect(() => { if (tab === 'hoy' && confirmFlower) flowerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }, [tab, confirmFlower])
   const advice = mentorAdvice(c, guide)
   const showTraining = c.stage === 'veg' && canTrain(guide)
+  // autoflorecientes: la poda apical solo en avanzado, y con su ventana (4–5 nudos, planta sana:
+  // los días 14–21 de la curva típica, escalados a su ciclo). Si ya se anotó, el botón sigue a la
+  // vista para poder quitarla.
+  const isAuto = c.seedType === 'auto'
+  const techniques = TECHNIQUES.filter((t) => t.id !== 'apical' || !isAuto || guide === 'avanzado' || c.training === 'apical')
+  const autoTopping = isAuto && techniques.some((t) => t.id === 'apical')
+  const ventana = ventanaApicalAuto(c)
+  const toppingOff = autoTopping && c.training !== 'apical' && (c.day < ventana.desde || c.day > ventana.hasta) // fuera de su ventana
   // defoliar: en vegetativo o floración (nivel medio/avanzado); la imagen lo muestra unos días
   const showDefol = (c.stage === 'veg' || c.stage === 'flor') && canTrain(guide)
   // fotoperiódicas en veg: aquí se anota el cambio real de luz a 12/12
@@ -44,7 +53,9 @@ export default function Today({ onClose, onWater, onMeasure, onPhoto, onDiagnose
   const living = c.stage === 'plantula' || c.stage === 'veg' || c.stage === 'flor' || c.stage === 'cosecha'
 
   function onPlan(kind: PlanKind) {
-    if (kind === 'riego' || kind === 'abono') onWater()
+    // el plan no manda regar: abre la revisión de la maceta (o del depósito)
+    if (kind === 'riego' || kind === 'abono' || kind === 'deposito') onCheck()
+    else if (kind === 'solucion') onCheck('solucion')
     else if (kind === 'ph') onMeasure('ph')
     else if (kind === 'foto') onPhoto()
     else if (kind === 'flip') { setTab('hoy'); setConfirmFlower(true) }
@@ -91,9 +102,17 @@ export default function Today({ onClose, onWater, onMeasure, onPhoto, onDiagnose
             <div key={i} className="flex items-start gap-3 rounded-2xl px-3.5 py-3"
               style={{ background: 'rgba(255,255,255,.04)', border: `1px solid ${a.tone && a.tone !== 'ok' ? STATUS_COLOR[a.tone] : 'var(--glass-bd)'}` }}>
               <span className="w-1.5 h-1.5 rounded-full mt-[7px] flex-none" style={{ background: a.tone && a.tone !== 'ok' ? STATUS_COLOR[a.tone] : 'var(--blue)' }} />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="text-[.86rem] font-bold leading-tight mb-0.5">{a.title}</div>
                 <div className="text-[.8rem] leading-relaxed" style={{ color: 'var(--muted)' }}>{a.body}</div>
+                {/* el aviso de revisar lleva a la revisión (el riego viene después, si hace falta) */}
+                {a.action && (
+                  <button onClick={() => (a.action === 'luz' ? onLight() : onCheck(a.action === 'solucion' ? 'solucion' : undefined))}
+                    className="mt-2.5 w-full h-11 text-[.82rem] font-semibold"
+                    style={{ borderRadius: 5, background: 'transparent', border: '1px solid rgba(255,255,255,.4)', color: '#fff' }}>
+                    {a.action === 'solucion' ? 'Cambiar la solución' : a.action === 'luz' ? 'Cambiar el horario de luz' : 'Revisar ahora'}
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -106,6 +125,7 @@ export default function Today({ onClose, onWater, onMeasure, onPhoto, onDiagnose
                   <div className="text-[.82rem] font-bold mb-1">¿Ya pusiste la luz en 12/12?</div>
                   <p className="text-[.76rem] leading-snug mb-2.5" style={{ color: 'var(--muted)' }}>
                     Desde hoy cuentan {c.flowerWeeks ? `las ${c.flowerWeeks} semanas de floración de tu variedad` : 'unas 8–9 semanas de floración'}. Los objetivos y consejos cambian a modo flor.
+                    {c.lightHours != null && c.lightHours !== 12 && ` Tu horario de ${c.lightHours} h vuelve a automático: 12 h de luz.`}
                   </p>
                   <div className="flex gap-2">
                     <button onClick={() => setConfirmFlower(false)} className="flex-1 rounded-2xl py-2.5 text-[.82rem] font-semibold"
@@ -129,10 +149,10 @@ export default function Today({ onClose, onWater, onMeasure, onPhoto, onDiagnose
           {showTraining && (
             <div className="pt-1">
               <div className="label mb-1.5">Entrenamiento</div>
-              <div className="grid grid-cols-2 gap-2">
-                {TECHNIQUES.map((t) => (
+              <div className={`grid ${techniques.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
+                {techniques.map((t) => (
                   <button key={t.id} onClick={() => t.id === 'apical' && c.training !== 'apical' ? setHowto('apical') : applyTraining(t.id)}
-                    className="text-center rounded-2xl py-2.5 text-[.82rem] font-semibold"
+                    className="text-center rounded-2xl min-h-[44px] py-2.5 text-[.82rem] font-semibold"
                     style={c.training === t.id
                       ? { background: '#fff', color: '#000', border: '1px solid #fff' }
                       : { background: 'rgba(255,255,255,.04)', border: '1px solid var(--glass-bd)', color: 'var(--text)' }}>
@@ -140,6 +160,12 @@ export default function Today({ onClose, onWater, onMeasure, onPhoto, onDiagnose
                   </button>
                 ))}
               </div>
+              {autoTopping && (
+                <p className="text-[.76rem] leading-snug mt-2" style={{ color: toppingOff ? 'var(--warn)' : 'var(--muted)' }}>
+                  Autofloreciente: poda apical solo con 4–5 nudos (hacia los días {ventana.desde}–{ventana.hasta}) y con la planta sana.
+                  {toppingOff && (c.day < ventana.desde ? ` Tu planta va por el día ${c.day}: espera al día ${ventana.desde}.` : ` Tu planta va por el día ${c.day}: ya es tarde, mejor no cortes la punta.`)}
+                </p>
+              )}
             </div>
           )}
           {showDefol && (
@@ -167,11 +193,11 @@ export default function Today({ onClose, onWater, onMeasure, onPhoto, onDiagnose
       {howto && (
         <div onClick={(e) => e.stopPropagation()}>
           {howto === 'apical' && (
-            <HowTo def={HOWTOS.apical} actionLabel="Ya la podé"
+            <HowTo def={isAuto ? HOWTOS.apicalAuto : HOWTOS.apical} actionLabel="Ya la podé"
               onAction={() => { setHowto(null); applyTraining('apical') }} onClose={() => setHowto(null)} />
           )}
           {howto === 'defoliacion' && (
-            <HowTo def={HOWTOS.defoliacion} actionLabel="Ya defolié"
+            <HowTo def={isAuto ? HOWTOS.defoliacionAuto : HOWTOS.defoliacion} actionLabel="Ya defolié"
               onAction={() => { setHowto(null); defoliate() }} onClose={() => setHowto(null)} />
           )}
         </div>

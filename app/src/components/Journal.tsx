@@ -7,7 +7,8 @@ import TimelapseCamera from './TimelapseCamera'
 // Solo se pueden borrar registros "de diario". Los estructurales (sembrado, trasplante,
 // floración, cosecha, terminado) definen el estado del cultivo: borrarlos dejaría la
 // bitácora mintiendo (p.ej. un cultivo "secando" sin ninguna cosecha registrada).
-const DELETABLE = new Set<EventType>(['riego', 'nota', 'medicion', 'sed', 'foto', 'diagnostico'])
+// (las revisiones, hojas caídas y el depósito también: al borrarlos, el cultivo vuelve al estado anterior)
+const DELETABLE = new Set<EventType>(['riego', 'nota', 'medicion', 'sed', 'foto', 'diagnostico', 'revision', 'caida', 'deposito', 'solucion'])
 const hasPhoto = (e: GrowEvent): e is GrowEvent & { photoId: number } => (e.type === 'foto' || e.type === 'diagnostico') && e.photoId != null
 
 const TrashIcon = () => (

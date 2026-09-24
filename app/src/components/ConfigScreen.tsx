@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
-import { stageAt, stageLabel, fmtHour, preloadIntro, harvestEta, type Substrate, type SeedType, type PotType } from '../lib'
-import { lineaPorId } from '../data/nutrientes'
+import { stageAt, stageLabel, fmtHour, preloadIntro, harvestEta, autoDaysOf, autoFlowerDayOf, type Substrate, type SeedType, type PotType, type TierraAbonada } from '../lib'
+import { lineaPorId, nutrientesPara, OTRA_MARCA } from '../data/nutrientes'
+import { fuerzaAbono } from '../mentor'
 import NutrientesPicker from './NutrientesPicker'
 
 const SIZES = [
@@ -21,6 +22,12 @@ const POT_TYPES: { id: PotType; label: string; hint: string }[] = [
   { id: 'tela', label: 'Tela', hint: 'respira y seca rápido' },
   { id: 'plastico', label: 'Plástico', hint: 'retiene más agua' },
 ]
+// ¿la tierra del saco ya trae abono? "No sé" se trata como abonada (lo seguro)
+const ABONADA: { id: TierraAbonada; label: string }[] = [
+  { id: 'si', label: 'Sí' },
+  { id: 'no', label: 'No' },
+  { id: 'nose', label: 'No sé' },
+]
 
 // "¿hace cuánto germinó?" para registrar una planta que ya crece
 const AGES = [
@@ -31,7 +38,8 @@ const FLOWER_AGES = [
   { w: 1, label: '~1 sem' }, { w: 2, label: '~2 sem' }, { w: 3, label: '~3 sem' },
   { w: 4, label: '~1 mes' }, { w: 6, label: '~6 sem' }, { w: 8, label: '~2 meses' },
 ]
-const PASOS = ['Cómo empezamos', 'Tu carpa', 'Maceta y sustrato', 'Nutrientes', 'Luz', 'Semilla']
+// la semilla va antes que la luz: el horario depende de ella (una auto no pasa nunca a 12/12)
+const PASOS = ['Cómo empezamos', 'Tu carpa', 'Maceta y sustrato', 'Nutrientes', 'Semilla', 'Luz']
 // semanas de la variedad (vienen en el paquete o en la web del banco); null = no sé
 const FLOWER_WEEKS = [7, 8, 9, 10, 11, 12]
 const AUTO_WEEKS = [8, 9, 10, 11, 12, 13, 14]
@@ -44,12 +52,15 @@ function nextName(n: number): string {
 }
 
 // Alta de un cultivo en pasos (uno por pantalla, sin amontonar): modo → carpa → maceta y
-// sustrato → nutrientes → luz → semilla, con resumen y el botón final.
+// sustrato → nutrientes → semilla (con la cosecha estimada) → luz, con resumen y el botón final.
 export default function ConfigScreen() {
   const createGrow = useStore((s) => s.createGrow)
   const registerExisting = useStore((s) => s.registerExisting)
   const cancelNew = useStore((s) => s.cancelNew)
   const [step, setStep] = useState(0)
+  // cada paso empieza arriba (el de la semilla es largo; sin esto, Luz abriría a media página)
+  const scroller = useRef<HTMLDivElement>(null)
+  useEffect(() => { scroller.current?.scrollTo(0, 0) }, [step])
   const [mode, setMode] = useState<'semilla' | 'planta'>('semilla')
   const [name, setName] = useState(() => nextName(useStore.getState().grows.length))
   const [plants, setPlants] = useState(3)
@@ -61,6 +72,8 @@ export default function ConfigScreen() {
   const [potL, setPotL] = useState(11)
   const [potType, setPotType] = useState<PotType>('tela')
   const [nut, setNut] = useState<string | null>(null)
+  const [abonada, setAbonada] = useState<TierraAbonada>('nose')
+  const guide = useStore((s) => s.guide)
   const [lightOn, setLightOn] = useState(6)
   const [ctrl, setCtrl] = useState(false)
   const [weeksAgo, setWeeksAgo] = useState(4)
@@ -86,10 +99,27 @@ export default function ConfigScreen() {
   // el 12/12 no puede ser anterior a la germinación
   const flowerOptions = FLOWER_AGES.filter((f) => f.w < weeksAgo)
   const linea = lineaPorId(nut)
+  // la fuerza del abono según el nivel (gratis): en tierra sobre la tabla; en coco e hidro, la EC manda
+  const fuerza = fuerzaAbono(guide, 'veg', sub)
+  // (la regla es gratis y funciona sin Premium: la fuerza sobre la dosis de la etiqueta)
+  const fuerzaTxt = sub !== 'tierra'
+    ? `En ${sub === 'coco' ? 'coco' : 'hidro'} manda la EC: empiezas con ${fuerza <= 0.5 ? 'la mitad' : 'tres cuartos'} de la dosis de la etiqueta y subes midiendo.`
+    : fuerza <= 0.5 ? 'Como vas empezando, usa la mitad de la dosis de la etiqueta (menos aún en plántula): es lo seguro. En cada riego te decimos qué fuerza usar.'
+    : fuerza < 1 ? 'Usa tres cuartos de la dosis de la etiqueta. En cada riego te decimos qué fuerza usar.' : 'Usa la dosis de la etiqueta. En cada riego te decimos qué fuerza usar.'
+  const abonoTxt = linea ? linea.marca : nut === OTRA_MARCA ? 'otra marca' : 'solo agua'
+  // horas de luz con las que arranca (el horario automático de la carpa): auto = 18 h siempre;
+  // una fotoperiódica ya en 12/12 empieza en 12 h
+  const inFlower = existing && !auto && flipAgo != null
+  const luzH = inFlower ? 12 : 18
+  const luzTxt = auto
+    ? 'Autofloreciente: 18 h de luz todo el ciclo; no la bajes a 12 h. Si prefieres 20 h, lo cambias con el botón Luz de la carpa.'
+    : inFlower
+      ? 'Ya está en floración: 12 h de luz y 12 h de oscuridad seguidas. Lo puedes cambiar en la carpa.'
+      : '18 h mientras crece. Cuando la pases a floración, 12 h. Lo puedes cambiar en la carpa.'
 
   function submit() {
     const base = {
-      grow: name, plants, substrate: sub, potL, potType, seedType, nutrientesId: nut, lightOnHour: lightOn, hasController: ctrl, tentCm,
+      grow: name, plants, substrate: sub, potL, potType, seedType, nutrientesId: nut, tierraAbonada: abonada, lightOnHour: lightOn, hasController: ctrl, tentCm,
       strain: strain.trim() || null, breeder: breeder.trim() || null,
       flowerWeeks: auto ? null : flowerWeeks, autoWeeks: auto ? autoWeeks : null,
     }
@@ -104,7 +134,7 @@ export default function ConfigScreen() {
       <button onClick={() => (step === 0 ? cancelNew() : setStep(step - 1))} aria-label={step === 0 ? 'Volver a tus cultivos' : 'Paso anterior'} title="Atrás" className="back">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
       </button>
-      <div className="absolute inset-0 overflow-y-auto px-6 pb-36 pt-[104px] flex flex-col">
+      <div ref={scroller} className="absolute inset-0 overflow-y-auto px-6 pb-36 pt-[104px] flex flex-col">
         <div className="label mb-2">Paso {step + 1} de {PASOS.length} · Nuevo cultivo</div>
         <h2 className="display text-[1.75rem] font-semibold leading-tight mb-1">{PASOS[step]}</h2>
         <div className="flex gap-1 mt-3 mb-6">
@@ -118,7 +148,7 @@ export default function ConfigScreen() {
               <button onClick={() => setMode('planta')} className={`sub ${existing ? 'on' : ''}`}>Ya tengo una planta</button>
             </div>
             <p className="text-[.8rem] mb-5" style={{ color: 'var(--muted)' }}>
-              {existing ? 'Registramos una planta que ya está creciendo: te preguntaremos su edad al final.' : 'Empezamos poniendo las semillas a germinar en agua; el resto llega solo.'}
+              {existing ? 'Registramos una planta que ya está creciendo: te preguntaremos su edad junto con la semilla.' : 'Empezamos poniendo las semillas a germinar en agua; el resto llega solo.'}
             </p>
             <label className="lbl">Nombre del cultivo</label>
             <input className="inp" value={name} maxLength={24} onChange={(e) => setName(e.target.value)} />
@@ -160,52 +190,51 @@ export default function ConfigScreen() {
             <label className="lbl mb-2 block">Sustrato</label>
             <div className="flex gap-[7px]">
               {SUBS.map((s) => (
-                <button key={s.id} onClick={() => { setSub(s.id); if (linea && !linea.sustratos.includes(s.id)) setNut(null) }} className={`sub ${sub === s.id ? 'on' : ''}`}>{s.label}</button>
+                // en coco e hidro no hay "solo agua"; una línea que no es de ese sustrato pasa a "otra marca"
+                <button key={s.id} onClick={() => { setSub(s.id); setNut(nutrientesPara(nut, s.id)) }} className={`sub ${sub === s.id ? 'on' : ''}`}>{s.label}</button>
               ))}
             </div>
+            {/* la mayoría de las tierras comerciales ya alimentan 2–4 semanas: abonar encima quema */}
+            {sub === 'tierra' && (
+              <>
+                <label className="lbl mt-5 block">Tierra abonada</label>
+                {help('¿Tu tierra viene abonada? Mira el saco: si dice abonada, NPK o All-Mix, sí.')}
+                <div className="flex gap-[7px]">
+                  {ABONADA.map((a) => (
+                    <button key={a.id} onClick={() => setAbonada(a.id)} className={`sub ${abonada === a.id ? 'on' : ''}`}>{a.label}</button>
+                  ))}
+                </div>
+                <p className="text-[.78rem] mt-2" style={{ color: 'var(--muted)' }}>
+                  {abonada === 'no' ? 'Sin abono en el saco: tendrás que abonar tú, a poca dosis. Elige tu abono en el paso siguiente.'
+                    : abonada === 'si' ? 'Solo agua unas 3 semanas desde el trasplante: abonar encima quema las puntas de las hojas.'
+                    : 'La tratamos como abonada, que es lo seguro: solo agua unas 3 semanas desde el trasplante.'}
+                </p>
+              </>
+            )}
           </>
         )}
 
         {step === 3 && (
           <>
             <label className="lbl block">Tu línea de nutrientes</label>
-            {help('Con ella te damos la dosis exacta en cada riego.')}
+            {help(`Con ella calculamos el abono de cada riego. ${fuerzaTxt}`)}
             <NutrientesPicker value={nut} onChange={setNut} substrate={sub} chipClass="sub" />
-            <p className="text-[.78rem] mt-3" style={{ color: 'var(--faint)' }}>Si tu marca no está, elige «Solo agua / otra marca»: la ficha de riego te dará agua, pH y EC objetivo.</p>
+            <p className="text-[.78rem] mt-3" style={{ color: 'var(--faint)' }}>¿Tu marca no está? Elige «Otra marca» y te guiamos por la EC.</p>
           </>
         )}
 
         {step === 4 && (
           <>
-            <label className="lbl mb-2 block">Hora de encendido</label>
-            <div className="flex items-center gap-3 mb-2">
-              <input type="time" step={3600} value={`${String(lightOn).padStart(2, '0')}:00`}
-                onChange={(e) => { const h = parseInt(e.target.value.slice(0, 2), 10); if (!Number.isNaN(h)) setLightOn(h) }} className="inp" style={{ width: 150, fontFamily: "'IBM Plex Mono', monospace", colorScheme: 'dark' }} />
-              <div className="mono text-[.82rem]" style={{ color: 'var(--muted)' }}>{fmtHour(lightOn)} → {fmtHour((lightOn + 18) % 24)}</div>
-            </div>
-            <p className="text-[.78rem] mb-5" style={{ color: 'var(--muted)' }}>Se apaga sola según la etapa: 18 h en crecimiento, 12 h en floración. Lo puedes cambiar en la carpa.</p>
-            <label className="size cursor-pointer" style={{ borderColor: ctrl ? '#fff' : undefined }}>
-              <span className="flex items-center gap-3">
-                <input type="checkbox" checked={ctrl} onChange={(e) => setCtrl(e.target.checked)} style={{ width: 20, height: 20, margin: 0, accentColor: '#1F73B7' }} />
-                Tengo temporizador o controlador
-              </span>
-            </label>
-            <p className="text-[.78rem] mt-3" style={{ color: 'var(--muted)' }}>{ctrl ? 'Con temporizador no te avisamos de la luz.' : 'Sin temporizador, te avisamos a la hora de encender y de apagar la luz.'}</p>
-          </>
-        )}
-
-        {step === 5 && (
-          <>
             <label className="lbl block">Tipo de semilla</label>
-            {help('Define cuándo florece.')}
+            {help('Define cuándo florece y cuántas horas de luz necesita.')}
             <div className="flex gap-[7px]">
               <button onClick={() => setSeedType('foto')} className={`sub ${seedType === 'foto' ? 'on' : ''}`}>Fotoperiódica</button>
               <button onClick={() => { setSeedType('auto'); setFlipAgo(null) }} className={`sub ${seedType === 'auto' ? 'on' : ''}`}>Autofloreciente</button>
             </div>
             <p className="text-[.78rem] mt-2" style={{ color: 'var(--muted)' }}>
               {seedType === 'foto'
-                ? 'Florece cuando tú cambias la luz a 12/12. Si no sabes cuál es, casi seguro es esta.'
-                : 'Florece sola hacia el día 32, sin cambiar la luz. Ciclo corto, unos 75 días en total.'}
+                ? 'Florece cuando tú pasas la luz a 12 h de luz y 12 de oscuridad (12/12). Mira el paquete: si dice Auto o Autofloreciente, es auto.'
+                : `Florece sola hacia el día ${autoFlowerDayOf({ autoWeeks })}, sin cambiar la luz: 18 h todo el ciclo. Ciclo corto, unos ${autoDaysOf({ autoWeeks })} días en total.`}
             </p>
 
             <label className="lbl mt-4 block" htmlFor="cfg-strain">Variedad</label>
@@ -267,11 +296,30 @@ export default function ConfigScreen() {
                 </>
               )}
             </div>
+          </>
+        )}
+
+        {step === 5 && (
+          <>
+            <label className="lbl mb-2 block">Hora de encendido</label>
+            <div className="flex items-center gap-3 mb-2">
+              <input type="time" step={3600} value={`${String(lightOn).padStart(2, '0')}:00`}
+                onChange={(e) => { const h = parseInt(e.target.value.slice(0, 2), 10); if (!Number.isNaN(h)) setLightOn(h) }} className="inp" style={{ width: 150, fontFamily: "'IBM Plex Mono', monospace", colorScheme: 'dark' }} />
+              <div className="mono text-[.82rem]" style={{ color: 'var(--muted)' }}>{fmtHour(lightOn)} → {fmtHour((lightOn + luzH) % 24)} · {luzH} h</div>
+            </div>
+            <p className="text-[.78rem] mb-5" style={{ color: 'var(--muted)' }}>{luzTxt}</p>
+            <label className="size cursor-pointer" style={{ borderColor: ctrl ? '#fff' : undefined }}>
+              <span className="flex items-center gap-3">
+                <input type="checkbox" checked={ctrl} onChange={(e) => setCtrl(e.target.checked)} style={{ width: 20, height: 20, margin: 0, accentColor: '#1F73B7' }} />
+                Tengo temporizador o controlador
+              </span>
+            </label>
+            <p className="text-[.78rem] mt-3" style={{ color: 'var(--muted)' }}>{ctrl ? 'Con temporizador no te avisamos de la luz.' : 'Sin temporizador, te avisamos a la hora de encender y de apagar la luz.'}</p>
 
             <div className="mt-6 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,.12)' }}>
               <div className="label mb-2">Resumen</div>
               <div className="text-[.8rem] leading-relaxed" style={{ color: 'var(--muted)' }}>
-                {name || 'Carpa'}{strain.trim() ? ` · ${strain.trim()}` : ''} · {plants} {plants === 1 ? 'planta' : 'plantas'} · maceta de {POT_TYPES.find((t) => t.id === potType)!.label.toLowerCase()} de {potL} L · {SUBS.find((s) => s.id === sub)!.label.toLowerCase()} · {linea ? linea.marca : 'solo agua'} · luz {fmtHour(lightOn)}{ctrl ? ' con controlador' : ''}.
+                {name || 'Carpa'}{strain.trim() ? ` · ${strain.trim()}` : ''} · {plants} {plants === 1 ? 'planta' : 'plantas'} · maceta de {POT_TYPES.find((t) => t.id === potType)!.label.toLowerCase()} de {potL} L · {SUBS.find((s) => s.id === sub)!.label.toLowerCase()}{sub === 'tierra' ? (abonada === 'si' ? ' abonada' : abonada === 'no' ? ' sin abono' : ' quizá abonada') : ''} · {abonoTxt} · luz de {fmtHour(lightOn)} a {fmtHour((lightOn + luzH) % 24)}{ctrl ? ' con controlador' : ''}.
                 {existing ? ` Tu carpa abrirá en el día ${prevDay} aproximadamente, en ${stageLabel[prevStage].toLowerCase()}.` : ` Pondremos ${plants} ${plants === 1 ? 'semilla' : 'semillas'} a germinar en agua.`}
               </div>
             </div>

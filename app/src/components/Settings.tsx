@@ -168,7 +168,7 @@ export default function Settings({ onClose }: { onClose: () => void }) {
               </span>
             </span>
             <span className="odesc">
-              Como mucho una notificación al día cuando a un cultivo le toque regar. Funciona mientras zenpai
+              Como mucho una notificación al día cuando toque revisar la maceta (o el depósito) de un cultivo. Funciona mientras zenpai
               esté abierta o en segundo plano; los avisos con la app cerrada llegarán en una próxima versión.
             </span>
           </button>

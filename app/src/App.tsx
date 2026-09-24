@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useStore, selectActive } from './store'
-import { preloadFor, CONSENT_VERSION } from './lib'
+import { preloadFor, CONSENT_VERSION, isDrooping } from './lib'
 import { sceneState } from './mentor'
 import { consumeEntry, shouldHandlePop, markerState, isOwnMarker } from './useBackClose'
 import Home from './components/Home'
@@ -22,10 +22,10 @@ export default function App() {
   const active = useStore(selectActive)
 
   // precarga solo las imágenes del cultivo abierto (no las 31): día, noche y el estado actual
-  useEffect(() => { if (hasActive) preloadFor(active, sceneState(active)) }, [hasActive, activeId, active.stage, active.substrate, active.thirst > 0.55, active.light, active.readings.temp, active.pots])
+  useEffect(() => { if (hasActive) preloadFor(active, sceneState(active)) }, [hasActive, activeId, active.stage, active.substrate, isDrooping(active), active.light, active.readings.temp, active.pots])
 
-  // mantener el día/etapa/sed sincronizados con el reloj real (al volver a la app y cada minuto);
-  // el mismo pulso revisa si toca un recordatorio de riego (solo con la app fuera de pantalla)
+  // mantener el día/etapa sincronizados con el reloj real (al volver a la app y cada minuto);
+  // el mismo pulso revisa si toca recordar revisar la maceta (solo con la app fuera de pantalla)
   useEffect(() => {
     recomputeTime()
     const tick = () => {

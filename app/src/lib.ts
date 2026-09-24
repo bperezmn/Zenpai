@@ -6,9 +6,15 @@ export type Training = 'none' | 'lst' | 'lollipop' | 'apical'
 export type PotType = 'tela' | 'plastico'   // la de tela seca más rápido
 export type Guide = 'novato' | 'medio' | 'avanzado'   // nivel de experiencia (se elige al crear el cultivo)
 export type SeedType = 'foto' | 'auto'                // fotoperiódica (12/12 la dispara el usuario) o autofloreciente
+// ¿la tierra del saco ya trae abono? "No sé" (nose) se trata como abonada: es lo seguro
+export type TierraAbonada = 'si' | 'no' | 'nose'
 
 // equipo por categoría: id del catálogo (data/equipos.ts) o nombre libre escrito por el usuario
 export interface Equipment { luz?: string; aire?: string; ctrl?: string; vent?: string }
+
+// un intervalo del ritmo aprendido: cuántas horas tardó la maceta en pesar poco desde el riego
+// anterior (ts = el riego confirmado que cerró el intervalo; stage = la etapa en ese momento)
+export interface WaterSample { ts: number; h: number; stage: Stage }
 
 export interface Cultivo {
   id: string
@@ -26,12 +32,27 @@ export interface Cultivo {
   finishedTs: number | null   // cierre del ciclo tras el secado (el cultivo pasa al archivo)
   dryWeight: number | null    // peso seco opcional que registró el usuario al terminar
   lastWaterTs: number | null  // último riego real
+  // lastWaterTs es una estimación (planta registrada, datos viejos, riego borrado), no un riego
+  // anotado: la revisión cuenta desde ahí, pero la app no dice "riego anotado ayer"
+  lastWaterEstimated: boolean
+  // riego por revisión: el reloj solo dice CUÁNDO mirar la maceta; lo que ve el usuario manda
+  lastCheckTs: number | null   // última revisión sin riego ("aún pesa" / en hidro, nivel revisado o rellenado)
+  droopTs: number | null       // el usuario vio las hojas caídas (vale hasta el siguiente riego)
+  waterSamples: WaterSample[]  // ritmo aprendido: horas entre riegos confirmados con "pesa poco"
+  waterBaseTs: number | null   // último riego con hora exacta (base del ritmo); null si fue anotado después o estimado
+  lastSolutionTs: number | null // hidro: último cambio completo de la solución del depósito
+  wetTipDone: boolean          // ya le dijimos que levante la maceta recién regada (para saber cuánto pesa mojada)
   training: Training           // técnica de entrenamiento aplicada en vegetativo
   defoliatedTs: number | null  // última defoliación (la imagen la muestra unos días)
-  nutrientesId: string | null  // línea de nutrientes del catálogo (src/data/nutrientes.ts) o null = solo agua
-  // horario de luz: la luz se enciende a lightOnHour y dura lightHours (null = según etapa:
-  // 18 h en crecimiento, 12 h en floración). Si el usuario tiene temporizador/controlador
-  // no se le avisa; si no, la app le recuerda encender y apagar.
+  // línea de nutrientes del catálogo (src/data/nutrientes.ts), 'otra' (otra marca, guiada por la
+  // EC) o null = solo agua (solo en tierra: en coco e hidro el sustrato no trae comida)
+  nutrientesId: string | null
+  // tierra: ¿el saco ya trae abono? Si trae (o no lo sabe), solo agua unas 3 semanas desde el trasplante
+  tierraAbonada: TierraAbonada
+  // horario de luz: la luz se enciende a lightOnHour y dura lightHours (null = automático:
+  // 18 h en crecimiento y 12 h en floración; las autoflorecientes, 18 h todo el ciclo).
+  // Si el usuario tiene temporizador/controlador no se le avisa; si no, la app le recuerda
+  // encender y apagar.
   lightOnHour: number
   lightHours: number | null
   hasController: boolean
@@ -46,10 +67,10 @@ export interface Cultivo {
   equipment: Equipment
   readings: Partial<Record<MetricKey, number>>     // últimas mediciones que registró el usuario
   readingDays: Partial<Record<MetricKey, number>>  // día del cultivo en que se tomó cada medición
-  // day / stage / thirst son DERIVADOS (caché que el store mantiene sincronizada con el reloj real)
+  // day / stage son DERIVADOS (caché que el store mantiene sincronizada con el reloj real).
+  // La sed NO se deriva del reloj: la app no sabe si la maceta está seca hasta que el usuario mira.
   day: number
   stage: Stage
-  thirst: number
   health: number
   light: boolean
   fan: boolean
@@ -61,9 +82,10 @@ export const emptyCultivo: Cultivo = {
   lightOnHour: 6, lightHours: null, hasController: false, lightOverrideUntil: null,
   strain: null, breeder: null, flowerWeeks: null, autoWeeks: null, tentCm: null, equipment: {},
   soakTs: null, germTs: null, flowerTs: null, harvestedTs: null, finishedTs: null, dryWeight: null,
-  lastWaterTs: null, training: 'none', defoliatedTs: null, nutrientesId: null,
+  lastWaterTs: null, lastWaterEstimated: false, training: 'none', defoliatedTs: null, nutrientesId: null, tierraAbonada: 'nose',
+  lastCheckTs: null, droopTs: null, waterSamples: [], waterBaseTs: null, lastSolutionTs: null, wetTipDone: false,
   readings: {}, readingDays: {},
-  day: 0, stage: 'vacia', thirst: 0.2, health: 92,
+  day: 0, stage: 'vacia', health: 92,
   light: true, fan: true, exhaust: true,
 }
 
@@ -89,6 +111,16 @@ export function flowerDaysOf(c: Partial<Pick<Cultivo, 'flowerWeeks'>>): number {
 }
 export function autoDaysOf(c: Partial<Pick<Cultivo, 'autoWeeks'>>): number {
   return c.autoWeeks ? Math.round(c.autoWeeks * 7) : 75
+}
+// autofloreciente: día en que empieza a florecer sola (el 32 de la curva típica, escalado a su ciclo)
+export function autoFlowerDayOf(c: Partial<Pick<Cultivo, 'autoWeeks'>>): number {
+  return Math.round((32 * autoDaysOf(c)) / 75)
+}
+// autofloreciente: días de la poda apical (los 14–21 de la curva típica, escalados a su ciclo como
+// el resto: en una auto de 14 semanas el día 14 aún es plántula)
+export function ventanaApicalAuto(c: Partial<Pick<Cultivo, 'autoWeeks'>>): { desde: number; hasta: number } {
+  const k = autoDaysOf(c) / 75
+  return { desde: Math.round(14 * k), hasta: Math.round(21 * k) }
 }
 export function stageAt(c: StageInput, d: number): Stage {
   if (c.seedType === 'auto') {
@@ -138,49 +170,138 @@ export function realDay(germTs: number | null): number {
   return Math.max(0, Math.floor((Date.now() - germTs) / 86400000))
 }
 
-// ===== umbrales de riego (fuente ÚNICA: caption, guardarraíl y avisos cuentan la misma historia) =====
-// guardarraíl de sobre-riego por sustrato (hidro riega continuo → sin guardarraíl)
+// ===== riego por revisión (fuente ÚNICA: caption, Home, Hoy, plan y avisos cuentan la misma historia) =====
+// El reloj NO sabe si la maceta está seca: solo decide CUÁNDO toca mirarla. Lo que el usuario ve
+// al revisar ("pesa poco", "aún pesa", "hojas caídas") es lo que manda.
+// guardarraíl de sobre-riego por sustrato (hidro no se riega: se cuida el depósito)
 export const GUARD_HOURS: Record<Substrate, number | null> = { tierra: 18, coco: 10, hidro: null }
-// a partir de cuántos días sin riego avisamos, por etapa (plántula es la más frágil)
-export const WATER_ALERT_DAYS: Partial<Record<Stage, number>> = { plantula: 2, veg: 3, flor: 3, cosecha: 4 }
+// horas desde el último riego hasta "Revisa la maceta", por etapa, para maceta de tela en tierra.
+// Plántula: el dedo a 2 cm, cada ~2 días. La de plástico retiene agua (~25 % más); el coco se
+// seca antes y se riega más a menudo. Revisar antes de tiempo no hace daño ("aún pesa" la aplaza)
+// y tarde sí (la planta pasa horas seca): los valores van cortos. Una planta grande en flor, en
+// maceta de tela y bajo LED, puede secarla en ~30 h.
+const CHECK_HOURS: Partial<Record<Stage, number>> = { germinacion: 48, plantula: 48, veg: 48, flor: 36, cosecha: 36 }
+const SUB_CHECK: Record<Substrate, number> = { tierra: 1, coco: 0.6, hidro: 1 }
+export const RECHECK_HOURS = 24            // "aún pesa": la siguiente revisión, un día después
+// hidro: revisar el nivel del depósito cada 2–3 días; la solución entera se cambia cada 7–10 días.
+// Con la plántula, cada día: mientras sus raíces no llegan al agua, el nivel tiene que tocar la
+// base de la cestita, y si baja el taco se seca en 1–2 días.
+export const RESERVOIR_CHECK_HOURS = 60
+const RESERVOIR_CHECK_PLANTULA_HOURS = 24
+export const SOLUTION_DAYS = 7             // la tarea sale a los 7 días…
+export const SOLUTION_LATE_DAYS = 10       // …y a los 10 ya es un aviso
+const MIN_SAMPLES = 3                      // riegos confirmados antes de usar el ritmo aprendido
 
-// sed derivada del TIEMPO REAL desde el último riego (o el transplante): horas hasta sed plena
-const THIRST_HOURS: Partial<Record<Stage, number>> = { plantula: 110, veg: 96, flor: 84, cosecha: 110 }
-function thirstAt(c: Cultivo, stage: Stage): number {
-  const base = THIRST_HOURS[stage]
-  if (!base) return 0
-  // las horas de la tabla son para maceta de tela; la de plástico retiene agua ~20 % más
-  const H = base * (c.potType === 'plastico' ? 1.2 : 1)
-  const ref = c.lastWaterTs ?? c.germTs
-  if (!ref) return 0.2
-  const hrs = (Date.now() - ref) / 3600000
-  return Math.min(0.9, Math.max(0, (hrs / H) * 0.9))
+const HOUR = 3600000
+const revisable = (s: Stage) => s === 'germinacion' || s === 'plantula' || s === 'veg' || s === 'flor' || s === 'cosecha'
+// la plántula se revisa con el dedo (la tierra de arriba) y la planta grande por el peso de la
+// maceta: sus ritmos no se mezclan
+const grupo = (s: Stage) => (s === 'plantula' || s === 'germinacion' ? 'plantula' : 'grande')
+
+// ritmo aprendido de ESTE cultivo: la mediana de sus 3 últimos intervalos confirmados con "pesa
+// poco" en la misma fase (plántula o planta grande): con 3 y no más, sigue la subida del consumo
+// en el estirón. null hasta tener 3 (nunca aprende de riegos forzados ni de los anotados después;
+// un "pesa poco" en la primera revisión se guarda acortado, que es un tope: ver store.water).
+export function learnedIntervalH(c: Pick<Cultivo, 'waterSamples' | 'stage' | 'substrate'>): number | null {
+  if (c.substrate === 'hidro') return null
+  const xs = (c.waterSamples ?? []).filter((s) => grupo(s.stage) === grupo(c.stage)).slice(-3).map((s) => s.h).sort((a, b) => a - b)
+  if (xs.length < MIN_SAMPLES) return null
+  const m = xs.length % 2 ? xs[(xs.length - 1) / 2] : (xs[xs.length / 2 - 1] + xs[xs.length / 2]) / 2
+  return Math.min(168, Math.max(12, m))
 }
 
-// cuándo tocará regar: el momento en que la sed derivada cruza el umbral de "sed" (0.55),
-// contando desde el último riego. null si la etapa no se riega por reloj (remojo, secado…).
-export const THIRST_THRESHOLD = 0.55
-export function nextWaterTs(c: Cultivo): number | null {
-  const base = THIRST_HOURS[c.stage]
-  if (!base || c.harvestedTs) return null
-  const H = base * (c.potType === 'plastico' ? 1.2 : 1)
+// horas entre revisiones: el ritmo aprendido si ya lo hay; si no, la tabla por etapa/maceta/sustrato
+export function checkIntervalH(c: Pick<Cultivo, 'stage' | 'substrate' | 'potType' | 'waterSamples'>): number | null {
+  if (!revisable(c.stage)) return null
+  if (c.substrate === 'hidro') return grupo(c.stage) === 'plantula' ? RESERVOIR_CHECK_PLANTULA_HOURS : RESERVOIR_CHECK_HOURS
+  const base = CHECK_HOURS[c.stage]
+  if (!base) return null
+  return learnedIntervalH(c) ?? base * (c.potType === 'plastico' ? 1.25 : 1) * SUB_CHECK[c.substrate]
+}
+
+// cuándo toca revisar la maceta (o el depósito). null si la etapa no se revisa (remojo, secado…).
+// Tierra/coco: desde el último riego; si después se revisó y "aún pesaba", 24 h después de eso.
+// Hidro: desde la última vez que se miró el nivel, se rellenó o se cambió la solución.
+export function nextCheckTs(c: Cultivo): number | null {
+  if (c.harvestedTs || c.finishedTs || !c.germTs) return null
+  const iv = checkIntervalH(c)
+  if (!iv) return null
+  if (c.substrate === 'hidro') return Math.max(c.germTs, c.lastCheckTs ?? 0, c.lastSolutionTs ?? 0) + iv * HOUR
   const ref = c.lastWaterTs ?? c.germTs
-  if (!ref) return null
-  return ref + (THIRST_THRESHOLD / 0.9) * H * 3600000
+  const t = ref + iv * HOUR
+  return c.lastCheckTs != null && c.lastCheckTs > ref ? Math.max(t, c.lastCheckTs + RECHECK_HOURS * HOUR) : t
+}
+export function checkDue(c: Cultivo, now = Date.now()): boolean {
+  const t = nextCheckTs(c)
+  return t != null && now >= t
+}
+
+// Subida gradual del agua desde la plántula (tierra). Con una planta pequeña en una maceta grande,
+// regar la maceta entera la deja mojada días y ahoga las raíces (las hojas caen, parece sed y se
+// riega más: el error nº 1). La cantidad sube por semanas desde que empieza el vegetativo y llega a
+// la completa en la semana 4 (también si una auto ya florece antes). semana = 1, 2, 3…; f = fracción.
+export function rampaRiego(c: Pick<Cultivo, 'stage' | 'day' | 'seedType' | 'autoWeeks'>): { semana: number; f: number } | null {
+  if (c.stage !== 'veg' && c.stage !== 'flor') return null
+  const semana = Math.max(1, Math.floor((c.day - vegStartOf(c)) / 7) + 1)
+  return { semana, f: Math.min(1, semana / 4) }
+}
+// ¿la maceta se revisa con el dedo y no por el peso? En plántula y, en tierra, mientras el agua
+// sube por semanas: con 0.3–1.5 L en una maceta de 11–19 L pesa casi lo mismo seca que regada, así
+// que manda la tierra cerca del tallo. En coco se riega hasta que drene desde el vegetativo (ver
+// mentor.wateringGuide): ahí ya vale el peso. Fuente ÚNICA de la revisión, Consejos, Home y el plan.
+export function revisaConDedo(c: Pick<Cultivo, 'substrate' | 'stage' | 'day' | 'seedType' | 'autoWeeks'>): boolean {
+  if (c.substrate === 'hidro') return false
+  if (c.stage === 'plantula' || c.stage === 'germinacion') return true
+  if (c.substrate !== 'tierra') return false
+  const r = rampaRiego(c)
+  return !!r && r.f < 1
+}
+// hasta dónde mete el dedo: 2 cm con la plántula, 3 cm después (las raíces ya bajan). Siempre a
+// unos 3 cm del tallo: pegado a él se puede dañar la raíz principal o el cuello del tallo.
+export const dedoCm = (c: Pick<Cultivo, 'stage'>) => (c.stage === 'plantula' || c.stage === 'germinacion' ? 2 : 3)
+
+// hojas caídas que el usuario anotó DESPUÉS del último riego (regar lo borra). En hidro no hay
+// "sed": el agua siempre está ahí.
+export function isDrooping(c: Pick<Cultivo, 'substrate' | 'droopTs' | 'lastWaterTs' | 'harvestedTs' | 'stage'>): boolean {
+  return c.substrate !== 'hidro' && !c.harvestedTs && revisable(c.stage) && c.droopTs != null && c.droopTs > (c.lastWaterTs ?? 0)
+}
+// …y que aún no tienen respuesta: después de anotarlas no se revisó la maceta ("aún pesa")
+export function droopPending(c: Cultivo): boolean {
+  return isDrooping(c) && !(c.lastCheckTs != null && c.lastCheckTs >= (c.droopTs as number))
+}
+
+// hidro: cuándo toca cambiar la solución entera (desde el último cambio o el trasplante)
+export function nextSolutionTs(c: Cultivo): number | null {
+  if (c.substrate !== 'hidro' || c.harvestedTs || c.finishedTs || !c.germTs || !revisable(c.stage)) return null
+  return (c.lastSolutionTs ?? c.germTs) + SOLUTION_DAYS * 86400000
+}
+export function solutionLate(c: Cultivo, now = Date.now()): boolean {
+  const t = nextSolutionTs(c)
+  return t != null && now >= t + (SOLUTION_LATE_DAYS - SOLUTION_DAYS) * 86400000
+}
+
+// "mañana", "el jueves", "hoy"… para decir cuándo es la próxima revisión
+const DIA_LARGO = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+export function whenText(ts: number, now = Date.now()): string {
+  const d0 = new Date(now); d0.setHours(0, 0, 0, 0)
+  const diff = Math.floor((ts - d0.getTime()) / 86400000)
+  if (diff <= 0) return 'hoy'
+  if (diff === 1) return 'mañana'
+  const x = new Date(ts)
+  return diff < 7 ? `el ${DIA_LARGO[x.getDay()]}` : `el ${x.getDate()} ${MES[x.getMonth()]}`
 }
 
 // estado real del cultivo derivado del reloj (cosecha y remojo son eventos manuales, no de tiempo)
-export function deriveLive(c: Cultivo): { day: number; stage: Stage; thirst: number } {
+export function deriveLive(c: Cultivo): { day: number; stage: Stage } {
   // cosechado → 'secando' con el día CONGELADO al momento de la cosecha (no sigue creciendo)
   if (c.harvestedTs) {
     const d = c.germTs ? Math.max(0, Math.floor((c.harvestedTs - c.germTs) / 86400000)) : c.day
-    return { day: d, stage: 'secando', thirst: 0 }
+    return { day: d, stage: 'secando' }
   }
   // sin germTs = aún EN REMOJO (semillas en agua); el día del cultivo no corre todavía
-  if (!c.germTs) return { day: 0, stage: 'remojo', thirst: 0.2 }
+  if (!c.germTs) return { day: 0, stage: 'remojo' }
   const d = realDay(c.germTs)
-  const stage = stageAt(c, d)
-  return { day: d, stage, thirst: thirstAt(c, stage) }
+  return { day: d, stage: stageAt(c, d) }
 }
 
 // días que llevan las semillas en remojo (desde soakTs)
@@ -209,7 +330,10 @@ export function fmtWhen(ts: number): string {
 }
 
 // ===== bitácora (event log) =====
+// 'sed' queda para bitácoras viejas (antes la sed salía del reloj); ahora las hojas caídas las
+// anota el usuario ('caida'). 'revision' = miró la maceta y aún pesaba (o el depósito, y estaba bien).
 export type EventType = 'creado' | 'sembrado' | 'transplante' | 'riego' | 'sed' | 'entrenamiento' | 'floracion' | 'cosecha' | 'terminado' | 'nota' | 'medicion' | 'foto' | 'defoliacion' | 'diagnostico'
+  | 'revision' | 'caida' | 'deposito' | 'solucion'
 export interface GrowEvent {
   id?: number
   growId: string
@@ -236,6 +360,10 @@ export const EVENT_META: Record<EventType, { icon: string; label: string }> = {
   medicion: { icon: '', label: 'Medición'},
   foto: { icon: '', label: 'Foto'},
   diagnostico: { icon: '', label: 'Diagnóstico'},
+  revision: { icon: '', label: 'Revisión' },
+  caida: { icon: '', label: 'Hojas caídas' },
+  deposito: { icon: '', label: 'Depósito rellenado' },
+  solucion: { icon: '', label: 'Solución cambiada' },
 }
 
 // ===== legal: control de edad + consentimiento (versionado para re-consentir si cambian términos) =====
@@ -268,8 +396,12 @@ export function waterImg(seeds: number, brote: boolean): string {
 export type SceneState = 'dia' | 'noche' | 'frio' | 'calor'
 
 // ===== horario de luz =====
-export function lightHoursFor(c: Cultivo): number {
+// Automático (lightHours null): las autoflorecientes florecen por edad, no por la luz, así que
+// siguen con 18 h hasta la cosecha (bajarlas a 12 h les quita un tercio de la luz justo cuando
+// forman los cogollos). Las fotoperiódicas bajan a 12 h al pasar a floración.
+export function lightHoursFor(c: Pick<Cultivo, 'lightHours' | 'stage' | 'seedType'>): number {
   if (c.lightHours != null) return c.lightHours
+  if (c.seedType === 'auto') return 18
   return c.stage === 'flor' || c.stage === 'cosecha' ? 12 : 18
 }
 // ¿debería estar encendida ahora según el horario?
@@ -304,17 +436,19 @@ const CICLO_VEG = [[0, 18], [4, 22], [7, 25], [12, 30], [17, 35], [23, 41]] as c
 const CICLO_FLOR = [48, 56, 63, 70, 77, 84, 91]           // fracción de 60 días desde el 12/12 del día 42
 export const CICLO_DIAS = [...CICLO_PLANTULA, ...CICLO_VEG.map(([, f]) => f), ...CICLO_FLOR, 98, 103]
 const cicloImg = (d: number) => C(`ciclo/ciclo-d${String(d).padStart(3, '0')}`)
-type CicloInput = Pick<Cultivo, 'day' | 'stage' | 'seedType' | 'flowerTs' | 'germTs' | 'flowerWeeks' | 'autoWeeks'>
+export type CicloInput = Pick<Cultivo, 'day' | 'stage' | 'seedType' | 'flowerTs' | 'germTs' | 'flowerWeeks' | 'autoWeeks'>
 // día del cultivo en que empieza el vegetativo / la floración, y cuántos días dura la flor
-function vegStartOf(c: CicloInput): number {
+// (de su inicio a la cosecha estimada: la misma cuenta que harvestEta). También los usa el plan
+// de abono para repartir la tabla de floración de la marca en las semanas de la variedad.
+export function vegStartOf(c: Pick<Cultivo, 'seedType'> & Partial<Pick<Cultivo, 'autoWeeks'>>): number {
   return c.seedType === 'auto' ? Math.round((14 * autoDaysOf(c)) / 75) : 18
 }
-function flipDayOf(c: CicloInput): number {
-  if (c.seedType === 'auto') return Math.round((32 * autoDaysOf(c)) / 75)
+export function flipDayOf(c: CicloInput): number {
+  if (c.seedType === 'auto') return autoFlowerDayOf(c)
   if (c.flowerTs && c.germTs) return Math.max(0, Math.floor((c.flowerTs - c.germTs) / 86400000))
   return 46 // fotoperiódica sin 12/12: solo la previsualización llega a flor, con la curva típica
 }
-function flowerLenOf(c: CicloInput): number {
+export function flowerLenOf(c: CicloInput): number {
   return c.seedType === 'auto' ? Math.max(1, autoDaysOf(c) - flipDayOf(c)) : flowerDaysOf(c)
 }
 export function cicloDia(c: CicloInput): number {
@@ -350,16 +484,18 @@ export function topImg(c: Cultivo, state: SceneState = 'dia'): string {
   const s = c.stage
   const key = s === 'remojo' || s === 'vacia' || s === 'secando' ? 'vacia'
     : s === 'germinacion' || esBrote(c) ? 'germinacion'
-    : s === 'veg' && c.thirst > THIRST_THRESHOLD ? 'sed'
+    : s === 'veg' && isDrooping(c) ? 'sed'
     : s
   return C(`top/top-${key}-${state}-${potsOf(c)}p`)
 }
 
-// foto de día según etapa, día, macetas, sustrato, sed y entrenamiento
+// foto de día según etapa, día, macetas, sustrato, hojas caídas y entrenamiento.
+// Las fotos de plantas caídas ("sed") salen SOLO si el usuario anotó hojas caídas después del
+// último riego (el reloj no lo sabe); regar las quita. En hidro no hay caída por sed.
 function dayImg(c: Cultivo): string {
   const s = c.stage
   const p = potsOf(c)
-  const thirsty = c.thirst > THIRST_THRESHOLD
+  const caidas = isDrooping(c)
   if (s === 'secando') return cicloImg(103)
   if (s === 'vacia' || s === 'germinacion' || s === 'remojo') return C(p === 1 ? 'frente/carpa-vacia' : `frente/vacia-${p}p`)
   const growing = s === 'plantula' || s === 'veg' || s === 'flor'
@@ -368,12 +504,12 @@ function dayImg(c: Cultivo): string {
     if (c.substrate !== 'tierra') {
       const sub = c.substrate
       if (esBrote(c)) return C(`frente/${sub}-brote-${p}p`)
-      if (thirsty && s === 'veg') return C(`frente/${sub}-sed-${p}p`)
+      if (caidas && s === 'veg') return C(`frente/${sub}-sed-${p}p`)
       if (growing) return C(`frente/${sub}-${s}-${p}p`)
       return C(sub === 'hidro' ? `frente/hidro-flor-${p}p` : `frente/cosecha-${p}p`)
     }
     if (esBrote(c)) return C(`frente/brote-${p}p`)
-    if (thirsty && s === 'veg') return C(`frente/sed-${p}p`)
+    if (caidas && s === 'veg') return C(`frente/sed-${p}p`)
     if (s === 'veg') {
       if (isDefoliated(c)) return C(`frente/veg-defoliada-${p}p`)
       if (c.training !== 'none') return C(`frente/veg-${c.training}-${p}p`)
@@ -387,13 +523,13 @@ function dayImg(c: Cultivo): string {
   if (c.substrate !== 'tierra') {
     const sub = c.substrate
     if (esBrote(c)) return C(`frente/${sub}-brote-1p`)
-    if (thirsty && s === 'veg') return C(`frente/${sub}-sed-1p`)
+    if (caidas && s === 'veg') return C(`frente/${sub}-sed-1p`)
     if (growing) return C(`frente/${sub}-${s}-1p`)
     // cosecha: el cubo de hidro se queda (con la planta en flor); en coco manda la planta madura
     return sub === 'hidro' ? C('frente/hidro-flor-1p') : cicloImg(98)
   }
-  // un brote con sed no se ve distinto: la foto del ciclo sirve igual
-  if (thirsty && growing && !esBrote(c)) return C(`frente/sed-${s}-1p`)
+  // un brote caído no se ve distinto: la foto del ciclo sirve igual
+  if (caidas && growing && !esBrote(c)) return C(`frente/sed-${s}-1p`)
   if (s === 'veg') {
     if (isDefoliated(c)) return C('frente/veg-defoliada')
     if (c.training !== 'none') return C(`frente/veg-${c.training}`)
@@ -468,27 +604,42 @@ export function cenitalLabels(c: Pick<Cultivo, 'pots'>): { x: string; y: string 
   return xs.map((x) => ({ x: `${x}%`, y: `${y}%` }))
 }
 
-// caption de la carpa: estado honesto + la acción disponible (nada de datos inventados)
+// caption de la carpa: estado honesto + la acción disponible (nada de datos inventados).
+// El reloj solo dice cuándo mirar: "Revisa la maceta", nunca "tienen sed" ni "está seco".
 export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
   if (view === 'cenital') return 'Vista desde arriba · ' + (c.grow || 'tu carpa')
   if (c.finishedTs) return 'Terminado · su bitácora queda guardada'
   if (c.stage === 'secando') return 'Secando · cuelga 7–14 días y luego a curar'
   if (c.stage === 'cosecha') return 'Lista para cosechar · revisa los tricomas'
-  if (c.thirst >0.55) return 'Tienen sed · toca las plantas para regar'
-  // mismos umbrales que el guardarraíl y los avisos (GUARD_HOURS / WATER_ALERT_DAYS):
-  // la caption nunca debe contradecir a la ficha de riego ni al chip de Home
-  const H = GUARD_HOURS[c.substrate]
-  const hrs = c.lastWaterTs ? (Date.now() - c.lastWaterTs) / 3600000 : null
-  if (H !== null && hrs !== null && hrs < H) return 'Regadas hace poco · deja que el sustrato seque'
-  const ref = c.lastWaterTs ?? c.germTs
-  const days = ref ? Math.floor((Date.now() - ref) / 86400000) : null
-  const alertAt = WATER_ALERT_DAYS[c.stage]
-  if (days !== null && alertAt !== undefined && days >= alertAt) {
-    return `${days} días sin riego · toca las plantas para regar`
+  const now = Date.now()
+  const next = nextCheckTs(c)
+  const due = next != null && now >= next
+  // si la revisión cae hoy más tarde, con su hora: "hoy" a secas se leería como que ya toca
+  // (y Mis cultivos dice "Al día" hasta esa hora)
+  const cuando = (ts: number) => {
+    const w = whenText(ts, now)
+    if (w !== 'hoy') return w
+    const x = new Date(ts)
+    return `hoy a las ${String(x.getHours()).padStart(2, '0')}:${String(x.getMinutes()).padStart(2, '0')}`
   }
-  if (c.stage === 'plantula') return 'Plántulas · toca las plantas para regar'
-  if (c.stage === 'flor') return 'Cogollos engordando · toca las plantas para regar'
-  return 'En vegetativo · toca las plantas para regar'
+  if (c.substrate === 'hidro') {
+    if (solutionLate(c, now)) return 'Hay que cambiar la solución · toca las plantas'
+    if (due) return 'Revisa el nivel del depósito · toca las plantas'
+    return next != null ? `${stageLabel[c.stage]} · revisa el depósito ${cuando(next)}` : 'Toca las plantas para revisar el depósito'
+  }
+  // lo que anotó el usuario manda sobre el reloj
+  if (droopPending(c)) return 'Anotaste hojas caídas · toca las plantas para revisar'
+  // mismo umbral que el guardarraíl (GUARD_HOURS): la caption nunca contradice a la ficha de riego
+  // (un riego estimado no cuenta: nadie lo anotó)
+  const G = GUARD_HOURS[c.substrate]
+  const hrs = c.lastWaterTs && !c.lastWaterEstimated ? (now - c.lastWaterTs) / 3600000 : null
+  if (G !== null && hrs !== null && hrs < G) return 'Regadas hace poco · deja que el sustrato seque'
+  if (due) return 'Revisa la maceta · toca las plantas'
+  if (next == null) return 'Toca las plantas para revisar la maceta'
+  if (c.lastCheckTs != null && c.lastCheckTs > (c.lastWaterTs ?? 0)) {
+    return `${revisaConDedo(c) ? 'Aún estaba húmeda' : 'Aún pesaba'} · revisa de nuevo ${cuando(next)}`
+  }
+  return `${stageLabel[c.stage]} · revisa la maceta ${cuando(next)}`
 }
 
 // preload selectivo: solo lo que se va a ver ahora (no las 152 imágenes)
@@ -498,13 +649,13 @@ export function preloadFor(c: Cultivo, state: SceneState = 'dia') {
 }
 
 // al tocar la línea de tiempo: todas las fotos que la previsualización puede mostrar para ESTE
-// cultivo (misma regla que TentView: etapa proyectada, sin sed salvo el veg de referencia), así el
+// cultivo (misma regla que TentView: etapa proyectada, sin hojas caídas), así el
 // recorrido de días no espera a la red foto por foto
 export function preloadPreview(c: Cultivo) {
   const urls = new Set<string>()
   for (let d = 0; d <= MAX_DAY; d++) {
     const stage = previewStage(c, d)
-    urls.add(frontImg({ ...c, day: d, stage, thirst: stage === 'veg' ? 0.2 : 0 }, 'front', 'dia'))
+    urls.add(frontImg({ ...c, day: d, stage, droopTs: null }, 'front', 'dia'))
   }
   urls.forEach((u) => { const i = new Image(); i.src = u })
 }

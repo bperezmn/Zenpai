@@ -1,4 +1,4 @@
-import type { LineaNutrientes } from '../data/nutrientes'
+import { LAVADO_DIAS, type LineaNutrientes } from '../data/nutrientes'
 import { useBackClose } from '../useBackClose'
 import BrandMark from './BrandMark'
 
@@ -59,6 +59,10 @@ export default function NutrientesInfo({ linea, onClose }: { linea: LineaNutrien
               </tbody>
             </table>
           </div>
+          {/* la tabla es la del fabricante; lo que da la ficha de riego sale de ella (ver abonoDe) */}
+          <p className="text-[.74rem] leading-snug mt-2" style={{ color: 'var(--muted)' }}>
+            En floración repartimos estas semanas en las de tu variedad, con el lavado en los últimos {LAVADO_DIAS} días. En cada riego te decimos qué fuerza usar según tu nivel: si vas empezando, la mitad.
+          </p>
 
           <div className="label mt-4 mb-1.5">Productos</div>
           <div className="space-y-1.5">

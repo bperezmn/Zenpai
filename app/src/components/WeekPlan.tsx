@@ -1,5 +1,7 @@
 import { useStore, selectActive } from '../store'
 import { weekPlan, DOW_SHORT, DOW_LONG, type PlanKind, type PlanTask } from '../plan'
+import { ritmoTexto } from '../mentor'
+import { revisaConDedo, dedoCm } from '../lib'
 
 // "Esta semana": hoy y los 6 días siguientes con las tareas reales del cultivo.
 // Marcar una tarea pendiente abre su acción (regar, medir, foto…); se da por hecha
@@ -10,7 +12,8 @@ export default function WeekPlan({ onAction }: { onAction: (kind: PlanKind) => v
   const guide = useStore((s) => s.guide)
   const week = weekPlan(c, events, Date.now(), guide)
   const withTasks = week.map((d, i) => ({ ...d, i })).filter((d) => d.tasks.length > 0)
-  const hasWater = week.some((d) => d.tasks.some((t) => (t.kind === 'riego' || t.kind === 'abono') && !t.done))
+  const hasWater = week.some((d) => d.tasks.some((t) => (t.kind === 'riego' || t.kind === 'abono' || t.kind === 'deposito') && !t.done))
+  const ritmo = ritmoTexto(c)
 
   const dayTitle = (ts: number, i: number) => {
     if (i === 0) return 'Hoy'
@@ -54,9 +57,18 @@ export default function WeekPlan({ onAction }: { onAction: (kind: PlanKind) => v
               </div>
             </section>
           ))}
+          {/* el plan dice cuándo MIRAR, no cuándo regar. En plántula y mientras el agua sube por
+              semanas la maceta grande casi no cambia de peso: se comprueba con el dedo a unos 3 cm
+              del tallo (como la revisión). Hidro: el nivel del depósito */}
           {hasWater && (
             <p className="text-[.74rem] leading-snug pt-1" style={{ color: 'var(--faint)' }}>
-              Los riegos son una estimación. Antes de regar, levanta la maceta: si aún pesa, espera.
+              {c.substrate === 'hidro'
+                ? 'Las revisiones son una estimación: el nivel baja más rápido con plantas grandes y calor.'
+                : revisaConDedo(c)
+                ? `Son revisiones, no riegos fijos. Mete el dedo a unos 3 cm del tallo: si los primeros ${dedoCm(c)} cm siguen húmedos, espera y te avisamos al día siguiente.`
+                : ritmo
+                ? `Son revisiones, no riegos fijos: ${ritmo} y el plan sigue ese ritmo. Si la maceta aún pesa, espera y te avisamos al día siguiente.`
+                : 'Son revisiones, no riegos fijos. Levanta la maceta: si aún pesa, espera y te avisamos al día siguiente.'}
             </p>
           )}
         </div>
