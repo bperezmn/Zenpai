@@ -1,0 +1,5 @@
+Fotos del arte anterior (carpa-*.webp, coco-*, hidro-*, veg-*, flor-*, floracion, cosecha, secando, germinacion,
+plantula, ventilador, ajar-*, top/) que la app ya NO usa desde la versión con assets/carpa/ (2026-09-23).
+Se quedan UNA publicación más para quien tenga abierta la versión vieja (su service worker sirve el JS
+anterior hasta la siguiente visita). En la siguiente publicación: borrarlas de public/assets/ (el original
+está en app/_assets_arte_ia/).
