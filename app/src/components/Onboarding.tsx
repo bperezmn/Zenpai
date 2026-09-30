@@ -5,7 +5,7 @@ import type { Guide } from '../lib'
 
 export const GUIDES: { id: Guide; label: string; desc: string }[] = [
   { id: 'novato', label: 'Novato', desc: 'Te llevamos de la mano: cuánto y cómo regar, qué es el pH/EC, paso a paso. Sin podas ni técnicas.' },
-  { id: 'medio', label: 'Medio', desc: 'Ya conoces lo básico: añadimos técnicas (LST) y más métricas (VPD, EC).' },
+  { id: 'medio', label: 'Medio', desc: 'Ya conoces lo básico: agregamos técnicas (LST) y más métricas (VPD, EC).' },
   { id: 'avanzado', label: 'Avanzado', desc: 'Todo: todas las métricas y técnicas, con consejos concisos y al grano.' },
 ]
 
@@ -31,7 +31,7 @@ export default function Onboarding() {
         ))}
       </div>
 
-      <button className="cbtn mt-6" onClick={() => completeOnboarding(sel)}>Empezar →</button>
+      <button className="cbtn mt-6" onClick={() => completeOnboarding(sel)}>Empezar</button>
 
       <style>{`
         .olevel{width:100%;display:flex;flex-direction:column;gap:4px;text-align:left;background:rgba(255,255,255,.04);border:1px solid var(--glass-bd);border-radius:5px;padding:.85rem 1rem;cursor:pointer;color:var(--text);font-family:'Instrument Sans',system-ui,sans-serif;transition:.15s}

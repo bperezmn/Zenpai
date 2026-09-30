@@ -50,7 +50,7 @@ export default function NutrientesPicker({ value, onChange, substrate }: {
           <button onClick={(e) => { e.stopPropagation(); setInfo(l) }} aria-label={`Ver la tabla de ${l.marca}`} className="ninfo">Tabla</button>
         </div>
       ))}
-      {info && <NutrientesInfo linea={info} onClose={() => setInfo(null)} />}
+      {info && <NutrientesInfo linea={info} sub={substrate} onClose={() => setInfo(null)} />}
       <style>{`
         .nrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:10px 10px;border:1px solid rgba(255,255,255,.14);border-radius:5px;background:transparent;color:#fff;cursor:pointer;margin-bottom:7px;font-family:'Instrument Sans',system-ui,sans-serif}
         .nrow.on{border-color:#fff;background:rgba(255,255,255,.06)}

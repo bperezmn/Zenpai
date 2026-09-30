@@ -83,7 +83,7 @@ function TaskRow({ t, onAction }: { t: PlanTask; onAction: (kind: PlanKind) => v
       style={{
         borderRadius: 5,
         border: `1px solid ${t.important ? 'var(--warn)' : 'rgba(255,255,255,.14)'}`,
-        background: t.important ? 'rgba(229,168,59,.06)' : 'rgba(255,255,255,.02)',
+        background: t.important ? 'var(--warn-bg)' : 'rgba(255,255,255,.02)',
       }}>
       <button onClick={() => { if (!t.done) onAction(t.kind) }} disabled={t.done}
         aria-label={t.done ? `${t.title}: hecho` : t.title}

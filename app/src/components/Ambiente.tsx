@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useStore, selectActive } from '../store'
 import { stageLabel } from '../lib'
-import { metricsFor, targetFor, fmtRange } from '../mentor'
+import { metricsFor, targetFor, fmtRange, ecHoy } from '../mentor'
 import { readingSeries } from '../readings'
 import { fmtDay } from '../plan'
 import { useBackClose } from '../useBackClose'
@@ -14,7 +14,8 @@ const PERIODS: { id: Period; label: string }[] = [
 ]
 
 // Ambiente: historial de TUS lecturas por métrica (las que anotaste en la bitácora), con la
-// banda objetivo de la etapa. Se abre encima de otras hojas, así que gestiona su propio atrás.
+// banda objetivo de la etapa. La EC, la de HOY (ecHoy), como Medir y la carpa: un día de solo
+// agua no tiene objetivo. Se abre encima de otras hojas, así que gestiona su propio atrás.
 export default function Ambiente({ onClose }: { onClose: () => void }) {
   useBackClose(true, onClose)
   const c = useStore(selectActive)
@@ -64,11 +65,13 @@ export default function Ambiente({ onClose }: { onClose: () => void }) {
             )}
             {cards.map(({ m, all }) => {
               const last = all[all.length - 1]
-              const r = targetFor(m.key, c.stage, c.substrate)
+              const hoy = m.key === 'ec' ? ecHoy(c, guide) : null
+              const r = hoy ? hoy.range : targetFor(m.key, c.stage, c.substrate)
               const u = m.unit ? ` ${m.unit}` : ''
               const shown = m.dec ? last.value.toFixed(m.dec) : Math.round(last.value).toString()
               const etapa = c.stage === 'secando' ? 'secado' : stageLabel[c.stage].toLowerCase()
-              const target = r ? `Objetivo en ${m.key === 'ph' ? c.substrate : etapa}: ${fmtRange(r, m.dec)}${u}` : 'Sin objetivo en esta etapa'
+              const target = r ? `Objetivo en ${m.key === 'ph' ? c.substrate : etapa}: ${fmtRange(r, m.dec)} ${m.unitLong ?? m.unit}`.trimEnd()
+                : hoy?.soloAgua ? 'Hoy va solo agua' : hoy?.nota ? 'Sin objetivo con abono orgánico' : 'Sin objetivo en esta etapa'
               return (
                 <div key={m.key} className="rounded-2xl px-3.5 py-3" style={{ background: 'var(--panel)', border: '1px solid rgba(255,255,255,.14)' }}>
                   <div className="flex items-baseline justify-between gap-3">

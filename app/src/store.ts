@@ -148,8 +148,8 @@ interface AppState {
   consentV: number
   guide: Guide                // nivel de experiencia del USUARIO (ajuste global)
   onboarded: boolean          // ya eligió su experiencia la primera vez
-  firstWaterTipDone: boolean  // ya vio el how-to del primer riego
-  firstGermTipDone: boolean   // ya vio el how-to de germinar en agua
+  howtoSeen: Record<string, number> // guías "muéstrame cómo" vistas hasta el último paso: id → fecha
+  guiasAviso: boolean         // ya le dijimos dónde vuelve a ver una guía que cerró antes del final
   coachDone: boolean          // ya vio el coach mark de la carpa (regar + dock)
   pendingUndo: (() => void) | null // deshacer de la última acción (mientras dura el toast)
   pendingCheck: boolean       // al abrir la carpa, abrir la revisión de la maceta (desde el aviso de Home)
@@ -171,8 +171,8 @@ interface AppState {
 
   setGuide: (g: Guide) => void
   completeOnboarding: (g: Guide) => void
-  markFirstWaterTip: () => void
-  markFirstGermTip: () => void
+  markHowtoSeen: (id: string) => void
+  markGuiasAviso: () => void
   markCoachDone: () => void
   setNotify: (v: boolean) => void
   checkWaterReminder: () => void
@@ -276,8 +276,8 @@ export const useStore = create<AppState>()(
         consentV: 0,
         guide: 'novato',
         onboarded: false,
-        firstWaterTipDone: false,
-        firstGermTipDone: false,
+        howtoSeen: {},
+        guiasAviso: false,
         coachDone: false,
         pendingUndo: null,
         pendingCheck: false,
@@ -795,8 +795,9 @@ export const useStore = create<AppState>()(
 
         setGuide: (g) => set({ guide: g }),
         completeOnboarding: (g) => set({ guide: g, onboarded: true }),
-        markFirstWaterTip: () => set({ firstWaterTipDone: true }),
-        markFirstGermTip: () => set({ firstGermTipDone: true }),
+        // se guarda la primera vez; volver a verla no cambia nada
+        markHowtoSeen: (id) => { if (!get().howtoSeen[id]) set((s) => ({ howtoSeen: { ...s.howtoSeen, [id]: Date.now() } })) },
+        markGuiasAviso: () => set({ guiasAviso: true }),
         markCoachDone: () => set({ coachDone: true }),
         setNotify: (v) => set({ notifyEnabled: v }),
 
@@ -1125,7 +1126,7 @@ export const useStore = create<AppState>()(
       name: 'zenpai-cultivo',
       storage: createJSONStorage(() => dexieStorage),
       // activeId NO se persiste: al recargar se aterriza en "Mis cultivos" (primero eliges)
-      partialize: (s) => ({ grows: s.grows, consentV: s.consentV, view: s.view, guide: s.guide, onboarded: s.onboarded, firstWaterTipDone: s.firstWaterTipDone, firstGermTipDone: s.firstGermTipDone, coachDone: s.coachDone, notifyEnabled: s.notifyEnabled, lastNotifiedDay: s.lastNotifiedDay, cloudOn: s.cloudOn, lastCloudSyncTs: s.lastCloudSyncTs, premium: s.premium }) as any,
+      partialize: (s) => ({ grows: s.grows, consentV: s.consentV, view: s.view, guide: s.guide, onboarded: s.onboarded, howtoSeen: s.howtoSeen, guiasAviso: s.guiasAviso, coachDone: s.coachDone, notifyEnabled: s.notifyEnabled, lastNotifiedDay: s.lastNotifiedDay, cloudOn: s.cloudOn, lastCloudSyncTs: s.lastCloudSyncTs, premium: s.premium }) as any,
       // rellena campos nuevos y migra del modelo de cultivo único → lista
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as any
@@ -1166,7 +1167,19 @@ export const useStore = create<AppState>()(
         // nivel de experiencia global: migra valores viejos (guiado/pro) → novato/avanzado
         const gv = p.guide as string
         const guide: Guide = gv === 'guiado' ? 'novato' : gv === 'pro' ? 'avanzado' : (['novato', 'medio', 'avanzado'].includes(gv) ? gv as Guide : 'novato')
-        return { ...current, ...p, grows, guide, onboarded: !!p.onboarded, activeId: null, creating: false, justCreated: false }
+        // guías vistas: una marca por guía. Las dos marcas viejas pasan a la suya; la del primer
+        // riego cuenta como la de la plántula, así la del riego a fondo se abre una vez con el drenaje
+        const howtoSeen: Record<string, number> = {}
+        if (p.howtoSeen && typeof p.howtoSeen === 'object' && !Array.isArray(p.howtoSeen)) {
+          for (const [k, v] of Object.entries(p.howtoSeen)) if (typeof v === 'number' && v > 0) howtoSeen[k] = v
+        }
+        if (p.firstWaterTipDone && !howtoSeen.riegoPlantula) howtoSeen.riegoPlantula = Date.now()
+        if (p.firstGermTipDone && !howtoSeen.germinacion) howtoSeen.germinacion = Date.now()
+        const rest = { ...p }
+        delete rest.firstWaterTipDone
+        delete rest.firstGermTipDone
+        // el aviso de «La tienes en Hoy › Guías» (campo nuevo): los datos de antes aún no lo vieron
+        return { ...current, ...rest, grows, guide, howtoSeen, guiasAviso: p.guiasAviso === true, onboarded: !!p.onboarded, activeId: null, creating: false, justCreated: false }
       },
       // si el blob guardado es ilegible: NO continuar como si no hubiera datos (evita pisarlo y perder todo)
       onRehydrateStorage: () => (_state, error) => {

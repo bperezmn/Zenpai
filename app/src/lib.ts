@@ -248,7 +248,7 @@ export function rampaRiego(c: Pick<Cultivo, 'stage' | 'day' | 'seedType' | 'auto
 // ¿la maceta se revisa con el dedo y no por el peso? En plántula y, en tierra, mientras el agua
 // sube por semanas: con 0.3–1.5 L en una maceta de 11–19 L pesa casi lo mismo seca que regada, así
 // que manda la tierra cerca del tallo. En coco se riega hasta que drene desde el vegetativo (ver
-// mentor.wateringGuide): ahí ya vale el peso. Fuente ÚNICA de la revisión, Consejos, Home y el plan.
+// mentor.wateringGuide): ahí ya vale el peso. Fuente ÚNICA de la revisión, Hoy, Home y el plan.
 export function revisaConDedo(c: Pick<Cultivo, 'substrate' | 'stage' | 'day' | 'seedType' | 'autoWeeks'>): boolean {
   if (c.substrate === 'hidro') return false
   if (c.stage === 'plantula' || c.stage === 'germinacion') return true
@@ -610,7 +610,8 @@ export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
   if (view === 'cenital') return 'Vista desde arriba · ' + (c.grow || 'tu carpa')
   if (c.finishedTs) return 'Terminado · su bitácora queda guardada'
   if (c.stage === 'secando') return 'Secando · cuelga 7–14 días y luego a curar'
-  if (c.stage === 'cosecha') return 'Lista para cosechar · revisa los tricomas'
+  // la fecha es una estimación: los tricomas deciden (la leyenda no empuja a cortar)
+  if (c.stage === 'cosecha') return 'Cosecha estimada · revisa los tricomas'
   const now = Date.now()
   const next = nextCheckTs(c)
   const due = next != null && now >= next
@@ -633,7 +634,7 @@ export function statusText(c: Cultivo, view: 'front' | 'cenital'): string {
   // (un riego estimado no cuenta: nadie lo anotó)
   const G = GUARD_HOURS[c.substrate]
   const hrs = c.lastWaterTs && !c.lastWaterEstimated ? (now - c.lastWaterTs) / 3600000 : null
-  if (G !== null && hrs !== null && hrs < G) return 'Regadas hace poco · deja que el sustrato seque'
+  if (G !== null && hrs !== null && hrs < G) return `${c.plants === 1 ? 'Regada' : 'Regadas'} hace poco · deja que el sustrato seque`
   if (due) return 'Revisa la maceta · toca las plantas'
   if (next == null) return 'Toca las plantas para revisar la maceta'
   if (c.lastCheckTs != null && c.lastCheckTs > (c.lastWaterTs ?? 0)) {

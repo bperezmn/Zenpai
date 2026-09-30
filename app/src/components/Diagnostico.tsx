@@ -92,7 +92,7 @@ export default function Diagnostico({ onClose, onPremium }: { onClose: () => voi
             <div className="overflow-y-auto -mx-1 px-1" style={{ minHeight: 0 }}>
               <h2 className="display text-[1.5rem] font-semibold leading-tight">Revisa una hoja con una foto</h2>
               <p className="text-[.875rem] leading-snug mt-2" style={{ color: 'var(--muted)' }}>
-                Haz una foto de la hoja y te decimos lo más probable (carencias, riego, pH, calor, plagas u hongos) y tres pasos para corregirlo.
+                Toma una foto de la hoja y te decimos lo más probable (carencias, riego, pH, calor, plagas u hongos) y tres pasos para corregirlo.
               </p>
               <p className="text-[.76rem] leading-snug mt-2" style={{ color: 'var(--faint)' }}>
                 Es una orientación, no un diagnóstico seguro. Viene con Premium.

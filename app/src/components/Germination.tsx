@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useStore, selectActive } from '../store'
 import { waterImg, soakDays, hasSprouted, preloadIntro } from '../lib'
-import { HOWTOS } from '../howtos'
+import { HOWTOS, transplanteHowTo, abreSola, cerroSola } from '../howtos'
 import { useBackClose } from '../useBackClose'
 import HowTo from './HowTo'
 import EditGrow from './EditGrow'
+import GuiasSheet from './Guias'
 
 // Pantalla de germinación: las semillas flotan en agua → el usuario trasplanta
 // indicando cuántas brotaron (eso fija el nº de plantas y arranca el reloj del cultivo).
 // El remojo tiene reloj real: mensajes escalonados por día y salida digna si nada germina.
 export default function Germination() {
   const c = useStore(selectActive)
-  const guide = useStore((s) => s.guide)
-  const firstGermTipDone = useStore((s) => s.firstGermTipDone)
-  const markFirstGermTip = useStore((s) => s.markFirstGermTip)
+  const markHowtoSeen = useStore((s) => s.markHowtoSeen)
   const transplant = useStore((s) => s.transplant)
   const resoak = useStore((s) => s.resoak)
   const deleteGrow = useStore((s) => s.deleteGrow)
@@ -25,7 +24,12 @@ export default function Germination() {
   const [confirmClose, setConfirmClose] = useState(false)
   const [showHow, setShowHow] = useState(false)       // how-to de trasplante
   const [showEdit, setShowEdit] = useState(false)
-  const [showGermHow, setShowGermHow] = useState(() => !useStore.getState().firstGermTipDone && useStore.getState().guide !== 'avanzado')
+  const [showGuias, setShowGuias] = useState(false)   // todas las guías (se abren solo para leer)
+  // la de germinar se abre sola al llegar si toca (abreSola: novato que aún no la vio); si no, está en Guías
+  const [showGermHow, setShowGermHow] = useState(() => {
+    const s = useStore.getState()
+    return abreSola(HOWTOS.germinacion.id, s.guide, s.howtoSeen)
+  })
   const [count, setCount] = useState(Math.min(seeds, 3))
 
   // el brote sigue el TIEMPO REAL de remojo (nada de simularlo): re-evaluar cada minuto
@@ -39,25 +43,35 @@ export default function Germination() {
   const brote = hasSprouted(c)
   const sd = soakDays(c)
 
-  function closeGermHow() { setShowGermHow(false); if (!firstGermTipDone) markFirstGermTip() }
+  // la que se abrió sola cuenta como vista también si la cierra antes del final: si no, se
+  // re-abriría en cada visita
+  function closeGermHow() { markHowtoSeen(HOWTOS.germinacion.id); setShowGermHow(false) }
+  // trasplantar: la guía se abre sola si toca (abreSola); si no, directo a elegir cuántas
+  const elegir = () => { setCount(Math.min(seeds, 3)); setPicking(true) }
+  function trasplantar() {
+    const s = useStore.getState()
+    if (abreSola(transplanteHowTo(c.substrate).id, s.guide, s.howtoSeen)) setShowHow(true)
+    else elegir()
+  }
+  // cerrada antes del final: el siguiente «Trasplantar» va directo a elegir cuántas (sigue en Guías)
+  function closeHow() { cerroSola(transplanteHowTo(c.substrate).id); setShowHow(false) }
 
-  // atrás del sistema cierra la capa superior; la pantalla la maneja App.
-  // El germ how-to se cierra por su vía oficial: si no, no marcaría firstGermTipDone
-  // y se re-abriría solo en cada visita.
+  // atrás del sistema cierra la capa superior; la pantalla la maneja App (y Guías, la suya).
+  // El germ how-to se cierra por su vía oficial (closeGermHow), por lo de arriba.
   useBackClose(showHow || showGermHow || showEdit, () => {
     if (showEdit) { setShowEdit(false); return }
-    setShowHow(false)
+    if (showHow) closeHow()
     if (showGermHow) closeGermHow()
   })
 
   // mensaje de la tarjeta: los escalones por DÍAS mandan sobre el reloj del brote —
-  // la app no puede saber si de verdad brotaron, y a partir del día 4 urge actuar
-  const soakMsg = sd >= 4
-    ? 'Trasplanta hoy las que tengan raíz: con más días en agua se ahogan. Si ninguna la sacó, pásalas a servilleta húmeda o reintenta.'
+  // la app no puede saber si de verdad brotaron, y a partir del día 2 (48 h en agua) urge actuar
+  const soakMsg = sd >= 2
+    ? 'Trasplanta hoy las que tengan raíz: con más tiempo en agua se ahogan. Las que no se abrieron, pásalas a servilleta húmeda o directo a la tierra, a 1 cm.'
     : brote
-      ? 'Ya deberían asomar las raíces. Cuando midan 1–2 cm, pásalas a las macetas.'
-      : 'En remojo. En 1–3 días saldrá la raíz blanca (taproot).'
-  const soakMsgColor = sd >= 4 ? 'var(--warn)' : 'var(--muted)'
+      ? 'Ya deberían asomar las raíces. En cuanto las veas, pásalas a las macetas.'
+      : 'En remojo. En 1–2 días se abren y asoma la raíz blanca.'
+  const soakMsgColor = sd >= 2 ? 'var(--warn)' : 'var(--muted)'
 
   return (
     <div className="absolute inset-0 select-none">
@@ -108,12 +122,12 @@ export default function Germination() {
           <div className="glass rounded-[5px] p-5 text-center">
             <h2 className="display text-[1.05rem] font-bold">¿Ya tienen raíz?</h2>
             <p className="text-[.8rem] mt-1.5 mb-4" style={{ color: 'var(--muted)' }}>
-              Según el reloj aún es pronto. Trasplanta solo si ya ves la raíz blanca de 1–2 cm;
+              Según el reloj aún es pronto. Trasplanta solo si ya ves asomar la raíz blanca;
               si no la tienen, se pueden quedar enterradas sin nacer.
             </p>
             <div className="flex gap-2">
               <button onClick={() => setConfirmEarly(false)} className="gbtn-ghost flex-1">Aún no</button>
-              <button onClick={() => { setConfirmEarly(false); setShowHow(true) }} className="gbtn flex-1">Sí, ya la veo →</button>
+              <button onClick={() => { setConfirmEarly(false); trasplantar() }} className="gbtn flex-1">Sí, ya la veo</button>
             </div>
           </div>
         ) : !picking ? (
@@ -124,9 +138,9 @@ export default function Germination() {
               {sd === 0 ? 'Recién puestas en agua. Revísalas mañana.' : `Llevan ${sd} ${sd === 1 ? 'día' : 'días'} en agua.`}
             </p>
             {/* hasSprouted se recalcula EN el tap: entre ticks del minutero el render puede estar viejo */}
-            <button onClick={() => (hasSprouted(c) ? setShowHow(true) : setConfirmEarly(true))} className="gbtn">Trasplantar</button>
+            <button onClick={() => (hasSprouted(c) ? trasplantar() : setConfirmEarly(true))} className="gbtn">Trasplantar</button>
             <div className="flex items-center justify-center gap-4 mt-2">
-              <button onClick={() => setShowGermHow(true)} className="text-[.74rem] font-semibold py-2 px-1" style={{ color: 'var(--faint)' }}>Ver cómo germinar</button>
+              <button onClick={() => setShowGuias(true)} className="text-[.74rem] font-semibold py-2 px-1" style={{ color: 'var(--faint)' }}>Guías</button>
               <button onClick={() => setShowEdit(true)} className="text-[.74rem] font-semibold py-2 px-1" style={{ color: 'var(--faint)' }}>Editar cultivo</button>
             </div>
             {sd >= 7 && (
@@ -150,14 +164,14 @@ export default function Germination() {
               {count === 0 ? (
                 <button onClick={() => setFailed(true)} className="gbtn flex-1" style={{ background: 'var(--warn)', color: '#000' }}>No brotó ninguna</button>
               ) : (
-                <button onClick={() => transplant(count)} className="gbtn flex-1">Trasplantar {count} →</button>
+                <button onClick={() => transplant(count)} className="gbtn flex-1">Trasplantar {count}</button>
               )}
             </div>
           </div>
         )}
       </div>
 
-      {/* how-to de germinar en agua: automático la primera vez (salvo avanzado) + bajo demanda */}
+      {/* how-to de germinar en agua: se abre sola la primera vez (novato); después, en Guías */}
       {showGermHow && (
         <HowTo def={HOWTOS.germinacion} actionLabel="Ya están en el agua"
           onAction={closeGermHow}
@@ -165,12 +179,13 @@ export default function Germination() {
       )}
 
       {showEdit && <EditGrow onClose={() => setShowEdit(false)} />}
+      {showGuias && <GuiasSheet c={c} onClose={() => setShowGuias(false)} />}
 
       {/* "muéstrame cómo" trasplantar: secuencia de fotos → al terminar, elegir cuántas */}
       {showHow && (
-        <HowTo def={HOWTOS.transplante} actionLabel="Sí, trasplantar →"
-          onAction={() => { setShowHow(false); setCount(Math.min(seeds, 3)); setPicking(true) }}
-          onClose={() => setShowHow(false)} />
+        <HowTo def={transplanteHowTo(c.substrate)} actionLabel="Trasplantar"
+          onAction={() => { setShowHow(false); elegir() }}
+          onClose={closeHow} />
       )}
 
       <style>{`

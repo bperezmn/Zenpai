@@ -284,12 +284,12 @@ export default function ConfigScreen() {
                       ? 'Por fecha ya estaría lista: revisa los tricomas antes de cortar.'
                       : auto
                         ? (autoWeeks ? `${autoWeeks} semanas de semilla a cosecha.` : 'Con un ciclo típico de unos 75 días. Elige las semanas de tu variedad para afinarla.')
-                        : (flowerWeeks ? `${flowerWeeks} semanas desde el 12/12.` : 'Con una floración típica de unos 60 días desde el 12/12. Elige las semanas de tu variedad para afinarla.')}
+                        : (flowerWeeks ? `${flowerWeeks} semanas desde el 12/12.` : 'Con una floración típica de unas 8–9 semanas desde el 12/12. Elige las semanas de tu variedad para afinarla.')}
                   </p>
                 </>
               ) : (
                 <>
-                  <div className="display font-semibold text-[1.05rem]">Unas {flowerWeeks ?? '8 o 9'} semanas después de pasar a 12/12</div>
+                  <div className="display font-semibold text-[1.05rem]">Unas {flowerWeeks ?? '8–9'} semanas después de pasar a 12/12</div>
                   <p className="text-[.78rem] mt-1" style={{ color: 'var(--muted)' }}>
                     {flowerWeeks ? 'Te damos la fecha cuando pases a 12/12.' : 'Es lo habitual. Elige las semanas de tu variedad para afinarla.'}
                   </p>
@@ -314,7 +314,7 @@ export default function ConfigScreen() {
                 Tengo temporizador o controlador
               </span>
             </label>
-            <p className="text-[.78rem] mt-3" style={{ color: 'var(--muted)' }}>{ctrl ? 'Con temporizador no te avisamos de la luz.' : 'Sin temporizador, te avisamos a la hora de encender y de apagar la luz.'}</p>
+            <p className="text-[.78rem] mt-3" style={{ color: 'var(--muted)' }}>{ctrl ? 'Con temporizador no te avisamos de la luz.' : 'Sin temporizador, te avisamos a la hora de encender y de apagar, con la app abierta o en segundo plano. Con la app cerrada el aviso no llega: lo más seguro es un temporizador.'}</p>
 
             <div className="mt-6 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,.12)' }}>
               <div className="label mb-2">Resumen</div>

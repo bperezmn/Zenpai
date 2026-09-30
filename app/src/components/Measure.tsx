@@ -5,6 +5,7 @@ import { metricDef, targetFor, evalRange, metricTip, fmtRange, STATUS_COLOR, ecH
 import { readingSeries } from '../readings'
 import MiniChart from './MiniChart'
 import Ambiente from './Ambiente'
+import Consejo, { tonoDe } from './Consejo'
 
 // Hoja para registrar TU medición de una métrica → semáforo + consejo + queda en la bitácora.
 // Honesto: no inventamos lecturas de sensores; el dato lo pones tú. La casilla empieza VACÍA
@@ -12,7 +13,7 @@ import Ambiente from './Ambiente'
 // espera a que escribas uno; + y – solo ajustan un número ya escrito (con la casilla vacía, la
 // abren para escribir). La temperatura y la humedad salen del mismo medidor: van juntas.
 // La EC se juzga contra la de HOY (ecHoy): un día de solo agua no tiene objetivo (lo que marca es
-// tu agua del grifo) y con abono orgánico tampoco.
+// tu agua de la llave) y con abono orgánico tampoco. Si se sale, el consejo pide la dosis de su nivel.
 // nombre completo para el título de la hoja (los chips usan la etiqueta corta de METRICS)
 const METRIC_NAME: Record<MetricKey, string> = { temp: 'Temperatura', hr: 'Humedad', ph: 'pH', vpd: 'VPD', ec: 'EC', ppfd: 'PPFD' }
 // tope de lo que puede marcar cada medidor: por encima es un error al escribir (255 por 25.5)
@@ -44,7 +45,7 @@ export default function Measure({ metric, onClose }: { metric: MetricKey; onClos
   // de la métrica) y, si no vale, por qué
   const fields = keys.map((key) => {
     const def = metricDef(key)
-    const u = def.unit ? ` ${def.unit}` : ''
+    const u = def.unit ? ` ${def.unitLong ?? def.unit}` : ''
     const fmt = (n: number) => (def.dec ? n.toFixed(def.dec) : Math.round(n).toString())
     const hoy = key === 'ec' ? ecHoy(c, guide) : null
     const range = hoy ? hoy.range : targetFor(key, c.stage, c.substrate)
@@ -67,7 +68,7 @@ export default function Measure({ metric, onClose }: { metric: MetricKey; onClos
     ].filter(Boolean).join(' · ')
     // con más decimales de los que usa la métrica, avisamos de cómo queda anotado
     const rounded = value !== null && n !== null && value !== n ? `Se anota como ${fmt(value)}${u}.` : null
-    return { key, def, fmt, range, nota, text, empty, error, value, ev, hint, rounded }
+    return { key, def, fmt, range, nota, factor: hoy?.factor ?? 1, text, empty, error, value, ev, hint, rounded }
   })
   type Field = (typeof fields)[number]
 
@@ -129,15 +130,15 @@ export default function Measure({ metric, onClose }: { metric: MetricKey; onClos
 
         {/* consejo del mentor sobre lo que escribiste (sin objetivo hoy, la nota en su lugar);
             con una marca en tierra a menos de la dosis completa, la nota explica el objetivo más bajo */}
-        {f.value !== null && (f.ev || f.nota) && (
-          <div className="flex items-start gap-2.5 rounded-2xl px-3.5 py-3 mt-3" style={{ background: 'rgba(255,255,255,.04)', border: `1px solid ${f.ev ? color : 'var(--glass-bd)'}` }}>
-            <span className="w-2.5 h-2.5 rounded-full mt-1.5 flex-none" style={{ background: f.ev ? color : 'var(--blue)', boxShadow: f.ev ? `0 0 8px ${color}` : undefined }} />
-            <span className="text-[.84rem] leading-relaxed">
-              {f.ev ? metricTip(f.key, f.value, f.ev.status, c.stage, c.substrate, f.range) : f.nota}
-              {f.ev && f.nota && f.ev.status === 'ok' ? ` ${f.nota}` : ''}
-            </span>
-          </div>
-        )}
+        {f.value !== null && (f.ev || f.nota) && (() => {
+          const tip = f.ev ? metricTip(f.key, f.value, f.ev.status, c, f.range, f.factor) : null
+          return (
+            <Consejo className="mt-3" tono={tonoDe(f.ev?.status)} titulo={tip?.titulo}>
+              {tip ? tip.texto : f.nota}
+              {tip && f.nota && f.ev!.status === 'ok' ? ` ${f.nota}` : ''}
+            </Consejo>
+          )
+        })()}
       </div>
     )
   }

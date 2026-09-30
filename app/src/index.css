@@ -16,6 +16,8 @@
   --blue: #1f73b7;
   --warn: #e5a83b;
   --danger: #e5484d;
+  --warn-bg: rgba(229, 168, 59, 0.08);   /* fondo de un aviso (Consejo) */
+  --danger-bg: rgba(229, 72, 77, 0.08);  /* fondo de una alerta (Consejo) */
   --water: #4da3e8;
   --glass-bd: rgba(255, 255, 255, 0.16);
   --hi: rgba(255, 255, 255, 0.14);

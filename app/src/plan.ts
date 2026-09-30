@@ -2,7 +2,7 @@
 // Nada de relleno: cada tarea sale del estado del cultivo (revisiones, abono, lecturas, fotos, fechas).
 // El calendario nunca manda regar: dice cuándo revisar la maceta, y la maceta decide.
 import { nextCheckTs, checkIntervalH, nextSolutionTs, solutionLate, stageAt, harvestEta, revisaConDedo, dedoCm, DEFOLIATION_DAYS, type Cultivo, type EventType, type GrowEvent, type Guide } from './lib'
-import { litrosRiego, semanaFlor, targetFor, fmtRange, canTrain, abonoDe } from './mentor'
+import { litrosRiego, semanaFlor, targetFor, fmtRange, canTrain, abonoDe, cuandoFlip, TRICOMAS } from './mentor'
 import { readingSeries } from './readings'
 
 // riego/abono = revisar la maceta (y regar si pesa poco); deposito/solucion = hidro
@@ -24,7 +24,7 @@ export const DOW_LONG = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', '
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 export const fmtDay = (ts: number) => { const d = new Date(ts); return `${d.getDate()} ${MES[d.getMonth()]}` }
 
-// guide: sin él no se filtra por nivel; con 'novato' no se propone defoliar (igual que Consejos).
+// guide: sin él no se filtra por nivel; con 'novato' no se propone defoliar (igual que Hoy).
 // La fuerza del abono sale del nivel: sin guide, la del novato (la más prudente).
 export function weekPlan(c: Cultivo, events: GrowEvent[], now = Date.now(), guide?: Guide): { dayTs: number; tasks: PlanTask[] }[] {
   const t = new Date(now)
@@ -55,7 +55,7 @@ export function weekPlan(c: Cultivo, events: GrowEvent[], now = Date.now(), guid
   // intervalo (el ritmo aprendido de este cultivo si ya lo hay). Un día pasado se da por hecho si
   // ese día se regó o se revisó ("aún pesa"; en hidro, nivel revisado, rellenado o solución nueva).
   // Hoy, solo si además no queda otra revisión para hoy: con un ritmo corto (coco) la siguiente
-  // puede caer más tarde el mismo día, y entonces el plan dice lo mismo que Home y Consejos.
+  // puede caer más tarde el mismo día, y entonces el plan dice lo mismo que Home y Hoy.
   const hidro = c.substrate === 'hidro'
   const nivel = guide ?? 'novato'
   const porMaceta = c.pots > 1 ? ' por maceta' : ''
@@ -85,17 +85,17 @@ export function weekPlan(c: Cultivo, events: GrowEvent[], now = Date.now(), guid
     // plántula y mientras el agua sube por semanas; después, por el peso)
     const si = revisaConDedo(cd) ? `Si los primeros ${dedoCm(cd)} cm están secos` : 'Si pesa poco'
     const cantidad = plantula ? '1 vaso · 0.2 L' : `${L} L${porMaceta}`
-    // lo que lleva el agua ese día: la misma regla que la ficha de riego y Consejos (abonoDe):
+    // lo que lleva el agua ese día: la misma regla que la ficha de riego y Hoy (abonoDe):
     // fuerza según el nivel, tierra que ya trae abono, tabla repartida y lavado final
     const ab = abonoDe(cd, nivel)
     if (ab?.abona) {
       const pct = `${Math.round(ab.factor * 100)} %`
       const cual = ab.linea
-        ? `con abono al ${pct} · ${ab.linea.marca} · ${ab.motivo === 'lavado' ? 'lavado final' : cd.stage === 'flor' ? `semana ${semanaFlor(cd)} de flor` : plantula ? 'plántula' : ab.fase?.tardia ? 'veg tardío' : 'veg temprano'}`
-        : `con tu abono al ${pct}${ab.ec ? ` · hasta EC ${fmtRange(ab.ec, 1)}` : ''}`
+        ? `con abono al ${pct} · ${ab.linea.marca} · ${ab.motivo === 'lavado' ? 'lavado final' : cd.stage === 'flor' ? `semana ${semanaFlor(cd)} de floración` : plantula ? 'plántula' : ab.fase?.tardia ? 'vegetativo avanzado' : 'vegetativo temprano'}`
+        : `con tu abono al ${pct}${ab.ec ? ` · hasta EC ${fmtRange(ab.ec, 1)} mS/cm` : ''}`
       add(i, 'abono', 'Revisa la maceta', `${si}: riega ${cual} · ${cantidad}`, doneOn(i), important)
     } else {
-      // el porqué, como en Consejos: "quizá" si no sabe si su tierra trae abono; si eligió solo agua
+      // el porqué, como en Hoy: "quizá" si no sabe si su tierra trae abono; si eligió solo agua
       // y ya toca abonar, se lo recuerda
       const por = ab?.motivo === 'tierra' ? (c.tierraAbonada === 'nose' ? ' · tu tierra quizá trae abono' : ' · tu tierra ya trae abono')
         : ab?.motivo === 'lavado' ? ' · lavado final'
@@ -129,15 +129,17 @@ export function weekPlan(c: Cultivo, events: GrowEvent[], now = Date.now(), guid
   if (phDay !== undefined) {
     const doneToday = phTs.some((ts) => ts >= days[0])
     const r = targetFor('ph', c.stage, c.substrate)
-    add(doneToday ? 0 : phDay, 'ph', 'Mide el pH', `${hidro ? 'En el depósito' : 'En el agua de riego'} · objetivo ${fmtRange(r, 1)}`, doneToday)
+    add(doneToday ? 0 : phDay, 'ph', 'Mide el pH', `${hidro ? 'En el depósito' : 'En el agua de riego'} · objetivo pH ${fmtRange(r, 1)}`, doneToday)
   }
 
-  // ---- fotoperiódicas maduras en veg: pasar a 12/12 (el sábado, u hoy si ya pasó) ----
+  // ---- fotoperiódicas maduras en veg: pasar a 12/12 (el sábado, u hoy si ya pasó), con la misma
+  // regla que la tarjeta de Hoy (cuandoFlip) ----
   if (c.seedType === 'foto') {
     const flippedToday = c.flowerTs != null && c.flowerTs >= days[0]
     const sat = weekday(6)
     if (flippedToday || (c.stage === 'veg' && !c.flowerTs && at(sat).day >= 30)) {
-      add(flippedToday ? 0 : sat, 'flip', 'Pasa la luz a 12/12', 'Si ya llenan la mitad de la carpa. En floración suelen crecer entre la mitad y el doble de su altura.', flippedToday, true)
+      const regla = cuandoFlip(c)
+      add(flippedToday ? 0 : sat, 'flip', 'Pasa la luz a 12/12', `${regla[0].toUpperCase()}${regla.slice(1)}.`, flippedToday, true)
     }
   }
 
@@ -145,8 +147,8 @@ export function weekPlan(c: Cultivo, events: GrowEvent[], now = Date.now(), guid
   // (autoflorecientes: igual de ligera o más, solo unas pocas hojas; se recuperan poco)
   if (!guide || canTrain(guide)) {
     const detail = c.seedType === 'auto'
-      ? 'Semana 3 de flor. En una autofloreciente, solo unas pocas hojas grandes. Te mostramos cómo antes de cortar.'
-      : 'Semana 3 de flor. Te mostramos cómo antes de cortar.'
+      ? 'Semana 3 de floración. En una autofloreciente, solo unas pocas hojas grandes. Te mostramos cómo antes de cortar.'
+      : 'Semana 3 de floración. Te mostramos cómo antes de cortar.'
     if (c.defoliatedTs != null && c.defoliatedTs >= days[0] && semanaFlor(c) === 3) {
       add(0, 'defol', 'Defoliación ligera', detail, true)
     } else {
@@ -156,12 +158,12 @@ export function weekPlan(c: Cultivo, events: GrowEvent[], now = Date.now(), guid
     }
   }
 
-  // ---- tricomas: la cosecha estimada cae esta semana o ya pasó ----
+  // ---- tricomas: la cosecha estimada cae esta semana o ya pasó (la explicación, la de Hoy) ----
   if (c.stage === 'flor' || c.stage === 'cosecha') {
     const eta = harvestEta(c)
     if (eta != null && eta < end) {
       add(idxOf(eta), 'tricomas', 'Revisa los tricomas con lupa',
-        eta < days[0] ? 'La cosecha estimada ya llegó. Si siguen transparentes, espera.' : `Cosecha estimada el ${fmtDay(eta)}. Si siguen transparentes, espera.`, false)
+        `${eta < days[0] ? 'La cosecha estimada ya llegó.' : `Cosecha estimada el ${fmtDay(eta)}.`} ${TRICOMAS}`, false)
     }
   }
 
@@ -169,7 +171,7 @@ export function weekPlan(c: Cultivo, events: GrowEvent[], now = Date.now(), guid
   const fotoTs = events.filter((e) => e.type === 'foto').map((e) => e.ts)
   if (!recent(fotoTs, sun)) {
     const doneToday = fotoTs.some((ts) => ts >= days[0])
-    add(doneToday ? 0 : sun, 'foto', 'Haz la foto de la semana', 'Para tu timelapse', doneToday)
+    add(doneToday ? 0 : sun, 'foto', 'Toma la foto de la semana', 'Para tu timelapse', doneToday)
   }
 
   for (const d of week) d.tasks.sort((a, b) => Number(!!b.important) - Number(!!a.important) || ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind))

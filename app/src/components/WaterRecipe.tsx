@@ -4,8 +4,9 @@ import BrandMark from './BrandMark'
 import NutrientesInfo from './NutrientesInfo'
 import Premium from './Premium'
 import YaRegue from './YaRegue'
+import Consejo from './Consejo'
 import { stageLabel } from '../lib'
-import { wateringGuide, targetFor, fmtRange, overwaterGuard, litrosRiego, abonoDe, ecHoy, drenajeTexto } from '../mentor'
+import { wateringGuide, targetFor, fmtRange, overwaterGuard, litrosRiego, abonoDe, ecHoy, drenajeTexto, phDeMarca } from '../mentor'
 import { dosisRiego, semanasFlorDe } from '../data/nutrientes'
 
 // Ficha de riego: la "receta" de la etapa actual — cuánta agua (según la maceta), pH y EC objetivo.
@@ -15,7 +16,7 @@ import { dosisRiego, semanasFlorDe } from '../data/nutrientes'
 // Hidro: no se riega ni hay litros. La ficha es la de la solución nueva del depósito (pH, EC y,
 // con Premium, la dosis por litro); "Ya la cambié" la anota.
 // Abono: la regla de cuánto (según el nivel, la tierra abonada y el lavado) es gratis y sale de
-// abonoDe(), la misma que Consejos y el plan; los mililitros exactos de la marca son Premium.
+// abonoDe(), la misma que Hoy y el plan; los mililitros exactos de la marca son Premium.
 export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: (force?: boolean) => void; onHow: () => void; onClose: () => void }) {
   const c = useStore(selectActive)
   const guide = useStore((s) => s.guide)
@@ -34,7 +35,11 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
   // la EC objetivo del agua de hoy (la misma que Medir): si hoy va solo agua (tierra abonada,
   // lavado…) no hay EC que buscar; con abono orgánico la EC no sirve para dosificarlo
   const ec = ecHoy(c, guide)
-  const ecTxt = ec.range ? `${fmtRange(ec.range, 1)} mS` : ec.soloAgua ? 'solo agua' : 'sigue la tabla'
+  const ecTxt = ec.range ? `${fmtRange(ec.range, 1)} mS/cm` : ec.soloAgua ? 'solo agua' : 'sigue la tabla'
+  // la marca pide otro pH (Canna Terra, 5.8–6.2, frente al 6.2–7.0 de la tierra): se dice dónde
+  // quedarse. El rango de la marca no es Premium (sale también en el selector de marca). Solo si
+  // hoy el agua lleva la marca: con solo agua (tierra abonada, lavado) manda el pH del sustrato
+  const phNota = linea && ab?.abona ? phDeMarca(linea, c.substrate) : null
   const [showInfo, setShowInfo] = useState(false)
   // cómo regar: la plántula, un vaso sin drenaje; en tierra, mientras la cantidad sube por semanas,
   // tampoco drena (sus raíces no llenan la maceta); con la cantidad completa (y en coco desde el
@@ -42,7 +47,7 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
   const howMuch = !w ? ''
     : c.stage === 'plantula' ? ` Riega ${w.when}.`
     : w.drain ? ` ${drenajeTexto(c)}`
-    : ` Despacio, en círculo alrededor del tallo. Aún no hace falta que drene: la cantidad sube cada semana, hasta ~${w.full} L.`
+    : ` Despacio, en círculo alrededor del tallo. Aún no hace falta que drene: la cantidad sube cada semana, hasta unos ${w.full} L.`
   // la dosis de la marca es Premium; agua, pH y EC siguen siendo gratis
   const premium = useStore((s) => s.premium)
   const [showPremium, setShowPremium] = useState(false)
@@ -64,13 +69,11 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
           <Row label="pH" value={fmtRange(ph, 1)} />
           <Row label="EC · fuerza del abono" value={ecTxt} />
         </div>
+        {phNota && <p className="mt-2 text-[.74rem] leading-snug" style={{ color: 'var(--muted)' }}>{phNota}</p>}
 
-        {/* la regla del abono, gratis: cuánto según el nivel, la tierra abonada, el lavado */}
-        {ab && (
-          <p className="mt-3 text-[.78rem] leading-snug" style={{ color: 'var(--muted)' }}>
-            <span className="font-semibold" style={{ color: '#fff' }}>{ab.titulo}{ab.titulo.endsWith('?') ? '' : '.'}</span> {ab.texto}
-          </p>
-        )}
+        {/* la regla del abono, gratis: cuánto según el nivel, la tierra abonada, el lavado (la
+            misma tarjeta que en Hoy) */}
+        {ab && <Consejo compacto className="mt-3" titulo={ab.titulo}>{ab.texto}</Consejo>}
 
         {linea && fase && !premium && (
           <div className="mt-3 flex items-center gap-3 rounded-2xl pl-3.5 pr-2 py-2" style={{ border: '1px solid rgba(255,255,255,.14)', background: 'var(--panel)' }}>
@@ -105,7 +108,7 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
             </div>
             {/* la fuerza del nivel ya va en los ml; en flor, la tabla va repartida en SU floración */}
             <div className="text-[.74rem] mt-3" style={{ color: 'var(--faint)' }}>
-              Al {Math.round(ab!.factor * 100)} % de la tabla{c.stage === 'flor' && ab!.motivo !== 'lavado' ? `, repartida en unas ${semanasFlorDe(c)} semanas de flor` : ''}.
+              Al {Math.round(ab!.factor * 100)} % de la tabla{c.stage === 'flor' && ab!.motivo !== 'lavado' ? `, repartida en unas ${semanasFlorDe(c)} semanas de floración` : ''}.
             </div>
             {!linea.verificado && (
               <div className="text-[.7rem] mt-3" style={{ color: 'var(--warn)' }}>Dosis de la tabla pública del fabricante. Compárala con la etiqueta de tu botella.</div>
@@ -117,17 +120,12 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
           <p className="text-[.76rem] leading-snug" style={{ color: 'var(--muted)' }}>
             {hidro ? (ab && !ab.abona
               ? 'Vacía el depósito y llénalo con agua limpia, sin abono. Ajusta el pH al final. Se cambia entera cada 7–10 días.'
-              : 'Vacía el depósito y llénalo con agua limpia. Añade el abono, mezcla y ajusta el pH al final. Se cambia entera cada 7–10 días.')
+              : 'Vacía el depósito y llénalo con agua limpia. Agrega el abono, mezcla y ajusta el pH al final. Se cambia entera cada 7–10 días.')
               : `Ajusta el pH del agua antes de regar.${howMuch}`}
           </p>
         </div>
 
-        {guard && (
-          <div className="mb-3 rounded-2xl px-3.5 py-2.5 text-[.76rem] leading-snug"
-            style={{ background: 'rgba(232,179,75,.1)', border: '1px solid var(--warn)', color: 'var(--warn)' }}>
-            {guard}
-          </div>
-        )}
+        {guard && <Consejo compacto className="mb-3" tono="aviso" titulo="Regaste hace poco">{guard}</Consejo>}
 
         {hidro ? (
           <div className="flex gap-2">
@@ -148,7 +146,7 @@ export default function WaterRecipe({ onConfirm, onHow, onClose }: { onConfirm: 
         {/* regó sin anotarlo: hoy, ayer o anteayer (no cuenta para aprender el ritmo) */}
         {!hidro && <YaRegue onDone={onClose} />}
 
-        {linea && showInfo && <NutrientesInfo linea={linea} onClose={() => setShowInfo(false)} />}
+        {linea && showInfo && <NutrientesInfo linea={linea} sub={c.substrate} onClose={() => setShowInfo(false)} />}
         <style>{`
           @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
           .rbtn{border:none;border-radius:5px;font-weight:600;height:50px;font-family:'Instrument Sans',system-ui,sans-serif;font-size:.92rem;cursor:pointer;background:#fff;color:#000}

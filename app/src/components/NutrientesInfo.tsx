@@ -1,11 +1,15 @@
 import { LAVADO_DIAS, type LineaNutrientes } from '../data/nutrientes'
+import type { Substrate } from '../lib'
+import { phDeMarca } from '../mentor'
 import { useBackClose } from '../useBackClose'
 import BrandMark from './BrandMark'
 
 // Ficha de una línea de nutrientes: su tabla de dosis completa (fases × productos, en ml/L),
-// pH y agua, suplementos y reglas del fabricante. Se abre desde el selector y desde la ficha de riego.
-export default function NutrientesInfo({ linea, onClose }: { linea: LineaNutrientes; onClose: () => void }) {
+// pH y agua, suplementos y lo que dice el fabricante. Se abre desde el selector y desde la ficha
+// de riego. sub: el sustrato del cultivo; si el pH de la marca no es el de la app, se explica.
+export default function NutrientesInfo({ linea, sub, onClose }: { linea: LineaNutrientes; sub?: Substrate; onClose: () => void }) {
   useBackClose(true, onClose)
+  const phNota = sub ? phDeMarca(linea, sub) : null
   const cols = linea.productos
   const semana = (f: LineaNutrientes['fases'][number]) => f.etapa === 'flor' ? `S${f.semanaFlor}` : f.etapa === 'veg' ? (f.tardia ? 'Veg+' : 'Veg') : f.etapa === 'trasplante' ? 'Plánt.' : 'Esq.'
   return (
@@ -29,9 +33,10 @@ export default function NutrientesInfo({ linea, onClose }: { linea: LineaNutrien
           <span className="label">pH {linea.ph[0]}–{linea.ph[1]}</span>
           {linea.aguaC && <span className="label">agua {linea.aguaC[0]}–{linea.aguaC[1]} °C</span>}
         </div>
-        <p className="text-[.74rem] mb-3 flex-none" style={{ color: linea.verificado ? 'var(--blue)' : 'var(--warn)' }}>
+        <p className="text-[.74rem] mb-3 flex-none" style={{ color: linea.verificado ? 'var(--muted)' : 'var(--warn)' }}>
           {linea.verificado ? 'Tabla oficial verificada.' : 'Dosis de la etiqueta: compárala con tu botella.'}
         </p>
+        {phNota && <p className="text-[.74rem] leading-snug -mt-1.5 mb-3 flex-none" style={{ color: 'var(--muted)' }}>{phNota}</p>}
 
         <div className="overflow-y-auto -mx-1 px-1" style={{ minHeight: 0 }}>
           <div className="label mb-1.5">Tabla · ml por litro</div>
@@ -88,7 +93,8 @@ export default function NutrientesInfo({ linea, onClose }: { linea: LineaNutrien
             </>
           )}
 
-          <div className="label mt-4 mb-1.5">Reglas del fabricante</div>
+          {/* las reglas son del fabricante, citadas: la app las aplica con su propia regla (abonoDe) */}
+          <div className="text-[.82rem] font-semibold mt-4 mb-1.5">Lo que dice {linea.marca}</div>
           <ul className="space-y-1 text-[.76rem] pl-4" style={{ color: 'var(--muted)', listStyle: 'disc' }}>
             {linea.reglas.map((r, i) => <li key={i}>{r}</li>)}
           </ul>

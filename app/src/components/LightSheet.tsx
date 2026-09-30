@@ -28,7 +28,7 @@ export default function LightSheet({ onClose }: { onClose: () => void }) {
   const eff = hours ?? auto
   const opciones = HORAS.filter((h) => !(isAuto && h.v === 12 && c.lightHours !== 12))
   const autoTxt = isAuto
-    ? 'Autofloreciente: 18 h de luz todo el ciclo, nunca 12 h. La opción «Auto» ya te da 18 h; 20 h también vale.'
+    ? 'Autofloreciente: 18 h de luz todo el ciclo, nunca 12 h. La opción «Auto» ya te da 18 h; 20 h también sirve.'
     : inFlower
       ? 'Auto: ahora 12 h, las que pide la floración.'
       : 'Auto: ahora 18 h. Al marcar «Pasar a floración» vuelve a Auto y baja a 12 h.'
@@ -87,7 +87,7 @@ export default function LightSheet({ onClose }: { onClose: () => void }) {
           <span className="text-[.86rem] font-medium flex-1">Tengo temporizador o controlador</span>
         </label>
         <p className="text-[.76rem] mt-2" style={{ color: 'var(--muted)' }}>
-          {ctrl ? 'Con temporizador no te avisamos de la luz.' : 'Te avisamos al encender y al apagar. Con la app en segundo plano llega como notificación.'}
+          {ctrl ? 'Con temporizador no te avisamos de la luz.' : 'Te avisamos al encender y al apagar mientras la app esté abierta o en segundo plano. Con la app cerrada el aviso no llega: lo más seguro es un temporizador.'}
         </p>
         {!ctrl && !notifyEnabled && (
           <p className="text-[.76rem] mt-1" style={{ color: 'var(--warn)' }}>Activa los avisos en Ajustes para recibirlos.</p>

@@ -6,6 +6,8 @@ import type { CSSProperties } from 'react'
 import { needsAttention, attentionText, wateringGuide } from '../mentor'
 import Settings from './Settings'
 import Premium from './Premium'
+import GuiasSheet from './Guias'
+import { HOWTOS } from '../howtos'
 import { whenHistorySettled } from '../useBackClose'
 
 const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
@@ -21,6 +23,8 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false)
   const premium = useStore((s) => s.premium)
   const [showPremium, setShowPremium] = useState(false)
+  // las guías sin cultivo: se aprenden sin crear carpa (no gastan la del plan gratis)
+  const [showGuias, setShowGuias] = useState(false)
 
   // los chips "Revisa la maceta / Al día" dependen del reloj: un tick por minuto los mantiene al día
   const [, setClock] = useState(0)
@@ -77,6 +81,9 @@ export default function Home() {
           <button onClick={seedDemo} className="mt-5 text-[.85rem] underline underline-offset-4" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', minHeight: 44 }}>
             Ver cultivos de ejemplo
           </button>
+          <button onClick={() => setShowGuias(true)} className="text-[.85rem] underline underline-offset-4" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', minHeight: 44 }}>
+            Guías de cultivo
+          </button>
         </div>
       ) : (
         <>
@@ -95,6 +102,7 @@ export default function Home() {
                 onConfirmDelete={() => { setConfirmId(null); deleteGrow(g.id) }}
               />
             ))}
+            <GuiasRow onOpen={() => setShowGuias(true)} />
           </div>
         </>
       )}
@@ -108,6 +116,7 @@ export default function Home() {
       )}
 
       {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+      {showGuias && <GuiasSheet c={null} onClose={() => setShowGuias(false)} />}
       {showPremium && <Premium motivo="carpas" onClose={() => setShowPremium(false)} onPremium={() => whenHistorySettled(startNew)} />}
 
       <style>{`
@@ -138,10 +147,10 @@ function estado(g: Cultivo): { text: string; color: string; alert: boolean } {
 function checkHint(g: Cultivo): string | null {
   if (g.substrate === 'hidro') return solutionLate(g) ? 'Vacía el depósito y prepara solución nueva' : 'Si el nivel bajó, rellénalo'
   if (droopPending(g)) return 'Anotaste hojas caídas: ¿sed o exceso de agua?'
-  if (g.stage === 'plantula') return 'Si los primeros 2 cm están secos, 1 vaso'
+  if (g.stage === 'plantula') return 'Si los primeros 2 cm están secos, riega 1 vaso'
   const w = wateringGuide(g)
   if (!w) return null
-  return revisaConDedo(g) ? `Si los ${dedoCm(g)} cm de arriba están secos, ${w.amount}` : `Si pesa poco, riega ${w.amount}`
+  return revisaConDedo(g) ? `Si los primeros ${dedoCm(g)} cm están secos, riega ${w.amount}` : `Si pesa poco, riega ${w.amount}`
 }
 // withDay=false cuando el día ya se muestra aparte (contador grande de la portada)
 function meta(g: Cultivo, withDay = true): string {
@@ -246,6 +255,25 @@ function Hero({ g, onOpen, onCheck, confirming, onAskDelete, onCancelDelete, onC
         </div>
       </div>
     </div>
+  )
+}
+
+// al final de la lista: todas las guías, sin abrir ningún cultivo. La portada es la primera foto
+// del trasplante (la mano con la semilla germinada). Las de poda, desde el nivel medio
+function GuiasRow({ onOpen }: { onOpen: () => void }) {
+  const s0 = HOWTOS.transplante.steps[0]
+  const poda = useStore((s) => s.guide !== 'novato')
+  return (
+    <button onClick={onOpen} className="hrow">
+      <span className="relative w-[54px] h-[54px] flex-none overflow-hidden" style={{ borderRadius: 5, background: '#0b0c0f' }}>
+        <img src={s0.img} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+      </span>
+      <span className="min-w-0 flex-1 flex flex-col gap-1">
+        <span className="display font-semibold text-[1rem]">Guías de cultivo</span>
+        <span className="text-[.78rem]" style={{ color: 'var(--muted)' }}>{poda ? 'Germinar, trasplantar, regar y podar, paso a paso' : 'Germinar, trasplantar y regar, paso a paso'}</span>
+      </span>
+      <svg className="flex-none mr-[14px]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--faint)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7" /></svg>
+    </button>
   )
 }
 

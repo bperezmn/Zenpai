@@ -19,7 +19,7 @@ function SceneImg({ src }: { src: string }) {
     </>
   )
 }
-import { metricsFor, targetFor, evalRange, fmtRange, STATUS_COLOR, needsAttention, overwaterGuard, wateringGuide, sceneState, ecHoy } from '../mentor'
+import { metricsFor, targetFor, evalRange, fmtRange, STATUS_COLOR, needsAttention, overwaterGuard, wateringGuide, sceneState, ecHoy, TRICOMAS } from '../mentor'
 import { useBackClose, whenHistorySettled } from '../useBackClose'
 import Intro from './Intro'
 import Journal from './Journal'
@@ -30,7 +30,7 @@ import WaterRecipe from './WaterRecipe'
 import CheckPot from './CheckPot'
 import FinishGrow from './FinishGrow'
 import EditGrow from './EditGrow'
-import { riegoHowTo } from '../howtos'
+import { riegoHowTo, abreSola, cerroSola } from '../howtos'
 import Diagnostico from './Diagnostico'
 import Premium from './Premium'
 import TimelapseCamera from './TimelapseCamera'
@@ -40,8 +40,6 @@ import { hasPhotoFrames } from '../timelapse'
 export default function TentView() {
   const c = useStore(selectActive)
   const guide = useStore((s) => s.guide)
-  const firstWaterTipDone = useStore((s) => s.firstWaterTipDone)
-  const markFirstWaterTip = useStore((s) => s.markFirstWaterTip)
   const coachDone = useStore((s) => s.coachDone)
   const markCoachDone = useStore((s) => s.markCoachDone)
   const pendingUndo = useStore((s) => s.pendingUndo)
@@ -78,7 +76,8 @@ export default function TentView() {
   // plan gratis: una carpa en marcha (los cultivos de ejemplo no cuentan)
   const premium = useStore((s) => s.premium)
   const enMarcha = useStore((s) => s.grows.filter((g) => g.stage !== 'secando' && !g.grow.startsWith('Demo · ')).length)
-  const [wateringHow, setWateringHow] = useState(false)
+  // la guía de riego: 'auto' = se abrió sola (el momento + abreSola); 'ver' = desde «Ver cómo» de la ficha
+  const [wateringHow, setWateringHow] = useState<false | 'auto' | 'ver'>(false)
   const [showRecipe, setShowRecipe] = useState(false)
   // revisión de la maceta (o del depósito): tocar las plantas abre esto, no el riego directo
   const [showCheck, setShowCheck] = useState(false)
@@ -112,7 +111,7 @@ export default function TentView() {
     v.currentTime = Math.min(1, Math.max(0, previewDay! / TIMELAPSE_DAYS)) * d
   }, [preview, previewDay])
   const done = c.stage === 'secando'
-  const overlayOpen = showJournal || showToday || wateringHow || showRecipe || showCheck || showFinish || showEdit || measureKey !== null || showLight || showDiag
+  const overlayOpen = showJournal || showToday || wateringHow !== false || showRecipe || showCheck || showFinish || showEdit || measureKey !== null || showLight || showDiag
   const anySheet = overlayOpen || showPremium || showCamera
   // sin fotos no hay modo fotos (p. ej. al borrar la última desde la bitácora)
   useEffect(() => { if (!hasPhotos && photoMode) setPhotoMode(false) }, [hasPhotos, photoMode])
@@ -127,7 +126,7 @@ export default function TentView() {
     else if (showFinish) setShowFinish(false)
     else if (showRecipe) setShowRecipe(false)
     else if (showCheck) setShowCheck(false)
-    else if (wateringHow) setWateringHow(false)
+    else if (wateringHow) closeWateringHow()
     else if (showToday) setShowToday(false)
     else if (showJournal) setShowJournal(false)
   })
@@ -224,9 +223,24 @@ export default function TentView() {
       doWater({ toast: `Riego anotado · ${recipeText()}`, confirmed: true })
       return
     }
-    // primer riego: enseñar cómo (una sola vez); después, la ficha de riego con la receta
-    if (!firstWaterTipDone) { markFirstWaterTip(); setWateringHow(true); return }
+    // el momento de enseñar cómo regar: la primera vez que riega y, la del riego a fondo, cuando
+    // la ficha pide drenaje. Si se abre sola lo decide abreSola (nivel, ya vista, una por sesión).
+    // Si no, la ficha con la receta
+    const how = riegoHowTo(c.stage, c.substrate)
+    const seen = useStore.getState().howtoSeen
+    if ((how.id === 'riegoPlantula' || !seen.riegoPlantula || wateringGuide(c)?.drain) && abreSola(how.id, guide, seen)) { setWateringHow('auto'); return }
     setShowRecipe(true)
+  }
+  // se abrió sola y la cierra antes del final: no vuelve a salir sola en esta sesión (el siguiente
+  // «Está seca» va a la ficha) y, una sola vez, le decimos dónde volver a verla
+  function closeWateringHow() {
+    const s = useStore.getState()
+    const id = riegoHowTo(c.stage, c.substrate).id
+    if (wateringHow === 'auto' && !s.howtoSeen[id]) {
+      cerroSola(id)
+      if (!s.guiasAviso) { s.markGuiasAviso(); setToast('La tienes en Hoy › Guías') }
+    }
+    setWateringHow(false)
   }
 
   const onNew = () => (!premium && enMarcha >= 1 ? openPremium('carpas') : startNew())
@@ -294,7 +308,7 @@ export default function TentView() {
         </button>
       </div>
 
-      {/* arriba-derecha: Consejos del mentor (según etapa y nivel) */}
+      {/* arriba-derecha: Hoy, los consejos del mentor (según etapa y nivel) */}
       <button onClick={() => setShowToday(true)} disabled={preview} className="tbtn absolute right-3.5 top-4 z-30 flex items-center gap-1.5">
         Hoy
         {attention && <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--blue)' }} />}
@@ -370,7 +384,7 @@ export default function TentView() {
             <div className="glass rounded-[5px] px-4 py-3 text-center self-center pointer-events-auto" style={{ maxWidth: 360 }}>
               <div className="display font-semibold text-[.9rem] mb-1">¿Cortamos ya?</div>
               <p className="text-[.8rem] mb-3 leading-snug" style={{ color: 'var(--muted)' }}>
-                Mira los tricomas con lupa: lechosos dan más potencia, ámbar un efecto más relajado. Al cosechar se cierra el cultivo.
+                Mira los tricomas con lupa. {TRICOMAS} Al cosechar, el cultivo pasa a secado.
               </p>
               <div className="flex gap-2">
                 <button onClick={() => setConfirmHarvest(false)} className="abtn ghost flex-1">Todavía no</button>
@@ -465,9 +479,9 @@ export default function TentView() {
 
       {/* primer riego y "Ver cómo" de la ficha: en plántula, un vaso sin drenaje; después, a fondo */}
       {wateringHow && (
-        <HowTo def={riegoHowTo(c.stage)} actionLabel="Continuar →"
+        <HowTo def={riegoHowTo(c.stage, c.substrate)} actionLabel="Ver cuánto regar"
           onAction={() => { setWateringHow(false); setShowRecipe(true) }}
-          onClose={() => setWateringHow(false)} />
+          onClose={closeWateringHow} />
       )}
       {showCheck && (
         <CheckPot onDry={onDry}
@@ -478,7 +492,7 @@ export default function TentView() {
         <WaterRecipe
           // solo el riego que viene de "pesa poco" (y no forzado) enseña el ritmo
           onConfirm={(force) => { setShowRecipe(false); doWater({ toast: guide === 'avanzado' ? `Riego anotado · ${recipeText()}` : undefined, force, confirmed: dryOk && !force }); setDryOk(false) }}
-          onHow={() => { setShowRecipe(false); setWateringHow(true) }}
+          onHow={() => { setShowRecipe(false); setWateringHow('ver') }}
           onClose={() => { setShowRecipe(false); setDryOk(false) }} />
       )}
       {showFinish && <FinishGrow onClose={() => setShowFinish(false)} />}

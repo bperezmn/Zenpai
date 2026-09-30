@@ -96,10 +96,10 @@ export const EMERALD_HARVEST_2PART: LineaNutrientes = {
     { id: 'sturdy-stalk', nombre: 'Sturdy Stalk', rol: 'Suplemento de silicato de potasio', dosis: [0.5, 1.25], cuando: 'Cuando haga falta, del primer vegetativo a la última floración, solo en días de riego.' },
   ],
   reglas: [
-    'No premezclar los nutrientes concentrados.',
-    'Llenar el depósito con agua y después agregar los nutrientes.',
-    'Mezclar siempre A con agua fresca primero y luego agregar B.',
-    'Para alargar el vegetativo, repetir semanas de la fase vegetativa tardía; para alargar la floración, semanas de la intermedia.',
+    'No mezcles los nutrientes concentrados entre sí.',
+    'Llena el depósito con agua y después agrega los nutrientes.',
+    'Mezcla siempre A con agua fresca primero y luego agrega B.',
+    'Para alargar el vegetativo, repite semanas del vegetativo avanzado; para alargar la floración, semanas de la floración intermedia.',
   ],
 }
 
@@ -140,8 +140,8 @@ export const GH_FLORA: LineaNutrientes = {
     lavado(9, 'Lavado final: solo agua'),
   ],
   reglas: [
-    'Agregar siempre FloraMicro al agua primero y mezclar bien antes del siguiente producto.',
-    'En tierra, usar la mitad de la dosis las primeras semanas y observar la planta.',
+    'Agrega siempre FloraMicro al agua primero y mezcla bien antes del siguiente producto.',
+    'En tierra, usa la mitad de la dosis las primeras semanas y observa la planta.',
   ],
 }
 
@@ -163,7 +163,7 @@ export const CANNA_TERRA: LineaNutrientes = {
     { id: 'vega', nombre: 'Terra Vega', rol: 'Base de crecimiento', base: true },
     { id: 'flores', nombre: 'Terra Flores', rol: 'Base de floración', base: true },
     { id: 'rhizo', nombre: 'Rhizotonic', rol: 'Estimulador de raíces' },
-    { id: 'zym', nombre: 'Cannazym', rol: 'Enzimas (raíces muertas → nutrientes)' },
+    { id: 'zym', nombre: 'Cannazym', rol: 'Enzimas que reciclan las raíces muertas' },
     { id: 'pk', nombre: 'PK 13/14', rol: 'Fósforo-potasio, una semana' },
     { id: 'boost', nombre: 'Cannaboost', rol: 'Acelerador de floración' },
   ],
@@ -182,8 +182,8 @@ export const CANNA_TERRA: LineaNutrientes = {
     lavado(9, 'Lavado final: solo agua'),
   ],
   reglas: [
-    'El PK 13/14 se usa UNA semana (la 4ª–5ª de floración); no repetirlo.',
-    'Cannazym cada riego o al menos una vez por semana.',
+    'Usa el PK 13/14 una sola semana (la 4.ª o 5.ª de floración) y no lo repitas.',
+    'Usa Cannazym en cada riego o al menos una vez por semana.',
   ],
 }
 
@@ -223,8 +223,9 @@ export const CANNA_COCO: LineaNutrientes = {
     lavado(9, 'Lavado final: solo agua'),
   ],
   reglas: [
-    'A y B siempre en la misma cantidad y nunca mezclados concentrados.',
-    'En coco, regar a diario con drenaje del 10–20 %.',
+    'Usa A y B siempre en la misma cantidad y nunca los mezcles concentrados.',
+    // desde vegetativo: la plántula va con un vaso y sin drenaje (mentor.wateringGuide)
+    'Desde vegetativo, riega a diario con un drenaje del 10–20\u00a0%.',
   ],
 }
 
@@ -267,8 +268,8 @@ export const AN_SENSI: LineaNutrientes = {
     lavado(8, 'Lavado (Flawless Finish)', { finish: 2 }),
   ],
   reglas: [
-    'Con pH Perfect no hace falta ajustar el pH si el agua de partida está entre 5.5 y 7.5.',
-    'Big Bud en las semanas 2–4 de floración; Overdrive en las 5–7. Nunca los dos a la vez.',
+    'Con pH Perfect no hace falta ajustar el pH si tu agua está entre 5.5 y 7.5.',
+    'Usa Big Bud en las semanas 2–4 de floración y Overdrive en las 5–7. Nunca los dos a la vez.',
   ],
 }
 
@@ -308,8 +309,8 @@ export const BIOBIZZ: LineaNutrientes = {
     lavado(9, 'Lavado final: solo agua'),
   ],
   reglas: [
-    'Orgánico: no hace falta medir EC; agitar bien las botellas antes de usar.',
-    'Con agua muy blanda, añadir Cal-Mag orgánico (Calmag) 1 ml/L.',
+    'Es orgánico: no hace falta medir la EC. Agita bien las botellas antes de usarlas.',
+    'Con agua muy blanda, agrega Cal-Mag orgánico (Calmag) a 1 ml/L.',
   ],
 }
 
@@ -346,7 +347,7 @@ export const PLAGRON_TERRA: LineaNutrientes = {
     flor(8, 'Floración semana 8', { bloom: 4, green: 1 }),
     lavado(9, 'Lavado final: solo agua'),
   ],
-  reglas: ['Green Sensation solo en las últimas 4 semanas de floración.'],
+  reglas: ['Usa Green Sensation solo en las últimas 4 semanas de floración.'],
 }
 
 // Hesi (tierra). Etiqueta: TNT Complex y Bloom Complex a 5 ml/L; Root 1–2 ml/L; PK 13/14 1.5 ml/L.
@@ -382,7 +383,7 @@ export const HESI_TIERRA: LineaNutrientes = {
     flor(7, 'Floración semana 7', { bloom: 5, pk: 1.5 }),
     lavado(8, 'Lavado final: solo agua'),
   ],
-  reglas: ['Hesi está pensado para no tener que medir EC; con macetas pequeñas, bajar a la mitad.'],
+  reglas: ['Hesi está pensado para no tener que medir la EC. Con macetas pequeñas, baja a la mitad.'],
 }
 
 // Top Crop (tierra y coco), muy extendido en Latinoamérica. Rangos de etiqueta 2–4 ml/L.
@@ -420,7 +421,7 @@ export const TOP_CROP: LineaNutrientes = {
     flor(8, 'Floración semana 8', { bloom: 3, candy: 2 }),
     lavado(9, 'Lavado final: solo agua'),
   ],
-  reglas: ['Empezar por la dosis baja del rango y subir si la planta lo pide.'],
+  reglas: ['Empieza por la dosis baja del rango y sube si la planta lo pide.'],
 }
 
 export const LINEAS: LineaNutrientes[] = [EMERALD_HARVEST_2PART, GH_FLORA, CANNA_TERRA, CANNA_COCO, AN_SENSI, BIOBIZZ, PLAGRON_TERRA, HESI_TIERRA, TOP_CROP]

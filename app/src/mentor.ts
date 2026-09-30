@@ -3,6 +3,7 @@
 import { GUARD_HOURS, stageAt, lightHoursFor, autoFlowerDayOf, ventanaApicalAuto, type Stage, type Substrate, type MetricKey, type Cultivo, type Guide, type SceneState, type SeedType,
   checkDue, checkIntervalH, learnedIntervalH, droopPending, solutionLate, vegStartOf, flipDayOf, harvestEta, whenText, rampaRiego, revisaConDedo, dedoCm } from './lib'
 import { lineaPorId, faseActual, enLavado, OTRA_MARCA, LAVADO_DIAS, type LineaNutrientes, type FaseDosis } from './data/nutrientes'
+import type { HowToId } from './howtos'
 
 // nivel de experiencia (creciente): novato → medio → avanzado
 export const LEVELS: Guide[] = ['novato', 'medio', 'avanzado']
@@ -10,7 +11,8 @@ export const levelIdx = (g: Guide) => LEVELS.indexOf(g)
 export const canTrain = (g: Guide) => g !== 'novato' // podas/entrenamiento solo desde "medio"
 
 export interface Range { lo: number; hi: number }
-export interface MetricDef { key: MetricKey; label: string; unit: string; dec: number; min: Guide; step: number }
+// unit: la corta de los chips y la bitácora; unitLong: la de las frases (Medir, consejos)
+export interface MetricDef { key: MetricKey; label: string; unit: string; unitLong?: string; dec: number; min: Guide; step: number }
 
 // cada métrica aparece desde cierto nivel (novato ve lo básico; avanzado ve todo)
 export const METRICS: MetricDef[] = [
@@ -18,11 +20,15 @@ export const METRICS: MetricDef[] = [
   { key: 'hr', label: 'HR', unit: '%', dec: 0, min: 'novato', step: 1 },
   { key: 'ph', label: 'pH', unit: '', dec: 1, min: 'novato', step: 0.1 },
   { key: 'vpd', label: 'VPD', unit: 'kPa', dec: 1, min: 'medio', step: 0.1 },
-  { key: 'ec', label: 'EC', unit: 'mS', dec: 1, min: 'medio', step: 0.1 },
-  { key: 'ppfd', label: 'PPFD', unit: 'µmol', dec: 0, min: 'avanzado', step: 50 },
+  { key: 'ec', label: 'EC', unit: 'mS', unitLong: 'mS/cm', dec: 1, min: 'medio', step: 0.1 },
+  { key: 'ppfd', label: 'PPFD', unit: 'µmol', unitLong: 'µmol/m²/s', dec: 0, min: 'avanzado', step: 50 },
 ]
 export const metricDef = (k: MetricKey) => METRICS.find((m) => m.key === k)!
 export const metricsFor = (g: Guide) => METRICS.filter((m) => levelIdx(g) >= levelIdx(m.min))
+
+// una planta o varias: los consejos dicen "tu planta" o "tus plantas" (sin saberlo, en plural)
+const una = (c: Pick<Cultivo, 'plants'>) => c.plants === 1
+const tusPlantas = (c: Pick<Cultivo, 'plants'>) => (una(c) ? 'tu planta' : 'tus plantas')
 
 // ===== riego =====
 // La subida gradual del agua (rampaRiego) y cuándo se revisa con el dedo (revisaConDedo) viven en
@@ -52,12 +58,12 @@ export function cadaTexto(c: Cultivo): string | null {
   if (lo === hi) return lo === 1 ? 'cada día' : `cada ${lo} días`
   return `cada ${lo}–${hi} días`
 }
-// el ritmo aprendido en palabras ("tus plantas beben cada ~3 días"); null mientras aprende
+// el ritmo aprendido en palabras ("tus plantas beben más o menos cada 3 días"); null mientras aprende
 export function ritmoTexto(c: Cultivo): string | null {
   const h = learnedIntervalH(c)
   if (!h) return null
   const n = Math.max(1, Math.round(h / 24))
-  return `${c.plants === 1 ? 'tu planta bebe' : 'tus plantas beben'} ${n === 1 ? 'cada día' : `cada ~${n} días`}`
+  return `${c.plants === 1 ? 'tu planta bebe' : 'tus plantas beben'} ${n === 1 ? 'más o menos cada día' : `más o menos cada ${n} días`}`
 }
 
 // ¿cuánto y cuándo regar? por etapa y tamaño de maceta (litros).
@@ -93,10 +99,10 @@ export function wateringGuide(c: Cultivo): { amount: string; vasos: string; when
   return null
 }
 // cómo regar con drenaje: en coco, aunque la cantidad sea poca (el coco húmedo drena enseguida)
-export function drenajeTexto(c: Pick<Cultivo, 'substrate'>): string {
+export function drenajeTexto(c: Pick<Cultivo, 'substrate' | 'plants'>): string {
   return c.substrate === 'coco'
-    ? 'Coco: riega hasta que drene un 10–20 % en cada riego, aunque sea poca agua. Si la planta aún es pequeña, riega menos cantidad pero más a menudo.'
-    : 'Despacio, en círculo, hasta que drene un 10–20 % por abajo.'
+    ? `En coco, riega hasta que drene un 10–20\u00a0% en cada riego, aunque sea poca agua. Mientras ${una(c) ? 'sea pequeña' : 'sean pequeñas'}, riega menos cantidad y más seguido.`
+    : 'Despacio, en círculo, hasta que drene un 10–20\u00a0% por abajo.'
 }
 
 // semana de floración (1 = la del cambio a 12/12); null si no está en floración.
@@ -139,7 +145,7 @@ export function evalRange(key: MetricKey, value: number, r: Range | null): { sta
   return { status: 'bad', range: r }
 }
 
-export const STATUS_COLOR: Record<Status, string> = { ok: 'var(--acc)', warn: 'var(--warn)', bad: '#f87171' }
+export const STATUS_COLOR: Record<Status, string> = { ok: 'var(--acc)', warn: 'var(--warn)', bad: 'var(--danger)' }
 
 export function fmtRange(r: Range | null, dec: number): string {
   if (!r) return '—'
@@ -147,22 +153,50 @@ export function fmtRange(r: Range | null, dec: number): string {
   return `${f(r.lo)}–${f(r.hi)}`
 }
 
-// consejo del mentor para una medición fuera de rango (incluye guardarraíl de pH).
+// consejo del mentor para una medición (incluye el guardarraíl de pH), en frases completas: qué
+// pasa, qué hacer ahora y hasta dónde (el objetivo, con su unidad).
 // range: el objetivo contra el que se juzgó (la EC de hoy); sin él, el de la etapa.
-export function metricTip(key: MetricKey, value: number, status: Status, stage: Stage, sub: Substrate, range?: Range | null): string {
-  const r = range !== undefined ? range : targetFor(key, stage, sub)
-  if (!r || status === 'ok') return 'Dentro del objetivo para esta etapa.'
+// factor: la fuerza del abono de su nivel (ecHoy), para decir cuánta dosis usar si la EC se sale.
+export function metricTip(key: MetricKey, value: number, status: Status, c: Pick<Cultivo, 'stage' | 'substrate' | 'plants'>,
+  range?: Range | null, factor = 1): { titulo: string; texto: string } {
+  const r = range !== undefined ? range : targetFor(key, c.stage, c.substrate)
+  if (!r || status === 'ok') return { titulo: 'Dentro del objetivo', texto: key === 'ph' ? `Está en el rango para ${c.substrate}.` : 'Está en el rango de esta etapa.' }
   const high = value > r.hi
-  if (key === 'ph') {
-    const banda = sub === 'tierra' ? '6.2–7.0' : '5.5–6.2'
-    return `pH ${high ? 'alto' : 'bajo'} → bloqueo de nutrientes. Ajusta a ${banda} para ${sub}; corrige poco a poco.`
+  const def = metricDef(key)
+  const u = def.unitLong ?? def.unit
+  // "pH 6.2–7.0", "EC 1.0–1.6 mS/cm", "22–26 °C", "40–55 %"
+  const obj = `${key === 'ph' || key === 'ec' || key === 'vpd' ? `${def.label} ` : ''}${fmtRange(r, def.dec)}${u ? `\u00a0${u}` : ''}`
+  const n = una(c)
+  const secando = c.stage === 'secando'
+  const hidro = c.substrate === 'hidro'
+  if (key === 'ph') return {
+    titulo: high ? 'El pH está alto' : 'El pH está bajo',
+    texto: `Fuera de rango, las raíces no absorben el abono aunque lo tenga. ${high ? 'Bájalo poco a poco con gotas de «pH-»' : 'Súbelo poco a poco con gotas de «pH+»'} ${hidro ? 'en el depósito' : 'en el agua, antes de regar,'} hasta ${obj} y vuelve a medir.`,
   }
-  if (key === 'vpd') return high ? 'VPD alto → el aire reseca. Sube humedad o baja temperatura.' : 'VPD bajo → riesgo de hongos. Baja humedad o sube temperatura.'
-  if (key === 'temp') return high ? 'Demasiado calor: estrés y bichos. Mejora extracción/ventilación.' : 'Frío: crecimiento lento. Sube la temperatura.'
-  if (key === 'hr') return high ? 'Humedad alta → moho, sobre todo en flor. Baja con extracción.' : 'Aire seco → estrés. Sube humedad.'
-  if (key === 'ppfd') return high ? 'Mucha luz: blanqueo. Sube la lámpara o baja potencia.' : 'Poca luz: tallos largos y flojos. Acerca la lámpara.'
-  if (key === 'ec') return high ? 'EC alta → quemadura de nutrientes. Diluye; si dudas, baja a 1/4 de dosis.' : 'EC baja: poca comida. Sube despacio.'
-  return ''
+  if (key === 'vpd') return high
+    ? { titulo: 'El VPD está alto', texto: `El aire está muy seco para esta temperatura y las hojas pierden agua de más. Sube la humedad o baja la temperatura hasta ${obj}.` }
+    : { titulo: 'El VPD está bajo', texto: `El aire está muy húmedo para esta temperatura y pueden salir hongos. Baja la humedad con la extracción o sube un poco la temperatura hasta ${obj}.` }
+  if (key === 'temp') return high
+    ? { titulo: 'Hace demasiado calor', texto: `${secando ? 'Con calor, los cogollos se secan demasiado rápido y pierden aroma. Ventila o enciende la extracción' : `El calor estresa a ${tusPlantas(c)} y atrae plagas. Deja la extracción encendida, ventila o sube la lámpara`} hasta bajar a ${obj}.` }
+    : { titulo: 'Hace frío', texto: `${secando ? 'Con frío, el secado se alarga.' : `Con frío, ${tusPlantas(c)} ${n ? 'crece' : 'crecen'} lento.`} Sube la temperatura hasta ${obj}; si usas un calefactor, que no apunte a ${secando ? 'las ramas' : 'las hojas'}.` }
+  if (key === 'hr') {
+    const cogollos = c.stage === 'flor' || c.stage === 'cosecha' || secando
+    return high
+      ? { titulo: 'La humedad está alta', texto: `Con humedad alta sale moho${cogollos ? ' en los cogollos' : ''}. Deja la extracción encendida todo el día y abre la carpa unos 10 minutos hasta bajar a ${obj}.` }
+      : { titulo: 'El aire está seco', texto: `${secando ? 'Con el aire seco, los cogollos se secan demasiado rápido y pierden aroma.' : `Con el aire seco, ${tusPlantas(c)} se ${n ? 'estresa' : 'estresan'}.`} Sube la humedad hasta ${obj}: un humidificador o un recipiente con agua dentro de la carpa ayudan.` }
+  }
+  if (key === 'ppfd') return high
+    ? { titulo: 'Hay demasiada luz', texto: `Las hojas de arriba se ponen amarillas o blancas. Sube la lámpara o baja la potencia hasta ${obj}.` }
+    : { titulo: 'Falta luz', texto: `Con poca luz, los tallos salen largos y flojos. Acerca la lámpara o sube la potencia hasta ${obj}.` }
+  if (key === 'ec') {
+    // si se pasó, vuelve a la fracción de SU nivel (la de la tarjeta del abono); si le falta,
+    // sube midiendo, con la etiqueta como techo (como dice esa tarjeta)
+    const fr = fraccion(factor)
+    return high
+      ? { titulo: 'La EC está alta', texto: `Puede quemar las puntas de las hojas. Agrega agua sin abono ${hidro ? 'al depósito ' : ''}hasta bajar a ${obj} y ${hidro ? 'en la próxima solución' : 'en el próximo riego'} usa ${fr ? `${fr}la dosis` : 'un poco menos de abono'}.` }
+      : { titulo: 'La EC está baja', texto: `${n ? 'Le' : 'Les'} falta comida. Sube el abono poco a poco hasta ${obj}, sin pasar de la dosis de la etiqueta.` }
+  }
+  return { titulo: '', texto: '' }
 }
 
 // ===== abono seguro =====
@@ -193,7 +227,7 @@ export function tierraCargadaHasta(c: Cultivo): number | null {
 }
 
 // Lo que lleva el riego de hoy (o la solución del depósito): la fuente ÚNICA de la ficha de riego,
-// la tarjeta de Consejos y el plan de la semana. modo: línea del catálogo, otra marca (guiada por
+// la tarjeta de Hoy y el plan de la semana. modo: línea del catálogo, otra marca (guiada por
 // la EC) o solo agua (solo en tierra). motivo: por qué hoy no se abona (o toca el lavado):
 // tierra = la del saco aún alimenta; lavado = los últimos días; eleccion = eligió solo agua y aún
 // no hace falta; falta = eligió solo agua y ya toca abonar; tabla = una semana sin abono de la tabla.
@@ -206,7 +240,7 @@ export interface Abono {
   motivo: 'tierra' | 'lavado' | 'eleccion' | 'falta' | 'tabla' | null
   factor: number              // fuerza sobre la tabla o la etiqueta (0.25–1)
   ec: Range | null            // EC objetivo del agua de hoy (null si va solo agua o el abono es orgánico)
-  titulo: string              // tarjeta de Consejos (y el arranque de la regla en la ficha de riego)
+  titulo: string              // tarjeta de Hoy (y el arranque de la regla en la ficha de riego)
   texto: string               // la regla en palabras
 }
 export function abonoDe(c: Cultivo, guide: Guide): Abono | null {
@@ -241,7 +275,7 @@ export function abonoDe(c: Cultivo, guide: Guide): Abono | null {
     const f = linea ? faseActual(linea, { ...c, stage: 'flor' }) : null
     const conProducto = !!f && Object.keys(f.dosis).length > 0
     const sigue = conProducto ? `sigue con el lavado final de ${linea!.marca}` : sub === 'hidro' ? 'solución sin abono en el depósito' : 'solo agua'
-    const texto = `Ya pasó la fecha estimada: revisa los tricomas con lupa cada 2–3 días. Si la mayoría están lechosos, ${sigue} hasta cortar. Si siguen casi todos transparentes, aún le falta: vuelve a abonar a la mitad de la dosis de floración y deja el lavado para los últimos 7–10 días antes de cortar.`
+    const texto = `Ya pasó la fecha estimada: revisa los tricomas con lupa cada 2–3 días. Si la mayoría están lechosos, ${sigue} hasta cortar. Si siguen casi todos transparentes, aún ${una(c) ? 'le' : 'les'} falta: vuelve a abonar a la mitad de la dosis de floración y deja el lavado para los últimos ${LAVADO_DIAS} días antes de cortar.`
     return { ...base, fase: conProducto ? f : null, abona: conProducto, motivo: 'lavado', ec: conProducto ? targetFor('ec', 'cosecha', sub) : null, titulo: 'Lavado final', texto }
   }
   // la tierra del saco ya alimenta: solo agua unas 3 semanas desde el trasplante (también en
@@ -259,12 +293,12 @@ export function abonoDe(c: Cultivo, guide: Guide): Abono | null {
   if (modo === 'agua') {
     const desde = hasta ?? vegStartOf(c)
     if (c.day < desde) {
-      return agua('eleccion', 'Solo agua', 'Tu tierra no trae abono: la plántula aún vive de sus reservas, pero desde el vegetativo tendrá que comer. Elige tu abono en Editar, en Nutrientes.')
+      return agua('eleccion', 'Solo agua', `Tu tierra no trae abono: ${una(c) ? 'la plántula aún vive de sus reservas, pero desde el vegetativo tendrá' : 'las plántulas aún viven de sus reservas, pero desde el vegetativo tendrán'} que comer. Elige tu abono en Editar, en Nutrientes.`)
     }
     const texto = hasta != null
       ? 'La tierra del saco se va agotando; la señal son las hojas de abajo verde claro. Elige tu abono en Editar, en Nutrientes, y te guiamos.'
-      : 'Tu tierra no trae abono y la planta ya tiene que comer. Elige tu abono en Editar, en Nutrientes, y te guiamos.'
-    return agua('falta', c.day >= desde + 14 ? 'Tu planta necesita abono' : 'Toca empezar a abonar', texto)
+      : `Tu tierra no trae abono y ${una(c) ? 'tu planta ya tiene' : 'tus plantas ya tienen'} que comer. Elige tu abono en Editar, en Nutrientes, y te guiamos.`
+    return agua('falta', c.day >= desde + 14 ? (una(c) ? 'Tu planta necesita abono' : 'Tus plantas necesitan abono') : 'Toca empezar a abonar', texto)
   }
   // lavado final: los últimos 10 días antes de la cosecha estimada, nunca más largo.
   // Con abono orgánico en tierra es opcional.
@@ -275,7 +309,7 @@ export function abonoDe(c: Cultivo, guide: Guide): Abono | null {
     const opcional = sub === 'tierra' && linea?.organico ? ' Con abono orgánico en tierra es opcional.'
       : sub === 'tierra' && modo === 'otra' ? ' Si tu abono es orgánico, es opcional.' : ''
     const sinAbono = sub === 'hidro' ? 'Solución sin abono en el depósito' : 'Solo agua'
-    const texto = `${conProducto ? `Toca el lavado final de ${linea!.marca}` : sinAbono} los últimos ${LAVADO_DIAS} días, hasta la cosecha estimada${eta ? `, ${whenText(eta)}` : ''}. Muchas marcas lo recomiendan; no hace daño si la planta está sana.${opcional}`
+    const texto = `${conProducto ? `Toca el lavado final de ${linea!.marca}` : sinAbono} los últimos ${LAVADO_DIAS} días, hasta la cosecha estimada${eta ? `, ${whenText(eta)}` : ''}. Muchas marcas lo recomiendan; no hace daño si ${una(c) ? 'la planta está sana' : 'las plantas están sanas'}.${opcional}`
     return { ...base, fase: conProducto ? f : null, abona: conProducto, motivo: 'lavado', ec: conProducto ? targetFor('ec', 'cosecha', sub) : null, titulo: 'Lavado final', texto }
   }
   // una semana de la tabla sin abono (no pasa en el catálogo actual, pero una tabla leída podría traerla)
@@ -289,7 +323,7 @@ export function abonoDe(c: Cultivo, guide: Guide): Abono | null {
   const ecEtapa = targetFor('ec', s, sub)
   const ec = linea?.organico || !ecEtapa ? null
     : modo === 'marca' && sub === 'tierra' && factor < 1 ? { lo: r1(ecEtapa.lo * factor), hi: ecEtapa.hi } : ecEtapa
-  const ecTxt = ec ? `EC ${fmtRange(ec, 1)}` : 'la EC de la etapa'
+  const ecTxt = ec ? `EC ${fmtRange(ec, 1)} mS/cm` : 'la EC de la etapa'
   const sinMedidor = guide === 'novato' ? ` Sin medidor de EC, quédate en ${factor <= 0.25 ? 'ese cuarto' : factor <= 0.5 ? 'la mitad' : 'esa dosis'}.` : ''
   let texto: string
   if (linea?.organico) {
@@ -298,11 +332,11 @@ export function abonoDe(c: Cultivo, guide: Guide): Abono | null {
       : `Usa ${dosisDe}, sin pasarte: baja si se queman las puntas de las hojas.`}`
   } else if (!linea && plantula) {
     // otra marca con una plántula: un cuarto de la etiqueta (o su dosis de plántulas)
-    texto = `Plántula: empieza con un cuarto de la dosis de la etiqueta (o su dosis de plántulas, si la trae) y no pases de ${ecTxt}.${sinMedidor}`
+    texto = `En plántula, empieza con un cuarto de la dosis de la etiqueta (o con su dosis de plántulas, si la trae) y no pases de ${ecTxt}.${sinMedidor}`
   } else if (!linea) {
     texto = `Usa tu abono hasta llegar a ${ecTxt}, sin pasar de la dosis de la etiqueta${factor < 1 ? `: empieza con ${frac}esa dosis y sube poco a poco` : ''}. Si es orgánico, guíate solo por la etiqueta: la EC marca poco.${sinMedidor}`
   } else if (sub !== 'tierra') {
-    texto = `En ${sub === 'coco' ? 'coco' : 'hidro'} manda la EC: empieza con ${frac}${dosisDe} y sube poco a poco hasta ${ecTxt}, sin pasar de la dosis de la etiqueta. Si te pasas, añade agua.${sinMedidor}`
+    texto = `En ${sub === 'coco' ? 'coco' : 'hidro'} manda la EC: empieza con ${frac}${dosisDe} y sube poco a poco hasta ${ecTxt}, sin pasar de la dosis de la etiqueta. Si te pasas, agrega agua.${sinMedidor}`
   } else if (factor < nivel) {
     // la marca pide menos en tierra: ese es el tope, aunque el nivel diera más
     texto = `Usa ${frac}${dosisDe}: en tierra, ${linea.marca} pide ${frac}su tabla. Baja si se queman las puntas de las hojas.`
@@ -315,8 +349,8 @@ export function abonoDe(c: Cultivo, guide: Guide): Abono | null {
   const deCoco = !!linea && linea.sustratos.length === 1 && linea.sustratos[0] === 'coco'
   if (sub === 'coco' && !deCoco) {
     texto += linea
-      ? ` ${linea.marca} no es específico para coco: añade Cal-Mag (0.5–1 ml/L) antes que el resto, sobre todo con agua blanda o de ósmosis.`
-      : ' En coco, si tu abono no es específico para coco, añade Cal-Mag (0.5–1 ml/L) antes que el resto, sobre todo con agua blanda o de ósmosis.'
+      ? ` ${linea.marca} no es específico para coco: agrega Cal-Mag (0.5–1 ml/L) antes que el resto, sobre todo con agua blanda o de ósmosis.`
+      : ' En coco, si tu abono no es específico para coco, agrega Cal-Mag (0.5–1 ml/L) antes que el resto, sobre todo con agua blanda o de ósmosis.'
   }
   // recién acabada la carga de la tierra abonada (dos semanas): el aviso de empezar a abonar
   const empieza = hasta != null && c.day < hasta + 14
@@ -328,74 +362,131 @@ export function abonoDe(c: Cultivo, guide: Guide): Abono | null {
 }
 
 // La EC objetivo del agua de HOY, para juzgar lo que mide el usuario (Medir, el panel de la carpa,
-// la ficha de riego). Los días de solo agua no hay objetivo: lo que marca es su agua del grifo y
-// no hay que subirla. Con abono orgánico, tampoco (la EC no sirve para dosificarlo). nota: lo que
+// la ficha de riego). Los días de solo agua no hay objetivo: lo que marca es su agua de la llave
+// y no hay que subirla. Con abono orgánico, tampoco (la EC no sirve para dosificarlo). nota: lo que
 // se le dice en vez del semáforo (o junto a él, con una marca en tierra a menos de la dosis completa).
-export function ecHoy(c: Cultivo, guide: Guide): { range: Range | null; nota: string | null; soloAgua: boolean } {
+// factor: la fuerza del abono de su nivel, la que Medir le pide usar si la EC se sale.
+export function ecHoy(c: Cultivo, guide: Guide): { range: Range | null; nota: string | null; soloAgua: boolean; factor: number } {
   const ab = abonoDe(c, guide)
-  if (!ab) return { range: targetFor('ec', c.stage, c.substrate), nota: null, soloAgua: false }
+  if (!ab) return { range: targetFor('ec', c.stage, c.substrate), nota: null, soloAgua: false, factor: fuerzaAbono(guide, c.stage, c.substrate) }
+  const factor = ab.factor
   // eligió solo agua y ya toca abonar: la EC de hoy tampoco se juzga, pero no se le dice que no la suba
-  if (!ab.abona) return { range: null, soloAgua: true, nota: ab.motivo === 'falta'
-    ? 'Aún riegas solo agua: esta EC es la de tu agua del grifo. Cuando elijas tu abono, te damos la EC objetivo.'
-    : 'Hoy va solo agua: esta EC es la de tu agua del grifo. No hace falta subirla.' }
-  if (ab.linea?.organico) return { range: null, nota: 'Con abono orgánico la EC marca poco y no sirve para dosificarlo: sigue la tabla y no pases de la dosis de la etiqueta.', soloAgua: false }
+  if (!ab.abona) return { range: null, soloAgua: true, factor, nota: ab.motivo === 'falta'
+    ? 'Aún riegas solo agua: esta EC es la de tu agua de la llave. Cuando elijas tu abono, te damos la EC objetivo.'
+    : 'Hoy va solo agua: esta EC es la de tu agua de la llave. No hace falta subirla.' }
+  if (ab.linea?.organico) return { range: null, nota: 'Con abono orgánico la EC marca poco y no sirve para dosificarlo: sigue la tabla y no pases de la dosis de la etiqueta.', soloAgua: false, factor }
   if (ab.modo === 'marca' && c.substrate === 'tierra' && ab.factor < 1) {
-    return { range: ab.ec, nota: `Con ${fraccion(ab.factor)}la dosis, tu EC saldrá más baja que con la dosis completa: es lo esperado.`, soloAgua: false }
+    return { range: ab.ec, nota: `Con ${fraccion(ab.factor)}la dosis, tu EC saldrá más baja que con la dosis completa: es lo esperado.`, soloAgua: false, factor }
   }
-  return { range: ab.ec, nota: null, soloAgua: false }
+  return { range: ab.ec, nota: null, soloAgua: false, factor }
 }
 // el objetivo de una métrica para HOY: la EC según lo que lleva el agua; el resto, el de la etapa
 export function targetHoy(key: MetricKey, c: Cultivo, guide: Guide): Range | null {
   return key === 'ec' ? ecHoy(c, guide).range : targetFor(key, c.stage, c.substrate)
 }
 
+// El pH de la marca frente al de la app. La marca da el de su solución (casi siempre pensado para
+// coco e hidro); el de la app es el que absorben las raíces en TU sustrato. Si no son el mismo, se
+// dice dónde quedarse: donde coinciden (o, si no coinciden, el del sustrato). null: no hay choque
+// (el de la marca es igual o más amplio que el de la app).
+export function phDeMarca(linea: Pick<LineaNutrientes, 'marca' | 'ph'>, sub: Substrate): string | null {
+  const app = PH[sub]
+  const [lo, hi] = linea.ph
+  const a = Math.max(lo, app.lo)
+  const b = Math.min(hi, app.hi)
+  if (a === app.lo && b === app.hi) return null
+  const dos = `${linea.marca} pide pH ${fmtRange({ lo, hi }, 1)} y en ${sub} las raíces absorben bien con ${fmtRange(app, 1)}`
+  if (a > b) return `${dos}: quédate en el de tu sustrato.`
+  if (a === b) return `${dos}: quédate cerca de ${a.toFixed(1)}, donde coinciden.`
+  return `${dos}: apunta a ${fmtRange({ lo: a, hi: b }, 1)}, donde coinciden.`
+}
+
 // ===== consejos del mentor: enseñan según etapa Y nivel =====
 // novato = de la mano (cómo/cuándo regar, qué es el pH/EC, sin podas);
 // medio = añade técnicas (LST); avanzado = todo, más conciso.
 // action: la tarjeta lleva un botón (revisar la maceta o el depósito / cambiar la solución / la luz)
-export interface Advice { icon: string; title: string; body: string; tone?: Status; action?: 'check' | 'solucion' | 'luz' }
-interface AdviceDef extends Advice {
+// howto: la guía que lo enseña (la tarjeta lleva «Ver cómo»)
+export interface Advice { title: string; body: string; tone?: Status; action?: 'check' | 'solucion' | 'luz'; howto?: HowToId }
+// un texto fijo o armado con el cultivo (su sustrato, sus rangos, una planta o varias)
+type Txt = string | ((c: Cultivo) => string)
+const txt = (t: Txt, c: Cultivo) => (typeof t === 'function' ? t(c) : t)
+interface AdviceDef {
   levels: Guide[]
+  title: Txt
+  body: Txt
+  tone?: Status
   seed?: SeedType        // solo para ese tipo de semilla
   subs?: Substrate[]     // solo en esos sustratos
-  bodyAgua?: string      // el cuerpo los días de solo agua (tierra abonada…): la EC y el abono, cuando toquen
+  bodyAgua?: Txt         // el cuerpo los días de solo agua (tierra abonada…): la EC y el abono, cuando toquen
   sinLavado?: boolean    // no sale durante el lavado final
+  howto?: HowToId        // «Ver cómo»: la guía que lo enseña
+}
+
+// los números de los consejos salen de las mismas tablas que Medir (un solo sitio que cambiar)
+const rango = (st: Stage, k: MetricKey, dec = 0) => fmtRange(STAGE[st as string]?.[k] ?? null, dec)
+
+// los tricomas, explicados igual en Hoy, la Semana y «¿Cortamos ya?»
+export const TRICOMAS = 'Transparentes: aún no. Lechosos: el punto de más potencia. Con algo de ámbar: un efecto más relajante.'
+
+// cuándo pasar a 12/12, la misma regla en Hoy y en la Semana: en floración se estiran hasta el
+// doble, así que se cambia con un tercio del espacio entre la maceta y la lámpara (el resto queda
+// para el estirón y la distancia a la luz)
+export function cuandoFlip(c: Pick<Cultivo, 'plants'>): string {
+  const n = una(c)
+  return `cuando ${tusPlantas(c)} ${n ? 'mida' : 'midan'} un tercio del espacio entre la maceta y la lámpara: en floración ${n ? 'se estira' : 'se estiran'} hasta el doble`
 }
 
 const ADVICE: Partial<Record<Stage, AdviceDef[]>> = {
   plantula: [
     // en hidro no se riega: el depósito lo cuenta su tarjeta
-    { levels: [ 'novato'], subs: ['tierra', 'coco'], icon: '', title: 'Cuidado: bebe poquísimo', body: 'La plántula casi no toma agua. Regar de más ahoga las raíces (el error nº 1). Si dudas, espera un día más.'},
-    { levels: [ 'novato'], icon: '', title: 'Qué es el pH y cómo medirlo', body: 'El pH dice si el agua está ácida o alcalina. Las raíces solo absorben bien entre 6.2–7.0 en tierra (5.5–6.2 en coco/hidro). Mídelo con tiras o un medidor en el agua de riego o del depósito, y ajústalo antes de usarla, nunca después.'},
-    { levels: [ 'novato', 'medio'], icon: '', title: 'Ambiente', body: '22–26° y humedad alta (65–80%). Luz suave y no muy cerca, para no quemarlas.'},
+    { levels: ['novato'], subs: ['tierra', 'coco'], title: 'Riega muy poco',
+      body: (c) => `${una(c) ? 'Tu plántula casi no toma' : 'Tus plántulas casi no toman'} agua. Regar de más ahoga las raíces: es el error más común. Si dudas, espera un día más.` },
+    { levels: ['novato'], title: 'Qué es el pH y cómo medirlo',
+      body: (c) => `El pH dice si el agua está ácida o alcalina. En ${c.substrate}, las raíces solo absorben bien con pH ${fmtRange(PH[c.substrate], 1)}. Mídelo con tiras o con un medidor en el agua ${c.substrate === 'hidro' ? 'del depósito y ajústalo al preparar la solución' : 'de riego y ajústalo antes de regar, nunca después'}.` },
+    { levels: ['novato', 'medio'], title: 'Ambiente',
+      body: (c) => `Mantén ${rango('plantula', 'temp')}\u00a0°C y la humedad alta, ${rango('plantula', 'hr')}\u00a0%. Luz suave y no muy cerca, para no ${una(c) ? 'quemarla' : 'quemarlas'}.` },
     // el abono (cuánto según el nivel, la tierra abonada) lo cuenta la tarjeta de abonoDe()
-    { levels: [ 'novato'], icon: '', title: 'Sin podas todavía', body: 'Son muy pequeñas: nada de podar ni entrenar aún, solo déjalas crecer sanas.'},
+    { levels: ['novato'], title: 'Sin podas todavía',
+      body: (c) => (una(c) ? 'Es muy pequeña: no la podes ni la entrenes aún, solo déjala crecer sana.' : 'Son muy pequeñas: no las podes ni las entrenes aún, solo déjalas crecer sanas.') },
   ],
   veg: [
-    { levels: [ 'novato'], icon: '', title: 'Qué es la EC', body: 'La EC mide cuánto alimento (sales) hay disuelto en el agua. Más EC = más comida, pero de más quema. En veg apunta ~1.0–1.6 y sube de a poco.',
-      bodyAgua: 'La EC mide cuánto alimento (sales) lleva el agua. Mientras riegues solo agua no hace falta medirla; cuando empieces a abonar, apunta ~1.0–1.6 y sube de a poco.'},
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Empújalas', body: 'Crecen rápido: más luz y nitrógeno gradual. Mantén el aire moviéndose para tallos fuertes.',
-      bodyAgua: 'Crecen rápido: dales más luz y mantén el aire moviéndose para tallos fuertes. El abono, cuando toque: te avisamos.'},
-    { levels: [ 'medio', 'avanzado'], icon: '', title: 'LST: abre la copa', body: 'Low Stress Training: dobla con cuidado las ramas hacia afuera y átalas para que la copa quede plana. Llega más luz a más cogollos y hay más cosecha, sin cortar nada. Cuando lo hagas, anótalo con el botón LST de abajo.'},
-    { levels: [ 'avanzado'], seed: 'foto', icon: '', title: 'Topping / mainlining', body: 'Cortar la punta sobre un nudo crea 2 colas y una copa uniforme. Combínalo con LST. Solo en veg y con la planta sana.'},
+    { levels: ['novato'], title: 'Qué es la EC',
+      body: `La EC mide cuánto alimento (sales) lleva el agua: más EC es más comida, pero demasiada quema las raíces. En vegetativo apunta a EC ${rango('veg', 'ec', 1)} mS/cm y súbela poco a poco.`,
+      bodyAgua: `La EC mide cuánto alimento (sales) lleva el agua. Mientras riegues solo agua no hace falta medirla; cuando empieces a abonar, apunta a EC ${rango('veg', 'ec', 1)} mS/cm y súbela poco a poco.` },
+    { levels: ['novato', 'medio', 'avanzado'], title: (c) => (una(c) ? 'Ahora crece rápido' : 'Ahora crecen rápido'),
+      body: (c) => `${una(c) ? 'Dale' : 'Dales'} más luz poco a poco y un abono con más nitrógeno. Mantén el aire moviéndose para que los tallos salgan fuertes.`,
+      bodyAgua: (c) => `${una(c) ? 'Dale' : 'Dales'} más luz poco a poco y mantén el aire moviéndose para que los tallos salgan fuertes. El abono, cuando toque: te avisamos.` },
+    { levels: ['medio', 'avanzado'], title: 'Abre la copa con LST',
+      body: 'LST es entrenamiento de bajo estrés: dobla con cuidado las ramas hacia afuera y átalas para que la copa quede plana. Llega luz a más cogollos y hay más cosecha, sin cortar nada. Cuando lo hagas, anótalo con el botón LST de abajo.' },
+    { levels: ['avanzado'], seed: 'foto', title: 'Poda apical', howto: 'apical',
+      body: (c) => `Corta la punta principal por encima de un nudo (donde nacen las hojas del tallo): salen 2 puntas y la copa queda más pareja. Combínala con LST. Solo en vegetativo y con ${una(c) ? 'la planta sana' : 'las plantas sanas'}.` },
     // autos: la poda apical va aparte (mentorAdvice), con su ventana escalada a su ciclo
   ],
   flor: [
-    { levels: [ 'novato', 'medio', 'avanzado'], sinLavado: true, icon: '', title: 'Abono de floración', body: `Aparecen los cogollos: menos nitrógeno y más fósforo y potasio (P-K). En los últimos ${LAVADO_DIAS} días, solo el lavado.`},
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Cuida la humedad', body: 'Baja la humedad a 40–55% y mantén aire circulando: en flor el moho (botrytis) arruina cogollos.'},
-    { levels: [ 'novato'], icon: '', title: 'No la estreses', body: 'Ya no se poda ni entrena fuerte: la planta está concentrada en engordar cogollos.'},
-    { levels: [ 'medio', 'avanzado'], seed: 'foto', icon: '', title: 'Defoliación selectiva', body: 'Hacia la semana ~3 de flor, quita hojas grandes que tapan cogollos bajos para que entre luz y aire. Poco a poco.'},
-    { levels: [ 'medio', 'avanzado'], seed: 'auto', icon: '', title: 'Defoliación selectiva', body: 'Hacia la semana ~3 de flor, quita solo unas pocas hojas grandes que tapen cogollos bajos. Una autofloreciente se recupera poco: mejor quedarse corto.'},
-    { levels: [ 'avanzado'], icon: '', title: 'Vigila tricomas', body: 'Hacia el final, revisa con lupa: transparentes (espera), lechosos (potencia), ámbar (efecto relax).'},
+    { levels: ['novato', 'medio', 'avanzado'], sinLavado: true, title: 'Abono de floración',
+      body: `Aparecen los cogollos: el abono lleva menos nitrógeno y más fósforo y potasio (P-K). En los últimos ${LAVADO_DIAS} días, solo el lavado.` },
+    { levels: ['novato', 'medio', 'avanzado'], title: 'Cuida la humedad',
+      body: `Baja la humedad a ${rango('flor', 'hr')}\u00a0% y mantén el aire circulando: en floración, el moho (botrytis) arruina los cogollos.` },
+    { levels: ['novato'], title: (c) => (una(c) ? 'No la estreses' : 'No las estreses'),
+      body: (c) => `Ya no se poda ni se entrena fuerte: ${una(c) ? 'está concentrada' : 'están concentradas'} en engordar los cogollos.` },
+    { levels: ['medio', 'avanzado'], seed: 'foto', title: 'Defoliación selectiva', howto: 'defoliacion',
+      body: 'Hacia la semana 3 de floración, quita las hojas grandes que tapan los cogollos de abajo para que entre luz y aire. Poco a poco.' },
+    { levels: ['medio', 'avanzado'], seed: 'auto', title: 'Defoliación selectiva', howto: 'defoliacionAuto',
+      body: 'Hacia la semana 3 de floración, quita solo unas pocas hojas grandes que tapen los cogollos de abajo. Una autofloreciente se recupera poco: mejor quédate corto.' },
+    { levels: ['avanzado'], title: 'Vigila los tricomas',
+      body: `Hacia el final, míralos con lupa en los cogollos, no en las hojitas. ${TRICOMAS}` },
   ],
   cosecha: [
     // el lavado (solo agua o el producto de la marca, y qué hacer si los tricomas no están) lo
     // cuenta la tarjeta de abonoDe(), la misma que la ficha de riego
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Cuándo cortar', body: 'Mira los tricomas con una lupa: transparentes = espera; lechosos = potencia máxima; ámbar = efecto más relajante. Corta según el efecto que busques.'},
+    { levels: ['novato', 'medio', 'avanzado'], title: 'Cuándo cortar',
+      body: `Mira con lupa los tricomas de los cogollos. ${TRICOMAS} Corta según el efecto que busques.` },
   ],
   secando: [
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Secado', body: 'Cuelga las ramas a 18–21° y 55–62% de humedad, en oscuridad y con aire suave (sin viento directo). Tarda ~7–14 días.'},
-    { levels: [ 'novato', 'medio', 'avanzado'], icon: '', title: 'Curado', body: 'Cuando los tallos finos crujan al doblarlos, mete los cogollos en frascos de vidrio y ábrelos un rato cada día durante 2–3 semanas.'},
+    { levels: ['novato', 'medio', 'avanzado'], title: 'Secado',
+      body: `Cuelga las ramas a ${rango('secando', 'temp')}\u00a0°C y ${rango('secando', 'hr')}\u00a0% de humedad, a oscuras y con aire suave, sin viento directo. Tarda unos 7–14 días.` },
+    { levels: ['novato', 'medio', 'avanzado'], title: 'Curado',
+      body: 'Cuando los tallos finos crujan al doblarlos, mete los cogollos en frascos de vidrio y ábrelos un rato cada día durante 2–3 semanas.' },
   ],
 }
 
@@ -412,14 +503,14 @@ export function mentorAdvice(c: Cultivo, guide: Guide): Advice[] {
   // atención primero. El reloj solo dice cuándo mirar; lo que anotó el usuario manda:
   // hojas caídas después del último riego (puede ser sed… o exceso de agua)
   if (droopPending(c)) {
-    out.push({ icon: '', title: 'Hojas caídas', tone: 'warn', action: 'check', body: dedo
+    out.push({ title: 'Hojas caídas', tone: 'warn', action: 'check', body: dedo
       ? `Puede ser sed o exceso de agua. ${dedoTxt}: si está seca, riega ${riegoDedo}; si está húmeda, no riegues hasta que se seque.`
       : 'Puede ser sed o exceso de agua. Levanta la maceta: si pesa poco, riega; si aún pesa, no riegues hasta que pese menos.' })
   } else if (hidro && solutionLate(c)) {
-    out.push({ icon: '', title: 'Cambia la solución', tone: 'warn', action: 'solucion',
+    out.push({ title: 'Cambia la solución', tone: 'warn', action: 'solucion',
       body: 'Toca cada 7–10 días: vacía el depósito y prepara solución nueva con agua limpia, el abono y el pH ajustado.' })
   } else if (checkDue(c)) {
-    out.push({ icon: '', title: hidro ? 'Revisa el depósito' : 'Revisa la maceta', tone: 'warn', action: 'check', body: hidro
+    out.push({ title: hidro ? 'Revisa el depósito' : 'Revisa la maceta', tone: 'warn', action: 'check', body: hidro
       ? plantula
         ? 'Mira el nivel del agua: mientras las raíces no lleguen a ella, tiene que tocar la base de la cestita. Si bajó, rellénalo con agua de pH ajustado.'
         : 'Mira el nivel del agua. Si bajó, rellénalo con agua de pH ajustado, dejando 2–3 cm de aire bajo la cestita.'
@@ -429,19 +520,20 @@ export function mentorAdvice(c: Cultivo, guide: Guide): Advice[] {
   }
   // fotoperiodo: la flor no llega sola — recuérdaselo cuando la veg ya está madura
   if (c.stage === 'veg' && c.seedType === 'foto' && !c.flowerTs && c.day >= 30) {
-    out.push({ icon: '', title: '¿Pasamos a floración?', body: 'Cuando las plantas llenen la mitad de la carpa, cambia tu luz a 12 h de luz y 12 h de oscuridad: eso dispara la flor. Cuando lo hagas, márcalo abajo con «Pasar a floración».'})
+    out.push({ title: '¿Pasamos a floración?', body: `Cambia tu luz a 12 h de luz y 12 h de oscuridad ${cuandoFlip(c)}. Ese cambio dispara la floración; cuando lo hagas, márcalo abajo con «Pasar a floración».` })
   }
   // autoflorecientes: la luz no se toca en todo el ciclo. Sale también en floración (cuando más
   // tienta bajarla a 12 h) y en todos los niveles; si el horario anotado da menos de 18 h, avisa
   // (y la tarjeta abre la hoja de Luz: la app no controla la lámpara, solo el horario anotado).
   if ((c.stage === 'veg' || c.stage === 'flor') && c.seedType === 'auto') {
     const h = lightHoursFor(c)
+    const n = una(c)
     const body = c.stage === 'veg'
-      ? `Florecerá sola hacia el día ~${autoFlowerDayOf(c)}, sin cambiar la luz. Déjale 18 h de luz todo el ciclo (20 h también vale) y no la bajes a 12 h.`
-      : 'Ya florece sola. Sigue con 18 h de luz hasta la cosecha y no la bajes a 12 h: perdería luz justo cuando forma los cogollos.'
+      ? `${n ? 'Florecerá sola' : 'Florecerán solas'} hacia el día ${autoFlowerDayOf(c)}, sin cambiar la luz. ${n ? 'Déjale' : 'Déjales'} 18 h de luz todo el ciclo (20 h también sirve) y no la bajes a 12 h.`
+      : `${n ? 'Ya florece sola' : 'Ya florecen solas'}. Sigue con 18 h de luz hasta la cosecha y no la bajes a 12 h: ${n ? 'perdería luz justo cuando forma' : 'perderían luz justo cuando forman'} los cogollos.`
     out.push(h < 18
-      ? { icon: '', title: 'Autofloreciente', body: `${body} El horario que anotaste da ${h} h: cámbialo a 18 h, y también en tu temporizador si lo tienes.`, tone: 'warn', action: 'luz' }
-      : { icon: '', title: 'Autofloreciente', body })
+      ? { title: 'Autofloreciente', body: `${body} El horario que anotaste da ${h} h: cámbialo a 18 h, y también en tu temporizador si lo tienes.`, tone: 'warn', action: 'luz' }
+      : { title: 'Autofloreciente', body })
   }
   // RIEGO concreto: cuánto (según litros de maceta) y cuándo mirar.
   // Plántula: un vaso sin drenaje, aunque la maceta sea grande (sus raíces aún no llegan al resto).
@@ -449,18 +541,18 @@ export function mentorAdvice(c: Cultivo, guide: Guide): Advice[] {
   // Hidro: el depósito. Con la plántula el nivel tiene que tocar la cestita (sus raíces aún no
   // llegan al agua: si baja, el taco se seca y la plántula muere en 1–2 días).
   if (hidro && (plantula || c.stage === 'veg' || c.stage === 'flor' || c.stage === 'cosecha')) {
-    out.push({ icon: '', title: 'Cuida el depósito', body: plantula
+    out.push({ title: 'Cuida el depósito', body: plantula
       ? 'Mientras las raíces no cuelguen dentro del agua, el nivel tiene que tocar la base de la cestita (o moja el taco por arriba con un chorrito de la solución): revísalo cada día. Cuando las raíces lleguen al agua, baja el nivel y deja 2–3 cm de aire bajo la cestita. Cambia toda la solución cada 7–10 días.'
       : 'Las raíces ya están en el agua: no se riega. Revisa el nivel cada 2–3 días y rellénalo con agua de pH ajustado, dejando 2–3 cm de aire bajo la cestita. Comprueba que la bomba de aire burbujea. Cambia toda la solución cada 7–10 días.' })
-  } else if (w) out.push({ icon: '', title: 'Cuánto y cuándo regar', body: c.stage === 'plantula'
+  } else if (w) out.push({ title: 'Cuánto y cuándo regar', howto: plantula ? 'riegoPlantula' : 'riego', body: c.stage === 'plantula'
     ? `Maceta de ${c.potL || 11} L, pero sus raíces aún están junto al tallo: riega 1 vaso (0.2 L) ${w.when}. Mete el dedo a unos 3 cm del tallo para comprobarlo.`
     : `Maceta de ${c.potL || 11} L: riega ${c.substrate === 'coco' ? 'unos ' : ''}${w.amount}${w.vasos} ${w.when}. ${w.drain
       ? drenajeTexto(c)
-      : `Despacio, en círculo alrededor del tallo. Aún no hace falta que drene: sus raíces no llenan la maceta y la cantidad sube cada semana, hasta ~${w.full} L.`}` })
+      : `Despacio, en círculo alrededor del tallo. Aún no hace falta que drene: sus raíces no llenan la maceta y la cantidad sube cada semana, hasta unos ${w.full} L.`}` })
   // ABONO: cuánto según el nivel (gratis, con o sin marca), la tierra que ya trae abono y el
   // lavado final (también pasada la fecha estimada: la misma tarjeta que la ficha de riego)
   const ab = abonoDe(c, guide)
-  if (ab) out.push({ icon: '', title: ab.titulo, body: ab.texto })
+  if (ab) out.push({ title: ab.titulo, body: ab.texto })
   // los días de solo agua (tierra abonada, lavado) la EC y el abono esperan; si eligió solo agua y
   // ya toca abonar, no: ahí sí hay que empezar
   const soloAgua = !!ab && !ab.abona && ab.motivo !== 'falta'
@@ -468,13 +560,13 @@ export function mentorAdvice(c: Cultivo, guide: Guide): Advice[] {
   for (const a of ADVICE[c.stage] ?? []) {
     if (!a.levels.includes(guide) || (a.seed && a.seed !== c.seedType) || (a.subs && !a.subs.includes(c.substrate))) continue
     if (a.sinLavado && ab?.motivo === 'lavado') continue
-    out.push({ icon: a.icon, title: a.title, body: soloAgua && a.bodyAgua ? a.bodyAgua : a.body, tone: a.tone })
+    out.push({ title: txt(a.title, c), body: txt(soloAgua && a.bodyAgua ? a.bodyAgua : a.body, c), tone: a.tone, howto: a.howto })
   }
   // autos en avanzado: la poda apical solo en su ventana (escalada a su ciclo) — vive 8–11 semanas
   // y no recupera lo que pierde por un corte
   if (c.stage === 'veg' && c.seedType === 'auto' && guide === 'avanzado') {
     const v = ventanaApicalAuto(c)
-    out.push({ icon: '', title: 'Poda apical en autos', body: `Solo con 4–5 nudos (hacia los días ${v.desde}–${v.hasta}) y con la planta sana: después no le queda tiempo para recuperarse. Si dudas, quédate con el LST, que no corta nada.` })
+    out.push({ title: 'Poda apical en autos', howto: 'apicalAuto', body: `Solo con 4–5 nudos (un nudo es donde nacen las hojas del tallo), hacia los días ${v.desde}–${v.hasta}, y con ${una(c) ? 'la planta sana: después no le queda' : 'las plantas sanas: después no les queda'} tiempo para recuperarse. Si dudas, quédate con el LST, que no corta nada.` })
   }
   return out
 }
